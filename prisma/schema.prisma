@@ -9,11 +9,11 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  phoneLast4    String   @db.VarChar(4)
-  passwordHash  String
-  qrUrl         String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  phoneLast4   String   @db.VarChar
+  passwordHash String?  // ← 물음표로 Optional
+  qrUrl        String
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @db.Timestamptz(6)
 }
