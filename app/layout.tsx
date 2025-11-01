@@ -15,7 +15,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body>
+      <body
+        style={{
+          background: "#000",   // ← 전체 배경 검정
+          color: "#fff",        // ← 기본 텍스트 흰색
+          minHeight: "100vh",
+        }}
+      >
         <PWAClient />
         {children}
       </body>

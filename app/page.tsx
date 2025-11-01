@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import ProductPreview from "./product-preview";
-import InstallButton from "./components/InstallButton"; // ← 추가
+import InstallButton from "./components/InstallButton";
 
 export default function Page() {
   const [name, setName] = useState("");
@@ -33,17 +33,20 @@ export default function Page() {
     }
   }
 
-  // 공통 스타일(입력/버튼 동일 폭)
+  // 다크 테마 입력 필드
   const fieldStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
     boxSizing: "border-box",
-    padding: 10,
+    padding: 12,
     margin: "6px 0 12px",
     borderRadius: 10,
-    border: "1px solid #475569",
+    border: "1px solid #334155",     // slate-700
+    background: "#0b1220",           // 아주 짙은 남색(검정에 가까움)
+    color: "#fff",
   };
 
+  // 로그인/설치 버튼(같은 스타일)
   const buttonStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
@@ -52,20 +55,28 @@ export default function Page() {
     margin: "0 0 12px 0",
     borderRadius: 10,
     border: "1px solid #475569",
-    background: "#2563eb",
+    background: "#000",              // ← 버튼 배경도 검정
     color: "#fff",
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: "pointer",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    marginTop: 6,
+    marginBottom: 4,
+    color: "#e5e7eb",                // 조금 밝은 회색 텍스트
+    fontSize: 14,
   };
 
   return (
     <div style={{ padding: 24, maxWidth: 520, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
         런던마켓으로 로그인
       </h1>
 
       <form onSubmit={onSubmit}>
-        <label>이름</label>
+        <label style={labelStyle}>이름</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -74,7 +85,7 @@ export default function Page() {
           style={fieldStyle}
         />
 
-        <label>비밀번호 (전화번호 뒷자리)</label>
+        <label style={labelStyle}>비밀번호 (전화번호 뒷자리)</label>
         <input
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -88,12 +99,16 @@ export default function Page() {
           {loading ? "로그인 중..." : "로그인"}
         </button>
 
-        {/* 로그인 버튼 바로 아래: 설치 버튼(동일 스타일) */}
+        {/* 로그인 바로 아래: 설치 버튼 (동일 스타일) */}
         <InstallButton style={{ ...buttonStyle, marginTop: 8 }}>
           앱 설치
         </InstallButton>
 
-        {error && <p style={{ color: "#fca5a5", marginTop: 8 }}>{error}</p>}
+        {error && (
+          <p style={{ color: "#fca5a5", marginTop: 8 }}>
+            {error}
+          </p>
+        )}
 
         <div
           style={{
@@ -112,9 +127,8 @@ export default function Page() {
         </div>
       </form>
 
-      {/* 로그인 버튼 아래: 상품 미리보기 */}
+      {/* 상품 미리보기(기존 컴포넌트 유지) */}
       <ProductPreview />
     </div>
   );
 }
-
