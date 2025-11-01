@@ -21,7 +21,7 @@ export default function ProductPreview() {
           cursor: "pointer"
         }}
       >
-        {open ? "상품 사진 닫기" : "판매중인 상품 보기"}
+        {open ? "상품 사진 닫기(이미지를 확대할 수 있습니다.)" : "판매중인 상품 보기"}
       </button>
 
       {open && (
