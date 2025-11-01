@@ -12,14 +12,19 @@ export const metadata: Metadata = {
   },
 };
 
+// 컬러 지정 (첫번째/두번째 이미지에 맞춘 값)
+const BG_DARK = "#0F0C2E";   // 아주 어두운 남보라(배경)
+const BTN_BLUE = "#0019C9";  // 진한 로열블루(버튼)
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
       <body
         style={{
-          background: "#000",   // ← 전체 배경 검정
-          color: "#fff",        // ← 기본 텍스트 흰색
+          background: BG_DARK, // 배경 = 첫 번째 색
+          color: "#fff",       // 기본 글자 흰색
           minHeight: "100vh",
+          margin: 0,
         }}
       >
         <PWAClient />

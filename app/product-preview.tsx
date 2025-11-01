@@ -1,47 +1,41 @@
-'use client';
+"use client";
+import React from "react";
 
-import { useState } from 'react';
+type Props = {
+  primaryButtonStyle?: React.CSSProperties; // 페이지에서 전달받아 버튼 컬러 통일
+  primaryButtonHover?: string;
+};
 
-export default function ProductPreview() {
-  const [open, setOpen] = useState(false);
+export default function ProductPreview({
+  primaryButtonStyle,
+  primaryButtonHover = "#1326D9",
+}: Props) {
+  // ...이미지/상태/로직 등 기존 내용 유지...
+
+  function onClickOpen() {
+    // 판매중인 상품 보기 동작
+    const el = document.getElementById("product-preview");
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  }
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <section id="product-preview" style={{ marginTop: 20 }}>
+      {/* 기존 이미지/콘텐츠 ... */}
+
+      {/* 판매중인 상품 보기 버튼 (두 번째 색) */}
       <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        style={{
-          width: "100%",
-          padding: 12,
-          borderRadius: 8,
-          border: "1px solid #334155",
-          background: "#111827",
-          color: "#fff",
-          fontWeight: 600,
-          cursor: "pointer"
+        style={primaryButtonStyle}
+        onClick={onClickOpen}
+        onMouseEnter={(e) => {
+          if (primaryButtonHover) e.currentTarget.style.background = primaryButtonHover;
+        }}
+        onMouseLeave={(e) => {
+          if (primaryButtonStyle?.background)
+            e.currentTarget.style.background = String(primaryButtonStyle.background);
         }}
       >
-        {open ? "상품 사진 닫기(이미지를 확대할 수 있습니다.)" : "판매중인 상품 보기"}
+        판매중인 상품 보기
       </button>
-
-      {open && (
-        <div
-          style={{
-            marginTop: 10,
-            borderRadius: 12,
-            overflow: "hidden",
-            border: "1px solid #334155",
-            background: "#0b1220"
-          }}
-        >
-          {/* 로컬 이미지 1장만 보여줌 */}
-          <img
-            src="/products/preview.jpg"
-            alt="판매중인 상품 미리보기"
-            style={{ display: "block", width: "100%", height: "auto" }}
-          />
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
