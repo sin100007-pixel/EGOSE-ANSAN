@@ -1,6 +1,6 @@
 {
-  "name": "EGOSE QR CODE",
-  "short_name": "EGOSE QR CODE",
+  "name": "EGOSE QR",
+  "short_name": "EGOSE QR",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1220",
