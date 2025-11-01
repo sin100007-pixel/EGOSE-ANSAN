@@ -1,19 +1,29 @@
+// ---------------------------------------
+// Prisma 설정
+// ---------------------------------------
 generator client {
   provider = "prisma-client-js"
 }
 
+// ---------------------------------------
+// Supabase PostgreSQL 연결
+// ---------------------------------------
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
+// ---------------------------------------
+// User 테이블 정의
+// ---------------------------------------
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  phoneLast4   String   @db.VarChar
-  passwordHash String?  // ← 물음표로 Optional
-  qrUrl        String
-  createdAt    DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime @default(now()) @db.Timestamptz(6)
+  id            String   @id @default(uuid())
+  name          String
+  phoneLast4    String   @db.VarChar
+  passwordHash  String?  // 비밀번호 해시 (선택)
+  qrUrl         String   // QR 코드 이미지 경로
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @db.Timestamptz(6)
 }
+

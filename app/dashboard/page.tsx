@@ -1,23 +1,37 @@
+// app/dashboard/page.tsx
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 
-export default async function Dashboard() {
-  const session = await getSession();
-  if (!session) {
-    return <div>세션이 없습니다. <a href="/">로그인</a></div>;
+export default async function DashboardPage() {
+  // 1) 세션 쿠키 읽기
+  const sessionCookie = cookies().get("session_user");
+  if (!sessionCookie) {
+    redirect("/");
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.uid } });
+  // 2) 쿠키에 저장된 이름을 복원
+  const name = decodeURIComponent(sessionCookie.value || "");
+
+  // 3) 사용자 조회
+  const user = await prisma.user.findFirst({ where: { name } });
   if (!user) {
-    return <div>사용자를 찾을 수 없습니다. <a href="/">로그인</a></div>;
+    // 유저가 없으면 세션이 잘못된 것이므로 초기화 느낌으로 루트로 보냄
+    redirect("/");
   }
 
   return (
-    <div style={{ background: "#111827", padding: 24, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,.4)" }}>
-      <h1 style={{ fontSize: 24, marginBottom: 16 }}>{user.name}님 QR코드</h1>
-      <img src={user.qrUrl} alt="QR Code" width={220} height={220} style={{ background: "#fff", padding: 12, borderRadius: 12 }} />
-      <p style={{ marginTop: 12, opacity: .8 }}>전화번호 뒷자리: {user.phoneLast4}</p>
-      <p style={{ marginTop: 16 }}><a href="/api/logout">로그아웃</a></p>
+    <div style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>{name}님의 QR</h1>
+      <img
+        src={user.qrUrl}
+        alt="QR"
+        style={{ width: 260, height: 260, objectFit: "contain", background: "#111", borderRadius: 12 }}
+      />
+      <p style={{ marginTop: 12, opacity: 0.8 }}>전화번호 뒷자리: {user.phoneLast4}</p>
+      <p style={{ marginTop: 16 }}>
+        <a href="/api/logout" style={{ color: "#a5b4fc" }}>로그아웃</a>
+      </p>
     </div>
   );
 }
