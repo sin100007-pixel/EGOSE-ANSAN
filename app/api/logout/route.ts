@@ -1,8 +1,10 @@
 // app/api/logout/route.ts
 import { NextResponse } from "next/server";
 
-function clearSession() {
-  const res = NextResponse.json({ ok: true });
+export const runtime = "nodejs";
+
+/** 공통: 세션 쿠키 삭제 */
+function clearSessionCookie(res: NextResponse) {
   res.cookies.set("session_user", "", {
     path: "/",
     httpOnly: true,
@@ -10,14 +12,18 @@ function clearSession() {
     sameSite: "lax",
     maxAge: 0, // 즉시 만료
   });
+}
+
+/** POST /api/logout -> 세션 삭제 후 / 로 리다이렉트 */
+export async function POST(req: Request) {
+  const res = NextResponse.redirect(new URL("/", req.url), 302);
+  clearSessionCookie(res);
   return res;
 }
 
-export async function POST() {
-  return clearSession();
-}
-
-export async function GET() {
-  // 실수로 GET으로 접근해도 안전하게 처리
-  return clearSession();
+/** GET /api/logout -> 직접 주소로 들어와도 동일하게 처리 */
+export async function GET(req: Request) {
+  const res = NextResponse.redirect(new URL("/", req.url), 302);
+  clearSessionCookie(res);
+  return res;
 }
