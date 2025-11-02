@@ -61,14 +61,12 @@ export default function Page() {
             type="submit"
             className="w-full transition"
             style={primaryBtnStyle}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.background =
-                BTN_BLUE_HOVER)
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.background =
-                BTN_BLUE)
-            }
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE_HOVER;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE;
+            }}
           >
             로그인
           </button>
@@ -97,3 +95,4 @@ export default function Page() {
       </main>
     </div>
   );
+}
