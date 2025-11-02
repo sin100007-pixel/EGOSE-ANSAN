@@ -71,10 +71,10 @@ export default function Page() {
             로그인
           </button>
 
-          {/* 앱 설치 버튼 - 로그인 버튼과 동일 스타일/크기 (hoverStyle 제거, hoverColor 사용) */}
+          {/* 앱 설치 버튼 - hoverColor prop 제거 */}
           <InstallButton
+            className="w-full transition"
             style={primaryBtnStyle}
-            hoverColor={BTN_BLUE_HOVER}
           >
             앱 설치
           </InstallButton>
@@ -82,6 +82,7 @@ export default function Page() {
           {/* ✅ 카카오 채팅문의 - 로그인 버튼 바로 아래 (같은 크기/색) */}
           <KakaoChatButton
             style={primaryBtnStyle}
+            // KakaoChatButton은 hoverColor 지원: 동일 색감 유지
             hoverColor={BTN_BLUE_HOVER}
             label="카카오 채팅문의"
           />
