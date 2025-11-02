@@ -13,7 +13,6 @@ export default function Page() {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showProducts, setShowProducts] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,8 +25,10 @@ export default function Page() {
         credentials: "include",
         body: JSON.stringify({ name, password, remember }),
       });
+
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || "서버 오류가 발생했습니다.");
+
       try { localStorage.setItem("session_user", encodeURIComponent(name)); } catch {}
       window.location.href = "/dashboard";
     } catch (err: any) {
@@ -37,128 +38,123 @@ export default function Page() {
     }
   }
 
-  const inputClass =
-    "w-full h-12 rounded-2xl bg-white px-4 outline-none placeholder-gray-400";
-  const btnBase: React.CSSProperties = {
+  const fieldStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
+    boxSizing: "border-box",
     padding: 12,
-    borderRadius: 12,
-    background: BTN_BLUE,
-    color: "#fff",
-    fontWeight: 700,
-    textAlign: "center",
-    cursor: "pointer",
+    margin: "6px 0 12px",
+    borderRadius: 10,
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#000000",
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    padding: 12,
+    margin: "0 0 12px 0",
+    borderRadius: 10,
     border: "1px solid transparent",
+    background: BTN_BLUE,
+    color: "#ffffff",
+    fontWeight: 700,
+    cursor: "pointer",
+    textAlign: "center",
+    textDecoration: "none",
   };
 
   return (
-    <div className="min-h-screen w-full" style={{ background: BG_DARK }}>
-      <div className="max-w-md mx-auto px-4 py-8">
-        <h1 className="text-white text-2xl font-extrabold mb-6">
+    <div style={{ background: BG_DARK, minHeight: "100vh" }}>
+      <div style={{ padding: 24, maxWidth: 520, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12, color: "#fff" }}>
           런던마켓으로 로그인
         </h1>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          <div>
-            <label className="text-white block mb-2">이름</label>
-            <input
-              type="text"
-              placeholder="예) 홍길동"
-              className={inputClass}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+        <form onSubmit={onSubmit}>
+          {/* 입력폼 */}
+          <label style={{ display: "block", marginTop: 6, marginBottom: 4, color: "#e5e7eb" }}>
+            이름
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="예) 홍길동"
+            type="text"
+            style={fieldStyle}
+          />
 
-          <div>
-            <label className="text-white block mb-2">
-              비밀번호 (전화번호 뒷자리)
-            </label>
-            <input
-              type="password"
-              placeholder="예) 1234"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          <label style={{ display: "block", marginTop: 6, marginBottom: 4, color: "#e5e7eb" }}>
+            비밀번호 (전화번호 뒷자리)
+          </label>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="예) 1234"
+            type="password"
+            style={fieldStyle}
+          />
 
-          <label className="flex items-center gap-2 text-white text-sm mt-1">
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              margin: "8px 0 12px",
+              color: "#fff",
+            }}
+          >
             <input
               type="checkbox"
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
             />
-            로그인 유지
-          </label>
+            <span>로그인 유지</span>
+          </div>
 
-          {/* 로그인 버튼 */}
+          {/* 1) 로그인 버튼 */}
           <button
-            type="submit"
-            style={btnBase}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background =
-                BTN_BLUE_HOVER;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background =
-                BTN_BLUE;
-            }}
             disabled={loading}
+            type="submit"
+            style={buttonStyle}
+            onMouseEnter={(e) => (e.currentTarget.style.background = BTN_BLUE_HOVER)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = BTN_BLUE)}
           >
             {loading ? "로그인 중..." : "로그인"}
           </button>
 
-          {/* ✅ 에러 메시지: 로그인 버튼 바로 아래 */}
+          {/* 2) 에러 메시지 (로그인 버튼 바로 아래) */}
           {error && (
-            <p className="text-red-400 text-sm -mt-1">
+            <p style={{ color: "#fca5a5", margin: "6px 0 10px" }}>
               {error}
             </p>
           )}
 
-          {/* 카카오 채팅문의 버튼 */}
+          {/* 3) 카카오 채팅문의 버튼 */}
           <a
             href="http://pf.kakao.com/_IxgdJj/chat"
             target="_blank"
             rel="noopener noreferrer"
-            style={btnBase}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.background =
-                BTN_BLUE_HOVER;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.background =
-                BTN_BLUE;
-            }}
+            style={{ ...buttonStyle, marginTop: 8 }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLAnchorElement).style.background = BTN_BLUE_HOVER)
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLAnchorElement).style.background = BTN_BLUE)
+            }
           >
             카카오 채팅문의
           </a>
 
-          {/* 판매중인 상품 보기 토글 */}
-          <button
-            type="button"
-            style={btnBase}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background =
-                BTN_BLUE_HOVER;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background =
-                BTN_BLUE;
-            }}
-            onClick={() => setShowProducts((v) => !v)}
-          >
-            {showProducts ? "상품 사진 닫기(확대해서 보세요.)" : "판매중인 상품 보기"}
-          </button>
+          {/* 4) 판매중인 상품 보기 버튼 (ProductPreview 내부 토글 사용) */}
+          <ProductPreview
+            primaryButtonStyle={buttonStyle}
+            primaryButtonHover={BTN_BLUE_HOVER}
+            showToggle={true}   // 내부 토글 버튼 노출
+          />
         </form>
-
-        {showProducts && (
-          <div className="mt-6">
-            <ProductPreview showToggle={false} />
-            <p className="text-red-500 text-sm mt-2">이미지를 확대 할 수 있습니다.</p>
-          </div>
-        )}
       </div>
     </div>
   );
