@@ -2,30 +2,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import ProductPreview from "@/app/product-preview";
+import ProductToggle from "@/app/components/ProductToggle";
 
 // Prisma는 Edge에서 동작하지 않으므로 Node 런타임으로 고정
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// 버튼 기본 스타일 (로그아웃/카카오/상품보기 공통)
-const BTN_BG = "#1739f7";
-const BTN_BG_HOVER = "#1f2eea";
-
-const buttonStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  boxSizing: "border-box",
-  padding: 12,
-  margin: "0 0 12px 0",
-  borderRadius: 12,
-  border: "1px solid transparent",
-  background: BTN_BG,
-  color: "#ffffff",
-  fontWeight: 700,
-  cursor: "pointer",
-  textAlign: "center",
-};
 
 export default async function DashboardPage() {
   // 1) 세션 확인
@@ -71,17 +52,24 @@ export default async function DashboardPage() {
 
       {/* 버튼 영역 */}
       <section style={{ marginTop: 24 }}>
-        {/* 로그아웃 */}
+        {/* 로그아웃 (서버 컴포넌트에서는 이벤트 핸들러 X) */}
         <form action="/api/logout" method="POST">
           <button
             type="submit"
-            style={buttonStyle}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.background = BTN_BG_HOVER)
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.background = BTN_BG)
-            }
+            style={{
+              display: "block",
+              width: "100%",
+              boxSizing: "border-box",
+              padding: 12,
+              margin: "0 0 12px 0",
+              borderRadius: 12,
+              border: "1px solid transparent",
+              background: "#1739f7",
+              color: "#ffffff",
+              fontWeight: 700,
+              textAlign: "center",
+              cursor: "pointer",
+            }}
           >
             로그아웃
           </button>
@@ -96,20 +84,27 @@ export default async function DashboardPage() {
         >
           <button
             type="button"
-            style={buttonStyle}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.background = BTN_BG_HOVER)
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.background = BTN_BG)
-            }
+            style={{
+              display: "block",
+              width: "100%",
+              boxSizing: "border-box",
+              padding: 12,
+              margin: "0 0 12px 0",
+              borderRadius: 12,
+              border: "1px solid transparent",
+              background: "#1739f7",
+              color: "#ffffff",
+              fontWeight: 700,
+              textAlign: "center",
+              cursor: "pointer",
+            }}
           >
             카카오 채팅문의
           </button>
         </a>
 
-        {/* ✅ 판매중인 상품 보기 토글 (절대경로 이미지) */}
-        <ProductPreview buttonStyle={buttonStyle} hoverColor={BTN_BG_HOVER} />
+        {/* ✅ 판매중인 상품 보기 토글 (서버→클라로 props/이벤트 전달 안 함) */}
+        <ProductToggle />
       </section>
     </main>
   );
