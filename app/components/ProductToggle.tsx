@@ -5,14 +5,30 @@ import React, { useState } from "react";
 import ProductPreview from "../product-preview";
 
 type Props = {
-  buttonStyle: React.CSSProperties;
-  hoverColor: string;
+  /** 공통 버튼 스타일(로그아웃/카카오/상품보기) */
+  buttonStyle?: React.CSSProperties;
+  /** 호버 시 바뀔 배경색 */
+  hoverColor?: string;
+  /** 처음부터 열려 있을지 여부 */
   initialOpen?: boolean;
 };
 
 export default function ProductToggle({
-  buttonStyle,
-  hoverColor,
+  buttonStyle = {
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    padding: 12,
+    margin: "0 0 12px 0",
+    borderRadius: 12,
+    border: "1px solid transparent",
+    background: "#1739f7",
+    color: "#ffffff",
+    fontWeight: 700,
+    cursor: "pointer",
+    textAlign: "center",
+  },
+  hoverColor = "#1f2eea",
   initialOpen = false,
 }: Props) {
   const [open, setOpen] = useState(initialOpen);
@@ -27,8 +43,11 @@ export default function ProductToggle({
           (e.currentTarget as HTMLButtonElement).style.background = hoverColor;
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background =
-            (buttonStyle.background as string) || "";
+          const bg =
+            (buttonStyle.background as string) ??
+            (buttonStyle.backgroundColor as string) ??
+            "#1739f7";
+          (e.currentTarget as HTMLButtonElement).style.background = bg;
         }}
         onClick={() => setOpen((v) => !v)}
       >
@@ -39,8 +58,8 @@ export default function ProductToggle({
       {open && (
         <div style={{ marginTop: 12 }}>
           <ProductPreview
-            showToggle={false}                 // ✅ 내부 버튼 숨김
-            primaryButtonStyle={buttonStyle}
+            showToggle={false}                // ✅ 내부 버튼 숨김 모드
+            primaryButtonStyle={buttonStyle}  // (컴포넌트 내부 호버 복원용)
             primaryButtonHover={hoverColor}
           />
           <p style={{ color: "#ef4444", marginTop: 8, fontSize: 14 }}>
