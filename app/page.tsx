@@ -3,6 +3,8 @@
 
 import React, { useState } from "react";
 import ProductPreview from "./product-preview";
+// 경로 반영: app/components/InstallButton.tsx
+import InstallButton from "./components/InstallButton";
 
 const BG_DARK = "#0F0C2E";
 const BTN_BLUE = "#0019C9";
@@ -135,7 +137,16 @@ export default function Page() {
             </p>
           )}
 
-          {/* 3) 카카오 채팅문의 버튼 */}
+          {/* 3) 앱 설치 버튼 — 로그인 버튼과 동일한 스타일/호버 */}
+          <InstallButton
+            style={{ ...buttonStyle, marginTop: 8 }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE_HOVER)}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE)}
+          >
+            앱 설치
+          </InstallButton>
+
+          {/* 4) 카카오 채팅문의 버튼 */}
           <a
             href="http://pf.kakao.com/_IxgdJj/chat"
             target="_blank"
@@ -151,7 +162,7 @@ export default function Page() {
             카카오 채팅문의
           </a>
 
-          {/* 4) 판매중인 상품 보기 버튼 (ProductPreview 내부 토글 사용) */}
+          {/* 5) 판매중인 상품 보기 (토글) */}
           <div style={{ marginTop: 12 }}>
             <ProductPreview showToggle />
           </div>
