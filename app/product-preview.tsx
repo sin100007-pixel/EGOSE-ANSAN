@@ -4,12 +4,17 @@
 import React, { useState } from "react";
 
 type Props = {
-  /** 내부 토글 버튼을 사용할지 여부 (부모가 토글 담당 시 false) */
+  /** 내부 토글 버튼 사용 여부 (부모가 토글 맡으면 false) */
   showToggle?: boolean;
-  /** 부모 버튼과 통일할 때 사용하는 스타일(호버 복원용 포함) */
+
+  /** ✅ 공식 이름 */
   primaryButtonStyle?: React.CSSProperties;
-  /** 호버 시 바뀔 배경색 */
   primaryButtonHover?: string;
+
+  /** ✅ 호환(별칭): 기존 코드에서 쓰던 이름도 허용 */
+  buttonStyle?: React.CSSProperties;
+  hoverColor?: string;
+
   /** showToggle=true일 때, 처음부터 열어둘지 */
   initialOpen?: boolean;
 };
@@ -19,12 +24,23 @@ const IMG_SRC = "/products/preview.jpg"; // public/products/preview.jpg
 export default function ProductPreview({
   showToggle = true,
   primaryButtonStyle,
-  primaryButtonHover = "",
+  primaryButtonHover,
+  // 별칭으로 들어오면 공식 이름으로 매핑
+  buttonStyle,
+  hoverColor,
   initialOpen = false,
 }: Props) {
+  // 우선순위: 공식 이름 > 별칭
+  const mergedButtonStyle =
+    (primaryButtonStyle as React.CSSProperties | undefined) ??
+    (buttonStyle as React.CSSProperties | undefined);
+
+  const mergedHover =
+    (primaryButtonHover as string | undefined) ?? (hoverColor as string | undefined) ?? "";
+
   const [open, setOpen] = useState(initialOpen);
 
-  // 부모가 토글을 맡을 경우: 버튼 없이 이미지 블록만 렌더
+  // 부모가 토글 맡는 모드: 버튼 없이 이미지만
   if (!showToggle) {
     return (
       <>
@@ -49,23 +65,23 @@ export default function ProductPreview({
     );
   }
 
-  // 내부 토글 버튼을 사용하는 기본 모드
+  // 내부 토글 버튼 사용하는 기본 모드
   return (
     <div style={{ width: "100%" }}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={(e) => {
-          if (primaryButtonHover) {
-            (e.currentTarget as HTMLButtonElement).style.background = primaryButtonHover;
+          if (mergedHover) {
+            (e.currentTarget as HTMLButtonElement).style.background = mergedHover;
           }
         }}
         onMouseLeave={(e) => {
-          if (primaryButtonStyle?.background) {
-            (e.currentTarget as HTMLButtonElement).style.background = String(
-              primaryButtonStyle.background
-            );
-          }
+          const bg =
+            (mergedButtonStyle?.background as string) ??
+            (mergedButtonStyle?.backgroundColor as string) ??
+            "#1739f7";
+          (e.currentTarget as HTMLButtonElement).style.background = bg;
         }}
         style={{
           display: "block",
@@ -76,8 +92,11 @@ export default function ProductPreview({
           cursor: "pointer",
           color: "#fff",
           fontWeight: 700,
-          background: "#1739f7",
-          ...primaryButtonStyle,
+          background:
+            (mergedButtonStyle?.background as string) ??
+            (mergedButtonStyle?.backgroundColor as string) ??
+            "#1739f7",
+          ...mergedButtonStyle,
         }}
       >
         {open ? "상품 사진 닫기(확대해서 보세요.)" : "판매중인 상품 보기"}
