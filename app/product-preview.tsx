@@ -8,14 +8,16 @@ type Props = {
   primaryButtonStyle?: React.CSSProperties;
   /** (선택) 호버 시 바뀔 배경색 */
   primaryButtonHover?: string;
-  /** ✅ 추가: 내부 토글 버튼을 보일지 여부 (기본값 true) */
+  /** 내부 토글 버튼을 보일지 여부 (기본값 true) */
   showToggle?: boolean;
 };
+
+const STATIC_SRC = "/products/preview.jpg"; // ✅ public/products/preview.jpg 를 가리킴
 
 export default function ProductPreview({
   primaryButtonStyle,
   primaryButtonHover = "",
-  showToggle = true, // ← 기본은 기존 동작 그대로
+  showToggle = true,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -25,14 +27,12 @@ export default function ProductPreview({
       style={primaryButtonStyle}
       onMouseEnter={(e) => {
         if (primaryButtonHover)
-          (e.currentTarget as HTMLButtonElement).style.background =
-            primaryButtonHover;
+          (e.currentTarget as HTMLButtonElement).style.background = primaryButtonHover;
       }}
       onMouseLeave={(e) => {
         if (primaryButtonStyle?.background)
-          (e.currentTarget as HTMLButtonElement).style.background = String(
-            primaryButtonStyle.background
-          );
+          (e.currentTarget as HTMLButtonElement).style.background =
+            String(primaryButtonStyle.background);
       }}
       onClick={() => setOpen((v) => !v)}
     >
@@ -42,15 +42,22 @@ export default function ProductPreview({
 
   return (
     <div>
-      {/* ✅ 내부 토글은 필요할 때만 노출 */}
+      {/* 필요할 때만 내부 토글 노출 (부모에서 showToggle={false}로 끌 수 있음) */}
       {showToggle && InternalToggleButton}
 
       {open && (
-        <div style={{ marginTop: 12 }}>
-          {/* ↓↓↓ 여기부터는 기존에 쓰던 이미지/그리드 렌더링 그대로 두세요 ↓↓↓ */}
-          {/* 예: <img src="..." alt="..." style={{ ... }} /> 등 */}
-          {/* ... 이미지 목록 ... */}
-          {/* ↑↑↑ 기존 구현 유지 */}
+        <div style={{ marginTop: 12, textAlign: "center" }}>
+          <img
+            src={STATIC_SRC}
+            alt="판매중인 상품 미리보기"
+            style={{
+              width: "100%",
+              maxWidth: 720,
+              height: "auto",
+              borderRadius: 12,
+              display: "inline-block",
+            }}
+          />
           <p style={{ color: "#ef4444", marginTop: 8, fontSize: 14 }}>
             이미지를 확대 할 수 있습니다.
           </p>
