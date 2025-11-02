@@ -1,3 +1,4 @@
+// app/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -29,7 +30,9 @@ export default function Page() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || "서버 오류가 발생했습니다.");
 
-      try { localStorage.setItem("session_user", encodeURIComponent(name)); } catch {}
+      try {
+        localStorage.setItem("session_user", encodeURIComponent(name));
+      } catch {}
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err?.message || "서버 오류가 발생했습니다.");
@@ -149,11 +152,9 @@ export default function Page() {
           </a>
 
           {/* 4) 판매중인 상품 보기 버튼 (ProductPreview 내부 토글 사용) */}
-          <ProductPreview
-            primaryButtonStyle={buttonStyle}
-            primaryButtonHover={BTN_BLUE_HOVER}
-            showToggle={true}   // 내부 토글 버튼 노출
-          />
+          <div style={{ marginTop: 12 }}>
+            <ProductPreview showToggle />
+          </div>
         </form>
       </div>
     </div>
