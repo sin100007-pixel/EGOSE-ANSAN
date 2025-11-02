@@ -23,16 +23,14 @@ export default function Page() {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",                     // ← 쿠키 저장 보장
+        credentials: "include",
         body: JSON.stringify({ name, password, remember }),
       });
 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || "로그인 실패");
 
-      // 안전망: 이름을 로컬에도 백업(쿠키가 사라진 환경에서 복구용)
       try { localStorage.setItem("session_user", encodeURIComponent(name)); } catch {}
-
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err?.message || "로그인 실패");
@@ -65,11 +63,13 @@ export default function Page() {
     color: "#ffffff",
     fontWeight: 700,
     cursor: "pointer",
+    textAlign: "center",
+    textDecoration: "none",
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 520, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
+    <div style={{ padding: 24, maxWidth: 520, margin: "0 auto", background: BG_DARK }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12, color: "#fff" }}>
         런던마켓으로 로그인
       </h1>
 
@@ -96,7 +96,7 @@ export default function Page() {
           style={fieldStyle}
         />
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 12px" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0 12px", color: "#fff" }}>
           <input
             type="checkbox"
             checked={remember}
@@ -105,6 +105,7 @@ export default function Page() {
           <span>로그인 유지</span>
         </div>
 
+        {/* 로그인 버튼 */}
         <button
           disabled={loading}
           type="submit"
@@ -115,6 +116,20 @@ export default function Page() {
           {loading ? "로그인 중..." : "로그인"}
         </button>
 
+        {/* ✅ 카카오 채팅문의 버튼 (로그인 버튼 바로 아래, 동일 모양/크기) */}
+        <a
+          href="http://pf.kakao.com/_IxgdJj/chat"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="카카오 채팅으로 문의하기"
+          style={{ ...buttonStyle, marginTop: 8 }}
+          onMouseEnter={(e) => (e.currentTarget as HTMLAnchorElement).style.background = BTN_BLUE_HOVER}
+          onMouseLeave={(e) => (e.currentTarget as HTMLAnchorElement).style.background = BTN_BLUE}
+        >
+          카카오 채팅문의
+        </a>
+
+        {/* 앱 설치 버튼 (기존 그대로, 같은 스타일) */}
         <InstallButton style={{ ...buttonStyle, marginTop: 8 }}>
           앱 설치
         </InstallButton>
