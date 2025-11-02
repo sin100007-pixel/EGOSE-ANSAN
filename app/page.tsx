@@ -71,11 +71,10 @@ export default function Page() {
             로그인
           </button>
 
-          {/* 앱 설치 버튼 - 로그인 버튼과 동일 스타일/크기 */}
+          {/* 앱 설치 버튼 - 로그인 버튼과 동일 스타일/크기 (hoverStyle 제거, hoverColor 사용) */}
           <InstallButton
-            className="w-full transition"
             style={primaryBtnStyle}
-            hoverStyle={{ background: BTN_BLUE_HOVER }}
+            hoverColor={BTN_BLUE_HOVER}
           >
             앱 설치
           </InstallButton>
