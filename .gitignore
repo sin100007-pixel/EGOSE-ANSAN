@@ -5,3 +5,5 @@ build/
 .vercel/
 .env
 .env.*
+.vercel
+.env*.local
