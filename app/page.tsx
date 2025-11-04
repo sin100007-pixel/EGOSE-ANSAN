@@ -92,12 +92,12 @@ export default function Page() {
           />
 
           <label style={{ display: "block", marginTop: 6, marginBottom: 4, color: "#e5e7eb" }}>
-            비밀번호 (전화번호 뒷자리)
+            비밀번호
           </label>
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="예) 1234"
+            placeholder="4자리 숫자"
             type="password"
             style={fieldStyle}
           />
