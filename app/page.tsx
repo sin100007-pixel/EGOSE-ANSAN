@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import ProductPreview from "./product-preview";
 // 경로 반영: app/components/InstallButton.tsx
 import InstallButton from "./components/InstallButton";
@@ -74,6 +75,28 @@ export default function Page() {
   return (
     <div style={{ background: BG_DARK, minHeight: "100vh" }}>
       <div style={{ padding: 24, maxWidth: 520, margin: "0 auto" }}>
+        {/* 상단 히어로 이미지 (로컬 파일 /public/london-market-hero.png) */}
+        <header style={{ width: "100%", marginBottom: 16 }}>
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              aspectRatio: "7 / 3", // 가로:세로 = 7:3
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
+            <Image
+              src="/london-market-hero.png"
+              alt="LONDON MARKET"
+              fill
+              priority
+              sizes="100vw"
+              style={{ objectFit: "cover" }}
+            />
+          </div>
+        </header>
+
         <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12, color: "#fff" }}>
           런던마켓으로 로그인
         </h1>
@@ -131,17 +154,17 @@ export default function Page() {
           </button>
 
           {/* 2) 에러 메시지 (로그인 버튼 바로 아래) */}
-          {error && (
-            <p style={{ color: "#fca5a5", margin: "6px 0 10px" }}>
-              {error}
-            </p>
-          )}
+          {error && <p style={{ color: "#fca5a5", margin: "6px 0 10px" }}>{error}</p>}
 
           {/* 3) 앱 설치 버튼 — 로그인 버튼과 동일한 스타일/호버 */}
           <InstallButton
             style={{ ...buttonStyle, marginTop: 8 }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE_HOVER)}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE)}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE_HOVER)
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLButtonElement).style.background = BTN_BLUE)
+            }
           >
             앱 설치
           </InstallButton>
