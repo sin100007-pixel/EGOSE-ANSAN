@@ -1,4 +1,5 @@
 // app/dashboard/page.tsx
+import Image from "next/image";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -25,8 +26,32 @@ export default async function DashboardPage() {
         margin: "0 auto",
         padding: "24px 16px 80px",
         color: "#fff",
+        background: "#0F0C2E",      // 로그인 페이지와 톤 맞춤
+        minHeight: "100vh",
       }}
     >
+      {/* ▼ 상단 히어로 이미지 (로컬 파일 /public/london-market-hero.png) */}
+      <header style={{ width: "100%", marginBottom: 16 }}>
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "7 / 3", // 가로:세로 = 7:3
+            borderRadius: 12,
+            overflow: "hidden",
+          }}
+        >
+          <Image
+            src="/london-market-hero.png"
+            alt="LONDON MARKET"
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
+          />
+        </div>
+      </header>
+
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>{name}님의 QR</h1>
 
       {/* QR + 전화번호 */}
@@ -103,7 +128,7 @@ export default async function DashboardPage() {
           </button>
         </a>
 
-        {/* ✅ 판매중인 상품 보기 토글 (서버→클라로 props/이벤트 전달 안 함) */}
+        {/* ✅ 판매중인 상품 보기 토글 */}
         <ProductToggle />
       </section>
     </main>
