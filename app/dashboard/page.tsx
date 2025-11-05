@@ -4,9 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ProductToggle from "@/app/components/ProductToggle";
-// ✅ 상단 여백 컴포넌트
-import TopSpacer from "../components/TopSpacer";
 
+// Prisma는 Edge에서 동작하지 않으므로 Node 런타임으로 고정
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -31,9 +30,6 @@ export default async function DashboardPage() {
         minHeight: "100vh",
       }}
     >
-      {/* ✅ 앱/PWA 포함 모든 환경에서 상단 얇은 진행선 대비 여백 */}
-      <TopSpacer height={8} />
-
       {/* ▼ 상단 히어로 이미지 (로컬 파일 /public/london-market-hero.png) */}
       <header style={{ width: "100%", marginBottom: 16 }}>
         <div
@@ -81,7 +77,7 @@ export default async function DashboardPage() {
 
       {/* 버튼 영역 */}
       <section style={{ marginTop: 24 }}>
-        {/* 로그아웃 */}
+        {/* 로그아웃 (서버 컴포넌트에서는 이벤트 핸들러 X) */}
         <form action="/api/logout" method="POST">
           <button
             type="submit"
@@ -106,7 +102,7 @@ export default async function DashboardPage() {
 
         {/* 카카오 채팅문의 */}
         <a
-          href="http://pf.kakao.com/_IxgdJj/chat"
+          href="http://pf.kakao.com/_IxgdJj/chat" // ← 본인 채널 링크로 교체
           target="_blank"
           rel="noreferrer"
           style={{ textDecoration: "none" }}
@@ -132,7 +128,7 @@ export default async function DashboardPage() {
           </button>
         </a>
 
-        {/* 판매중인 상품 보기 토글 */}
+        {/* ✅ 판매중인 상품 보기 토글 */}
         <ProductToggle />
       </section>
     </main>
