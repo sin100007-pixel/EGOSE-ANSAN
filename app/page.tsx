@@ -66,6 +66,7 @@ export default function Page() {
     background: BTN_BLUE,
     color: "#ffffff",
     fontWeight: 700,
+    fontSize: 16,
     cursor: "pointer",
     textAlign: "center",
     textDecoration: "none",

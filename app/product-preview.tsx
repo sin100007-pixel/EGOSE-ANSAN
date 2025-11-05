@@ -58,7 +58,8 @@ export default function ProductPreview({
           cursor: "pointer",
           color: "#fff",
           fontWeight: 700,
-          background: "#1739f7",
+              fontSize: 16,
+          background: "#0019C9",
         }}
       >
         {open ? "상품 사진 닫기(확대해서 보세요.)" : "판매중인 상품 보기"}
