@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ProductToggle from "@/app/components/ProductToggle";
+import InstallButton from "@/app/components/InstallButton";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +82,26 @@ export default async function DashboardPage() {
             로그아웃
           </button>
         </form>
+
+
+        {/* 앱 설치 버튼 (PWA 설치 가능 시에만 보임) */}
+        <InstallButton 
+            style={{
+              display: "block",
+              width: "100%",
+              boxSizing: "border-box",
+              padding: 12,
+              margin: "0 0 12px 0",
+              borderRadius: 12,
+              border: "1px solid transparent",
+              background: "#1739f7",
+              color: "#ffffff",
+              fontWeight: 700,
+              textAlign: "center",
+              cursor: "pointer",
+            }}>
+          앱 설치
+        </InstallButton>
 
         <a href="http://pf.kakao.com/_IxgdJj/chat" target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
           <button

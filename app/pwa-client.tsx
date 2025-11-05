@@ -1,6 +1,5 @@
 "use client";
 import { useEffect } from "react";
-import InstallButton from "./components/InstallButton";
 import IOSHint from "./components/IOSHint";
 
 export default function PWAClient() {
@@ -12,7 +11,6 @@ export default function PWAClient() {
 
   return (
     <div className="p-4 space-y-3">
-      <InstallButton />
       <IOSHint />
     </div>
   );
