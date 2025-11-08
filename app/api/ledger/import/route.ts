@@ -1,5 +1,5 @@
-// CSV/XLSX 업로드 → Supabase 업서트 (일보 허용 + 한글 안전 키)
-// 어디서 실행돼도 안전하도록 Node 런타임 고정 + 수동 base64url 인코딩
+// CSV/XLSX 업로드 → Supabase 업서트 (일보 허용, 한글 안전 키)
+// ✅ Node 런타임 고정 + Buffer만 사용(웹 btoa 경로 완전 차단)
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -35,27 +35,10 @@ const toISO = (v: any) => {
   return "";
 };
 
-// 안전한 base64url (UTF-8 → 바이트 → base64url). Buffer 없는 순수 구현.
-function toBase64Url(input: string): string {
-  const bytes = new TextEncoder().encode(input); // UTF-8 바이트
-  // 바이트를 라틴-1 안전 문자열로 변환
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  // 환경별 btoa/Buffer 대응
-  let b64: string;
-  if (typeof btoa === "function") {
-    b64 = btoa(bin);
-  } else {
-    // Node 환경
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { Buffer } = require("buffer");
-    b64 = Buffer.from(bytes).toString("base64");
-  }
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
+// ✅ 한글 포함 어떤 문자열이든 안전한 base64url 키 (Buffer만 사용)
 function makeKey(parts: Array<string | number>): string {
-  return toBase64Url(parts.map((p) => String(p ?? "")).join("|"));
+  return Buffer.from(parts.map(p => String(p ?? "")).join("|"), "utf-8")
+    .toString("base64url");
 }
 
 // ---------- 파일 파서 ----------
@@ -65,6 +48,7 @@ function rowsFromCSV(buf: Buffer): Raw[] {
 function rowsFromXLSX(buf: Buffer): Raw[] {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
+  // 헤더 여러줄 대응 (header:1로 원시 배열 받아와서 탐지)
   const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
   return detectHeaderAndToObjects(arr);
 }
@@ -82,7 +66,7 @@ const LABELS = {
   desc:   ["적요","비고","내용","메모","품목규격","규격","상세","품명","품목"],
   rowkey: ["erp_row_key","고유키","rowkey","ROWKEY","키"],
 };
-const match = (cell: string, keys: string[]) =>
+const hit = (cell: string, keys: string[]) =>
   keys.some(k => norm(cell).toLowerCase().includes(norm(k).toLowerCase())) ? 1 : 0;
 
 function detectHeaderAndToObjects(table: any[][]): Raw[] {
@@ -90,15 +74,15 @@ function detectHeaderAndToObjects(table: any[][]): Raw[] {
   for (let r = 0; r < Math.min(10, table.length); r++) {
     const row = table[r] || [];
     const s =
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.code),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.name),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.date),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.docno),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.lineno),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.debit),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.credit),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.balance),0) +
-      row.reduce((a,c)=>a+match(String(c??""), LABELS.desc),0);
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.code),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.name),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.date),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.docno),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.lineno),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.debit),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.credit),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.balance),0) +
+      row.reduce((a,c)=>a+hit(String(c??""), LABELS.desc),0);
     if (s > best) { best = s; headerRowIdx = r; }
   }
 
@@ -165,7 +149,7 @@ export async function POST(req: NextRequest) {
     const raw = isXlsx ? rowsFromXLSX(buf) : rowsFromCSV(buf);
 
     const rows = raw
-      .map((r, i) => {
+      .map((r) => {
         let tx_date = r.tx_date || r.출고일자 || r.거래일자 || r.매출일자 || r.date || baseDate;
         tx_date = toISO(tx_date);
 
@@ -191,7 +175,7 @@ export async function POST(req: NextRequest) {
         const credit  = toNum(r.credit ?? r.부가세 ?? r.세액 ?? 0);
         const balance = toNum(r.balance ?? 0);
 
-        // 고유키: 제공키 → 전표형 → 일보(base64url)
+        // ✅ 고유키: 제공키 → 전표형 → 일보 (Buffer base64url)
         let key: string = r.erp_row_key || r.rowkey || r.고유키 || "";
         if (!key) {
           if (doc_no || line_no) {
@@ -232,6 +216,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, file: fname, total: raw.length, valid: rows.length, upserted });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || String(e) }, { status: 500 });
+    // 임시로 스택도 같이 반환해 원인 정확히 잡자
+    return NextResponse.json({ error: e?.message || String(e), stack: e?.stack }, { status: 500 });
   }
 }
