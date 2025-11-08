@@ -1,5 +1,5 @@
-// CSV/XLSX 업로드 → Supabase 업서트 (일보 허용, 한글 안전 키)
-// ✅ Node 런타임 고정 + Buffer만 사용(웹 btoa 경로 완전 차단)
+// CSV/XLSX 업로드 → Supabase 업서트 (일보 허용)
+// ✅ ByteString 변환 완전 제거: 고유키는 encodeURIComponent 기반 ASCII 키
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -35,10 +35,9 @@ const toISO = (v: any) => {
   return "";
 };
 
-// ✅ 한글 포함 어떤 문자열이든 안전한 base64url 키 (Buffer만 사용)
-function makeKey(parts: Array<string | number>): string {
-  return Buffer.from(parts.map(p => String(p ?? "")).join("|"), "utf-8")
-    .toString("base64url");
+// ✅ 어떤 환경에서도 안전한 ASCII-only 키
+function makeKey(parts: Array<string | number>) {
+  return encodeURIComponent(parts.map(p => String(p ?? "")).join("|"));
 }
 
 // ---------- 파일 파서 ----------
@@ -48,7 +47,7 @@ function rowsFromCSV(buf: Buffer): Raw[] {
 function rowsFromXLSX(buf: Buffer): Raw[] {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  // 헤더 여러줄 대응 (header:1로 원시 배열 받아와서 탐지)
+  // 헤더가 여러줄일 수 있어 header:1로 원시 행렬을 받아와 탐지
   const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
   return detectHeaderAndToObjects(arr);
 }
@@ -139,7 +138,7 @@ export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
     const file = form.get("file") as File | null;
-    const baseDate = String(form.get("base_date") || "");
+    const baseDate = String(form.get("base_date") || ""); // YYYY-MM-DD
 
     if (!file) return NextResponse.json({ error: "파일이 없습니다." }, { status: 400 });
 
@@ -150,6 +149,7 @@ export async function POST(req: NextRequest) {
 
     const rows = raw
       .map((r) => {
+        // 날짜: 없으면 업로드 기준일 사용(일보 대응)
         let tx_date = r.tx_date || r.출고일자 || r.거래일자 || r.매출일자 || r.date || baseDate;
         tx_date = toISO(tx_date);
 
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
         const credit  = toNum(r.credit ?? r.부가세 ?? r.세액 ?? 0);
         const balance = toNum(r.balance ?? 0);
 
-        // ✅ 고유키: 제공키 → 전표형 → 일보 (Buffer base64url)
+        // ✅ 고유키: 제공키 → 전표형 → 일보(ASCII-only)
         let key: string = r.erp_row_key || r.rowkey || r.고유키 || "";
         if (!key) {
           if (doc_no || line_no) {
@@ -214,9 +214,8 @@ export async function POST(req: NextRequest) {
       upserted += data?.length ?? 0;
     }
 
-    return NextResponse.json({ ok: true, file: fname, total: raw.length, valid: rows.length, upserted });
+    return NextResponse.json({ ok: true, version: "no-bytestring-key", file: fname, total: raw.length, valid: rows.length, upserted });
   } catch (e: any) {
-    // 임시로 스택도 같이 반환해 원인 정확히 잡자
     return NextResponse.json({ error: e?.message || String(e), stack: e?.stack }, { status: 500 });
   }
 }
