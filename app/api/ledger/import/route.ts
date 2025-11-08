@@ -1,6 +1,7 @@
-// CSV/XLSX 업로드 → Supabase 업서트 (일보도 허용)
-// 런타임: Node.js 강제 (Web/Edge Crypto의 ByteString 이슈 회피)
-export const runtime = "nodejs";
+// CSV/XLSX 업로드 → Supabase 업서트 (일보 허용)
+// 해시 대신 UTF-8 base64url 키 사용으로 ByteString 에러 회피
+export const runtime = "nodejs";        // 혹시 모를 Edge 기본값 방지
+export const dynamic = "force-dynamic"; // 캐싱 방지
 
 import "server-only";
 import type { NextRequest } from "next/server";
@@ -8,7 +9,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parse as parseCsv } from "csv-parse/sync";
 import * as XLSX from "xlsx";
-import { createHash } from "crypto";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,9 +33,9 @@ const toISO = (v: any) => {
   }
   return "";
 };
-// ⚠️ 해시 생성은 항상 UTF-8 Buffer로!
-function sha1Hex(input: string) {
-  return createHash("sha1").update(Buffer.from(input, "utf-8")).digest("hex");
+// 안전한 고유키(UTF-8 → base64url)
+function makeKey(input: string) {
+  return Buffer.from(input, "utf-8").toString("base64url");
 }
 
 // ---------- 파일 파서 ----------
@@ -62,7 +62,7 @@ const LABELS = {
   desc:   ["적요","비고","내용","메모","품목규격","규격","상세","품명","품목"],
   rowkey: ["erp_row_key","고유키","rowkey","ROWKEY","키"],
 };
-const scoreCell = (cell: string, keys: string[]) =>
+const matchScore = (cell: string, keys: string[]) =>
   keys.some(k => norm(cell).toLowerCase().includes(norm(k).toLowerCase())) ? 1 : 0;
 
 function detectHeaderAndToObjects(table: any[][]): Raw[] {
@@ -70,15 +70,15 @@ function detectHeaderAndToObjects(table: any[][]): Raw[] {
   for (let r = 0; r < Math.min(10, table.length); r++) {
     const row = table[r] || [];
     const s =
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.code),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.name),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.date),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.docno),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.lineno),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.debit),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.credit),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.balance),0) +
-      row.reduce((a,c)=>a+scoreCell(String(c??""), LABELS.desc),0);
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.code),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.name),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.date),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.docno),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.lineno),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.debit),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.credit),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.balance),0) +
+      row.reduce((a,c)=>a+matchScore(String(c??""), LABELS.desc),0);
     if (s > best) { best = s; headerRowIdx = r; }
   }
 
@@ -172,14 +172,14 @@ export async function POST(req: NextRequest) {
         const credit  = toNum(r.credit ?? r.부가세 ?? r.세액 ?? 0);
         const balance = toNum(r.balance ?? 0);
 
-        // 고유키: 제공키 → 전표형 → 일보 해시(UTF-8 기반)
+        // 고유키: 제공키 → 전표형 → 일보(base64url)
         let key: string =
           r.erp_row_key || r.rowkey || r.고유키 || "";
         if (!key) {
           if (doc_no || line_no) {
-            key = `${tx_date}|${doc_no}|${line_no}|${code || nameKor}`;
+            key = makeKey(`${tx_date}|${doc_no}|${line_no}|${code || nameKor}`);
           } else {
-            key = sha1Hex(
+            key = makeKey(
               [tx_date, code || nameKor, item, spec, toNum(qty), toNum(price), toNum(amount)].join("|")
             );
           }
