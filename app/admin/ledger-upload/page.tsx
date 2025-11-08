@@ -15,7 +15,7 @@ export default function LedgerUploadPage() {
     fd.append("file", file);
     if (baseDate) fd.append("base_date", baseDate);
 
-    const res = await fetch("/api/ledger/import", { method: "POST", body: fd });
+    const res = await fetch("/api/ledger-import", { method: "POST", body: fd });
     const j = await res.json();
     setMsg(res.ok
       ? `완료: 총 ${j.total}건 / 유효 ${j.valid}건 / 업서트 ${j.upserted}건`
