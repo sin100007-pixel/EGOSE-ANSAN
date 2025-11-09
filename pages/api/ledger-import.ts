@@ -1,6 +1,6 @@
 // pages/api/ledger-import.ts
-// CSV/XLSX 업로드 → Supabase REST(PostgREST)로 직접 업서트
-// Buffer-only 멀티파트 파서 + UTF-8 JSON 전송 (ByteString 경로 완전 회피)
+// CSV/XLSX 업로드 → Supabase REST(PostgREST) 직접 업서트
+// 멀티파트/본문 모두 Buffer 기반 처리(문자열 ByteString 경로 완전 차단)
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { parse as parseCsv } from "csv-parse/sync";
@@ -8,16 +8,11 @@ import * as XLSX from "xlsx";
 
 export const config = { api: { bodyParser: false } };
 
-// ---- ENV (필수) ----
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string; // https://xxxxx.supabase.co
+// ===== ENV =====
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string; // e.g. https://xxxxx.supabase.co
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 
-if (!SUPABASE_URL || !SERVICE_ROLE) {
-  // 런타임에 친절 메시지
-  console.warn("[ledger-import] env missing: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-}
-
-// ---- utils ----
+// ===== utils =====
 type Raw = Record<string, any>;
 const S = (v: any) => String(v ?? "").trim();
 const N = (v: any) => {
@@ -27,7 +22,7 @@ const N = (v: any) => {
 const toISO = (v: any) => {
   const t = S(v);
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
-  if (/^\d{8}$/.test(t)) return `${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)}`;
+  if (/^\d{8}$/.test(t)) return `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}`;
   const n = Number(t);
   if (Number.isFinite(n) && n > 20000 && n < 80000) {
     const base = new Date(Date.UTC(1899, 11, 30));
@@ -37,9 +32,9 @@ const toISO = (v: any) => {
 };
 // ASCII-only 고유키
 const keyOf = (parts: Array<string | number>) =>
-  encodeURIComponent(parts.map(p => String(p ?? "")).join("|"));
+  encodeURIComponent(parts.map((p) => String(p ?? "")).join("|"));
 
-// ---- Buffer 기반 멀티파트 파서 ----
+// ===== Buffer 기반 멀티파트 파서 =====
 async function parseMultipartByBuffer(req: NextApiRequest) {
   const ct = req.headers["content-type"]?.toString() || "";
   const m = ct.match(/boundary=(.*)$/);
@@ -67,7 +62,7 @@ async function parseMultipartByBuffer(req: NextApiRequest) {
 
   for (const raw of parts) {
     let p = raw;
-    if (p.slice(0,2).equals(CRLF)) p = p.slice(2);
+    if (p.slice(0, 2).equals(CRLF)) p = p.slice(2);
     const sep = p.indexOf(CRLFCRLF);
     if (sep < 0) continue;
     const headersBuf = p.slice(0, sep);
@@ -91,44 +86,54 @@ async function parseMultipartByBuffer(req: NextApiRequest) {
   return { file, filename, baseDate };
 }
 
-// ---- 파일 파서 ----
+// ===== 파일 파서 =====
 function rowsFromXLSX(buf: Buffer): Raw[] {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const table = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
   const LABELS = {
-    code: ["거래처코드","고객코드","코드"],
-    name: ["거래처명","고객명","상호","거래처"],
-    date: ["출고일자","거래일자","매출일자","일자"],
-    doc : ["전표번호","문서번호"],
-    line: ["행번호","라인번호","순번"],
-    debit:["공급가","공급가액","금액","매출금액"],
-    credit:["부가세","세액","VAT"],
-    bal: ["잔액","총액","합계"],
-    desc: ["적요","비고","내용","품명","품목","규격"],
+    code: ["거래처코드", "고객코드", "코드"],
+    name: ["거래처명", "고객명", "상호", "거래처"],
+    date: ["출고일자", "거래일자", "매출일자", "일자"],
+    doc: ["전표번호", "문서번호"],
+    line: ["행번호", "라인번호", "순번"],
+    debit: ["공급가", "공급가액", "금액", "매출금액"],
+    credit: ["부가세", "세액", "VAT"],
+    bal: ["잔액", "총액", "합계"],
+    desc: ["적요", "비고", "내용", "품명", "품목", "규격"],
   };
-  const hit = (h: string, arr: string[]) => arr.some(k => h.includes(k));
-  let hi = 0, best = -1;
-  for (let r=0; r<Math.min(8, table.length); r++) {
+  const hit = (h: string, arr: string[]) => arr.some((k) => h.includes(k));
+  let hi = 0,
+    best = -1;
+  for (let r = 0; r < Math.min(8, table.length); r++) {
     const row = table[r] || [];
     const score = row.reduce((a: number, c: any) => {
       const h = S(c);
-      return a
-        + (hit(h, LABELS.code)?1:0) + (hit(h, LABELS.name)?1:0)
-        + (hit(h, LABELS.date)?1:0)+ (hit(h, LABELS.doc)?1:0)
-        + (hit(h, LABELS.line)?1:0)+ (hit(h, LABELS.debit)?1:0)
-        + (hit(h, LABELS.credit)?1:0)+ (hit(h, LABELS.bal)?1:0)
-        + (hit(h, LABELS.desc)?1:0);
+      return (
+        a +
+        (hit(h, LABELS.code) ? 1 : 0) +
+        (hit(h, LABELS.name) ? 1 : 0) +
+        (hit(h, LABELS.date) ? 1 : 0) +
+        (hit(h, LABELS.doc) ? 1 : 0) +
+        (hit(h, LABELS.line) ? 1 : 0) +
+        (hit(h, LABELS.debit) ? 1 : 0) +
+        (hit(h, LABELS.credit) ? 1 : 0) +
+        (hit(h, LABELS.bal) ? 1 : 0) +
+        (hit(h, LABELS.desc) ? 1 : 0)
+      );
     }, 0);
-    if (score>best){ best=score; hi=r; }
+    if (score > best) {
+      best = score;
+      hi = r;
+    }
   }
-  const headers = (table[hi]||[]).map(h => S(h));
-  const rows = table.slice(hi+1);
+  const headers = (table[hi] || []).map((h) => S(h));
+  const rows = table.slice(hi + 1);
   const out: Raw[] = [];
   for (const r of rows) {
-    if (!Array.isArray(r) || r.every(x => S(x)==="")) continue;
+    if (!Array.isArray(r) || r.every((x) => S(x) === "")) continue;
     const obj: Raw = {};
-    headers.forEach((h,i)=> obj[h] = r[i]);
+    headers.forEach((h, i) => (obj[h] = r[i]));
     out.push(obj);
   }
   return out;
@@ -137,35 +142,43 @@ function rowsFromCSV(buf: Buffer): Raw[] {
   return parseCsv(buf, { columns: true, bom: true, skip_empty_lines: true, trim: true });
 }
 
-// ---- REST 업서트 ----
+// ===== REST 업서트 (Buffer 본문) =====
 async function upsertViaREST(table: string, rows: any[], onConflict: string) {
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    throw new Error("Missing env: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+
   const url = `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`;
   const headers = {
-    "apikey": SERVICE_ROLE,
-    "Authorization": `Bearer ${SERVICE_ROLE}`,
-    "Content-Type": "application/json",
-    "Prefer": "return=representation,resolution=merge-duplicates"
-  } as Record<string,string>;
+    apikey: SERVICE_ROLE,
+    Authorization: `Bearer ${SERVICE_ROLE}`,
+    "Content-Type": "application/json; charset=utf-8",
+    Prefer: "return=representation,resolution=merge-duplicates",
+  } as Record<string, string>;
 
   let upserted = 0;
   for (let i = 0; i < rows.length; i += 1000) {
     const chunk = rows.slice(i, i + 1000);
+    // ⚠️ 문자열 대신 UTF-8 바이트로 보낸다 (ByteString 경로 차단)
+    const bodyBytes = Buffer.from(JSON.stringify(chunk), "utf8");
+
     const res = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(chunk) // UTF-8 JSON (ByteString 경로 없음)
+      body: bodyBytes,
     });
+
     if (!res.ok) {
-      const t = await res.text().catch(()=> "");
+      const t = await res.text().catch(() => "");
       throw new Error(`REST upsert fail (${res.status}): ${t}`);
     }
-    const data = await res.json().catch(()=> []);
+    const data = await res.json().catch(() => []);
     upserted += Array.isArray(data) ? data.length : 0;
   }
   return upserted;
 }
 
-// ---- handler ----
+// ===== handler =====
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   let stage = "start";
   try {
@@ -176,75 +189,114 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     stage = "parse-multipart";
     const { file, baseDate } = await parseMultipartByBuffer(req);
-    if (!file) return res.status(400).json({ error: "파일이 없습니다.", route: "pages/api/ledger-import", stage });
+    if (!file) {
+      return res
+        .status(400)
+        .json({ error: "파일이 없습니다.", route: "pages/api/ledger-import", stage });
+    }
 
     stage = "detect-type";
-    const isXlsx = file[0] === 0x50 && file[1] === 0x4B;
+    const isXlsx = file[0] === 0x50 && file[1] === 0x4b;
 
     stage = isXlsx ? "parse-xlsx" : "parse-csv";
     const raw = isXlsx ? rowsFromXLSX(file) : rowsFromCSV(file);
 
     stage = "map-rows";
-    const rows = raw.map((r) => {
-      let tx_date = (r as any).tx_date || (r as any).출고일자 || (r as any).거래일자 || (r as any).매출일자 || (r as any).date || baseDate || "";
-      tx_date = toISO(tx_date);
+    const rows = raw
+      .map((r) => {
+        let tx_date =
+          (r as any).tx_date ||
+          (r as any).출고일자 ||
+          (r as any).거래일자 ||
+          (r as any).매출일자 ||
+          (r as any).date ||
+          baseDate ||
+          "";
+        tx_date = toISO(tx_date);
 
-      let code = (r as any).erp_customer_code || (r as any).거래처코드 || (r as any).고객코드 || (r as any).코드 || "";
-      let name = (r as any).customer_name || (r as any).거래처명 || (r as any).상호 || (r as any).거래처 || "";
+        let code =
+          (r as any).erp_customer_code ||
+          (r as any).거래처코드 ||
+          (r as any).고객코드 ||
+          (r as any).코드 ||
+          "";
+        let name =
+          (r as any).customer_name ||
+          (r as any).거래처명 ||
+          (r as any).상호 ||
+          (r as any).거래처 ||
+          "";
 
-      const doc  = (r as any).doc_no || (r as any).전표번호 || (r as any).문서번호 || "";
-      const line = (r as any).line_no || (r as any).행번호 || (r as any).라인번호 || (r as any).순번 || "";
+        const doc = (r as any).doc_no || (r as any).전표번호 || (r as any).문서번호 || "";
+        const line =
+          (r as any).line_no || (r as any).행번호 || (r as any).라인번호 || (r as any).순번 || "";
 
-      const item = (r as any).품명 || (r as any).품목 || "";
-      const spec = (r as any).규격 || "";
-      const qty  = (r as any).수량 ?? "";
-      const price= (r as any).단가 ?? "";
-      const amt  = (r as any).매출금액 ?? (r as any).금액 ?? "";
+        const item = (r as any).품명 || (r as any).품목 || "";
+        const spec = (r as any).규격 || "";
+        const qty = (r as any).수량 ?? "";
+        const price = (r as any).단가 ?? "";
+        const amt = (r as any).매출금액 ?? (r as any).금액 ?? "";
 
-      const desc = S(
-        (r as any).description || (r as any).적요 || (r as any).비고 || (r as any).내용 ||
-        [item, spec, qty && `x${qty}`, price && `@${price}`, amt && `=${amt}`].filter(Boolean).join(" ")
+        const desc = S(
+          (r as any).description ||
+            (r as any).적요 ||
+            (r as any).비고 ||
+            (r as any).내용 ||
+            [item, spec, qty && `x${qty}`, price && `@${price}`, amt && `=${amt}`]
+              .filter(Boolean)
+              .join(" ")
+        );
+
+        const debit = N(
+          (r as any).debit ??
+            (r as any).공급가 ??
+            (r as any).공급가액 ??
+            (r as any).금액 ??
+            (r as any).매출금액 ??
+            amt
+        );
+        const credit = N((r as any).credit ?? (r as any).부가세 ?? (r as any).세액 ?? 0);
+        const balance = N((r as any).balance ?? 0);
+
+        let key: string =
+          (r as any).erp_row_key || (r as any).rowkey || (r as any).고유키 || "";
+        if (!key) {
+          key =
+            doc || line
+              ? keyOf([tx_date, doc, line, code || name])
+              : keyOf([tx_date, code || name, item, spec, N(qty), N(price), N(amt)]);
+        }
+        if (!code && name) code = name;
+
+        return {
+          erp_customer_code: S(code),
+          customer_name: S(name),
+          tx_date,
+          doc_no: S(doc),
+          line_no: S(line),
+          description: desc,
+          debit,
+          credit,
+          balance,
+          erp_row_key: S(key),
+          updated_at: new Date().toISOString(),
+        };
+      })
+      .filter((r) => r.tx_date && (r.erp_customer_code || r.customer_name) && r.erp_row_key)
+      .filter(
+        (r) =>
+          !/합계|총계/.test(r.customer_name || "") && !/합계|총계/.test(r.description || "")
       );
-
-      const debit   = N((r as any).debit ?? (r as any).공급가 ?? (r as any).공급가액 ?? (r as any).금액 ?? (r as any).매출금액 ?? amt);
-      const credit  = N((r as any).credit ?? (r as any).부가세 ?? (r as any).세액 ?? 0);
-      const balance = N((r as any).balance ?? 0);
-
-      let key: string = (r as any).erp_row_key || (r as any).rowkey || (r as any).고유키 || "";
-      if (!key) {
-        key = (doc || line)
-          ? keyOf([tx_date, doc, line, code || name])
-          : keyOf([tx_date, code || name, item, spec, N(qty), N(price), N(amt)]);
-      }
-      if (!code && name) code = name;
-
-      return {
-        erp_customer_code: S(code),
-        customer_name: S(name),
-        tx_date,
-        doc_no: S(doc),
-        line_no: S(line),
-        description: desc,
-        debit, credit, balance,
-        erp_row_key: S(key),
-        updated_at: new Date().toISOString(),
-      };
-    })
-    .filter(r => r.tx_date && (r.erp_customer_code || r.customer_name) && r.erp_row_key)
-    .filter(r => !/합계|총계/.test(r.customer_name || "") && !/합계|총계/.test(r.description || ""));
 
     stage = "upsert-rest";
     const upserted = await upsertViaREST("ledger_entries", rows, "erp_row_key");
 
-    return res.status(200).json({
-      ok: true,
-      route: "pages/api/ledger-import",
-      stage: "done",
-      total: raw.length,
-      valid: rows.length,
-      upserted
-    });
+    return res
+      .status(200)
+      .json({ ok: true, route: "pages/api/ledger-import", stage: "done", total: raw.length, valid: rows.length, upserted });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || String(e), route: "pages/api/ledger-import", stage });
+    return res
+      .status(500)
+      .json({ error: e?.message || String(e), route: "pages/api/ledger-import", stage });
   }
 }
