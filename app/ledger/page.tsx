@@ -14,11 +14,8 @@ const ymd = (d: Date) =>
     d.getDate()
   ).padStart(2, "0")}`;
 
-/** ▷ 7글자 초과시 말줄임 */
-const trim7 = (s: string) => {
-  if (!s) return "";
-  return s.length > 7 ? s.slice(0, 7) + "…" : s;
-};
+/** 7글자 초과 시 말줄임 */
+const trim7 = (s: string) => (s?.length ?? 0) > 7 ? s.slice(0, 7) + "…" : (s || "");
 
 /* ---------- 타입 ---------- */
 type Row = {
@@ -33,14 +30,15 @@ type Row = {
 };
 type ApiResp = { ok: boolean; rows?: Row[]; message?: string };
 
-/* ---------- 인라인 팝오버: i 옆에 붙어서 열림 ---------- */
+/* ---------- 인라인 팝오버( i 옆 ) ---------- */
 const InlinePopover: React.FC<{
-  anchorRef: React.RefObject<HTMLButtonElement>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
   title: string;
   content: string;
   onClose: () => void;
 }> = ({ anchorRef, title, content, onClose }) => {
   const [style, setStyle] = useState<React.CSSProperties>({});
+
   useEffect(() => {
     const btn = anchorRef.current;
     if (!btn) return;
@@ -50,11 +48,11 @@ const InlinePopover: React.FC<{
     const panelWidth = 320;
     const panelHeight = 200;
 
-    // 기본: 버튼 오른쪽
+    // 기본: 오른쪽
     let left = rect.right + pad;
     let top = rect.top + rect.height / 2 - panelHeight / 2;
 
-    // 화면 우측으로 넘치면 왼쪽에 붙이기
+    // 우측 넘어가면 왼쪽
     if (left + panelWidth > window.innerWidth - 6) {
       left = rect.left - pad - panelWidth;
     }
@@ -75,10 +73,13 @@ const InlinePopover: React.FC<{
 
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     const onClickAway = (e: MouseEvent) => {
-      if (btn && !btn.contains(e.target as Node)) {
-        // 패널 영역 외부 클릭 시 닫기 (패널 자체는 내부에서 버블 중단)
-        const panel = document.getElementById("inline-popover-panel");
-        if (panel && !panel.contains(e.target as Node)) onClose();
+      const panel = document.getElementById("inline-popover-panel");
+      if (
+        panel &&
+        !panel.contains(e.target as Node) &&
+        !btn.contains(e.target as Node)
+      ) {
+        onClose();
       }
     };
     window.addEventListener("keydown", onEsc);
@@ -118,12 +119,12 @@ export default function LedgerPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // 팝오버 상태 (i 옆)
+  // 팝오버: 페이지에 하나만 렌더, 버튼 ref만 보관
   const [popover, setPopover] = useState<{
     open: boolean;
     title: string;
     content: string;
-    anchor: React.RefObject<HTMLButtonElement> | null;
+    anchor: React.RefObject<HTMLButtonElement | null> | null;
   }>({ open: false, title: "", content: "", anchor: null });
 
   // 기간: 최근 3개월
@@ -236,6 +237,8 @@ export default function LedgerPage() {
               rows.map((r, i) => {
                 const shortName = trim7(r.item_name || "");
                 const needInfo = (r.item_name?.length || 0) > 7 || (r.memo && r.memo.trim().length > 0);
+
+                // 각 행마다 ref 생성 (상태에 보관해서 팝오버에서 사용)
                 const btnRef = React.createRef<HTMLButtonElement>();
 
                 return (
@@ -246,33 +249,21 @@ export default function LedgerPage() {
                       <div className="inline-flex items-center justify-center gap-2 max-w-full">
                         <span className="truncate max-w-[260px]">{shortName}</span>
                         {needInfo && (
-                          <>
-                            <button
-                              ref={btnRef}
-                              type="button"
-                              onClick={() =>
-                                setPopover({
-                                  open: true,
-                                  title: r.item_name || "",
-                                  content: (r.memo && r.memo.trim()) || r.item_name || "",
-                                  anchor: btnRef,
-                                })
-                              }
-                              className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full border border-white text-[11px] hover:bg-white hover:text-[#0b0d21] transition"
-                              title="상세 보기"
-                              aria-label="상세 보기"
-                            >i</button>
-                            {popover.open && popover.anchor === btnRef && (
-                              <InlinePopover
-                                anchorRef={btnRef}
-                                title={popover.title}
-                                content={popover.content}
-                                onClose={() =>
-                                  setPopover({ open: false, title: "", content: "", anchor: null })
-                                }
-                              />
-                            )}
-                          </>
+                          <button
+                            ref={btnRef}
+                            type="button"
+                            onClick={() =>
+                              setPopover({
+                                open: true,
+                                title: r.item_name || "",
+                                content: (r.memo && r.memo.trim()) || r.item_name || "",
+                                anchor: btnRef,
+                              })
+                            }
+                            className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full border border-white text-[11px] hover:bg-white hover:text-[#0b0d21] transition"
+                            title="상세 보기"
+                            aria-label="상세 보기"
+                          >i</button>
                         )}
                       </div>
                     </td>
@@ -289,6 +280,16 @@ export default function LedgerPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 페이지에 단 하나의 팝오버만 렌더 */}
+      {popover.open && popover.anchor && (
+        <InlinePopover
+          anchorRef={popover.anchor}
+          title={popover.title}
+          content={popover.content}
+          onClose={() => setPopover({ open: false, title: "", content: "", anchor: null })}
+        />
+      )}
 
       {/* ✅ 표 전용(스코프) 1px 흰색 테두리 + 가운데정렬 + 좌우여백 2ch */}
       <style jsx>{`
@@ -311,7 +312,6 @@ export default function LedgerPage() {
           border-bottom: 1px solid #ffffff;
           font-weight: 700;
         }
-        /* 내용이 긴 품명은 셀 안에서만 줄임 처리 */
         .ledger-table td:nth-child(2) > div > span.truncate {
           display: inline-block;
         }
