@@ -73,7 +73,7 @@ const Bubble: React.FC<{
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     const onClickAway = (e: MouseEvent) => {
       const panel = document.getElementById("eg-bubble");
-      if (panel && !panel.contains(e.target as Node) && !anchorEl.contains(e.target as Node)) {
+      if (panel && !panel.contains(e.target as Node) && !anchorEl!.contains(e.target as Node)) {
         onClose();
       }
     };
@@ -253,7 +253,9 @@ export default function LedgerPage() {
             ) : (
               rows.map((r, i) => {
                 const shortName = trim7(r.item_name || "");
-                const needInfo = (r.item_name?.length || 0) > 7 || (r.memo && r.memo.trim().length > 0);
+                const needInfo =
+                  (r.item_name?.length || 0) > 7 || (r.memo && r.memo.trim().length > 0);
+
                 return (
                   <tr key={`${r.tx_date}-${i}`}>
                     <td className="col-date">{r.tx_date?.slice(5)}</td>
@@ -277,6 +279,7 @@ export default function LedgerPage() {
                         )}
                       </div>
                     </td>
+
                     <td className="col-qty">{!isDepositRow(r) ? (r.qty ?? "") : ""}</td>
                     <td>{!isDepositRow(r) ? fmt(r.unit_price) : ""}</td>
                     <td>{!isDepositRow(r) ? fmt(r.amount) : ""}</td>
@@ -302,9 +305,8 @@ export default function LedgerPage() {
       {/* ✅ 스타일 */}
       <style jsx>{`
         :root{
-          /* 로그인 버튼과 같은 파란색으로 맞추세요.
-             프로젝트 기본이 다르면 이 값만 원하는 색으로 교체하면 끝! */
-          --brand-blue: #2563eb; /* 예: Tailwind blue-600 */
+          /* 로그인 버튼과 같은 파란색 */
+          --brand-blue: #1739f7;
         }
 
         .ledger{
@@ -337,16 +339,16 @@ export default function LedgerPage() {
         thead tr th:last-child, tbody tr td:last-child{ border-right: none; }
         tbody tr:last-child td{ border-bottom: none; }
 
-        /* 데이터 셀: 짙은 남색을 기본으로, 짝수 행만 살짝 밝게 → 시인성 ↑ */
+        /* 데이터 셀: 짙은 남색 기본 + 짝수행 살짝 밝게(가독성) */
         tbody tr td{
           background: #0b0d21;
           color: #fff;
         }
         tbody tr:nth-child(even) td{
-          background: #101536; /* 살짝 밝은 남색 */
+          background: #101536;
         }
 
-        /* 데스크톱 기본 최소폭 */
+        /* 최소폭 설정 */
         .col-date { min-width: 96px; }
         .col-name { min-width: 320px; }
         .col-qty  { min-width: 84px; }
