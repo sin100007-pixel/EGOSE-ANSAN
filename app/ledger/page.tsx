@@ -34,7 +34,6 @@ export default async function LedgerMyPage() {
   const date_from = ymd(from);
   const date_to = ymd(today);
 
-  // 절대 URL 구성
   const h = headers();
   const proto = h.get("x-forwarded-proto") || "https";
   const host = h.get("x-forwarded-host") || h.get("host") || "";
@@ -68,28 +67,30 @@ export default async function LedgerMyPage() {
 
   return (
     <main className="p-6 text-white">
-      <h1 className="text-3xl font-extrabold mb-4">내 거래 내역 (최근 3개월)</h1>
+      <h1 className="text-3xl font-extrabold mb-4 text-center">내 거래 내역 (최근 3개월)</h1>
 
-      <p className="mb-4">
+      <p className="mb-4 text-center">
         {sessionName ? `${sessionName} 님, 기간: ${date_from} ~ ${date_to}` : "로그인 필요"}
       </p>
 
       {errorMsg ? (
         <p className="text-red-400">{errorMsg}</p>
       ) : rows.length === 0 ? (
-        <p>최근 3개월 거래가 없습니다.</p>
+        <p className="text-center">최근 3개월 거래가 없습니다.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-gray-700 border-collapse">
-            <thead className="bg-gray-900/40">
-              <tr className="text-gray-300">
-                <th className="text-left px-3 py-2 border-b border-gray-700">일자</th>
-                <th className="text-left px-3 py-2 border-b border-gray-700">품명</th>
-                <th className="text-right px-3 py-2 border-b border-gray-700">수량</th>
-                <th className="text-right px-3 py-2 border-b border-gray-700">단가</th>
-                <th className="text-right px-3 py-2 border-b border-gray-700">공급가</th>
-                <th className="text-right px-3 py-2 border-b border-gray-700">입금액</th>
-                <th className="text-right px-3 py-2 border-b border-gray-700">잔액</th>
+          {/* 표 전체에 흰색 가로/세로 선 + 중앙정렬 */}
+          <table className="w-full text-sm border-collapse table-fixed">
+            <thead className="bg-gray-900/50">
+              <tr className="text-gray-100">
+                {["일자", "품명", "수량", "단가", "공급가", "입금액", "잔액"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-3 py-2 text-center border border-white/40"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -97,25 +98,26 @@ export default async function LedgerMyPage() {
                 const isDeposit = r.item_name == null && (r.deposit ?? 0) > 0;
                 const desc = isDeposit ? "입금" : r.item_name || r.memo || "";
                 return (
-                  <tr
-                    key={`${r.tx_date}-${i}`}
-                    className={i % 2 === 0 ? "bg-gray-900/20" : "bg-gray-900/5"}
-                  >
-                    <td className="px-3 py-2 border-t border-gray-800">{r.tx_date}</td>
-                    <td className="px-3 py-2 border-t border-gray-800">{desc}</td>
-                    <td className="px-3 py-2 text-right border-t border-gray-800">
+                  <tr key={`${r.tx_date}-${i}`} className="odd:bg-gray-900/20">
+                    <td className="px-3 py-2 text-center border border-white/20 whitespace-nowrap">
+                      {r.tx_date}
+                    </td>
+                    <td className="px-3 py-2 text-center border border-white/20">
+                      {desc}
+                    </td>
+                    <td className="px-3 py-2 text-center border border-white/20">
                       {!isDeposit ? (r.qty ?? "") : ""}
                     </td>
-                    <td className="px-3 py-2 text-right border-t border-gray-800">
+                    <td className="px-3 py-2 text-center border border-white/20">
                       {!isDeposit ? fmt(r.unit_price) : ""}
                     </td>
-                    <td className="px-3 py-2 text-right border-t border-gray-800">
+                    <td className="px-3 py-2 text-center border border-white/20">
                       {!isDeposit ? fmt(r.amount) : "0"}
                     </td>
-                    <td className="px-3 py-2 text-right border-t border-gray-800">
+                    <td className="px-3 py-2 text-center border border-white/20">
                       {fmt(r.deposit)}
                     </td>
-                    <td className="px-3 py-2 text-right border-t border-gray-800">
+                    <td className="px-3 py-2 text-center border border-white/20">
                       {fmt(r.curr_balance)}
                     </td>
                   </tr>
