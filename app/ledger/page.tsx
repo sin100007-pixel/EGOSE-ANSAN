@@ -271,4 +271,96 @@ export default function LedgerPage() {
                                 anchorEl: e.currentTarget,
                               })
                             }
-                            className="ml-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md border border-white text-[11px] hover:bg-white hover:text-
+                            className="ml-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md border border-white text-[11px] hover:bg-white hover:text-[#0b0d21] transition"
+                            title="상세 보기" aria-label="상세 보기"
+                          >i</button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="col-qty">{!isDepositRow(r) ? (r.qty ?? "") : ""}</td>
+                    <td>{!isDepositRow(r) ? fmt(r.unit_price) : ""}</td>
+                    <td>{!isDepositRow(r) ? fmt(r.amount) : ""}</td>
+                    <td>{fmt(r.deposit)}</td>
+                    <td>{fmt(r.curr_balance)}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {bubble.open && (
+        <Bubble
+          anchorEl={bubble.anchorEl}
+          title={bubble.title}
+          content={bubble.content}
+          onClose={() => setBubble({ open: false, title: "", content: "", anchorEl: null })}
+        />
+      )}
+
+      {/* ✅ 스타일 */}
+      <style jsx>{`
+        :root{
+          /* 로그인 버튼과 같은 파란색으로 맞추세요.
+             프로젝트 기본이 다르면 이 값만 원하는 색으로 교체하면 끝! */
+          --brand-blue: #2563eb; /* 예: Tailwind blue-600 */
+        }
+
+        .ledger{
+          border-collapse: collapse;
+          width: 100%;
+          table-layout: auto;
+          border: 1px solid #ffffff;               /* 외곽선 선명 */
+          text-align: center;
+          border-radius: 12px; overflow: hidden;
+        }
+
+        /* 헤더: 로그인 버튼 파란색 */
+        thead th{
+          background: var(--brand-blue);
+          color: #fff;
+          font-weight: 800;
+          letter-spacing: .02em;
+          border-bottom: 1px solid #ffffff;        /* 헤더 하단만 선명 */
+          text-shadow: 0 1px 0 rgba(0,0,0,.25);
+        }
+
+        thead th, tbody td{
+          padding-block: 8px;
+          padding-inline: 1ch;
+          white-space: nowrap;
+          vertical-align: middle;
+          border-right: 1px solid rgba(255,255,255,.35);  /* 내부 수직선: 반투명 */
+          border-bottom: 1px solid rgba(255,255,255,.3);  /* 내부 수평선: 반투명 */
+        }
+        thead tr th:last-child, tbody tr td:last-child{ border-right: none; }
+        tbody tr:last-child td{ border-bottom: none; }
+
+        /* 데이터 셀: 짙은 남색을 기본으로, 짝수 행만 살짝 밝게 → 시인성 ↑ */
+        tbody tr td{
+          background: #0b0d21;
+          color: #fff;
+        }
+        tbody tr:nth-child(even) td{
+          background: #101536; /* 살짝 밝은 남색 */
+        }
+
+        /* 데스크톱 기본 최소폭 */
+        .col-date { min-width: 96px; }
+        .col-name { min-width: 320px; }
+        .col-qty  { min-width: 84px; }
+
+        /* 📱 모바일: 일자·품명·수량 한 화면 */
+        @media (max-width: 480px) {
+          .ledger { font-size: 13px; }
+          thead th, tbody td { padding-block: 6px; padding-inline: .6ch; }
+          .col-date { width: 22vw; min-width: 60px; }
+          .col-name { width: 56vw; min-width: 0; }
+          .col-qty  { width: 22vw; min-width: 54px; }
+          .col-name .truncate { max-width: 52vw; }
+        }
+      `}</style>
+    </div>
+  );
+}
