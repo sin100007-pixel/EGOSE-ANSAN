@@ -46,8 +46,8 @@ const Bubble: React.FC<{
     const calc = () => {
       const rect = anchorEl.getBoundingClientRect();
       const pad = 8;
-      const w = 240;   // 더 작게
-      const h = 140;   // 더 작게
+      const w = 240;
+      const h = 140;
 
       // 기본: i 오른쪽
       let left = rect.right + pad;
@@ -271,80 +271,4 @@ export default function LedgerPage() {
                                 anchorEl: e.currentTarget,
                               })
                             }
-                            className="ml-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md border border-white text-[11px] hover:bg-white hover:text-[#0b0d21] transition"
-                            title="상세 보기" aria-label="상세 보기"
-                          >i</button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="col-qty">{!isDepositRow(r) ? (r.qty ?? "") : ""}</td>
-                    <td>{!isDepositRow(r) ? fmt(r.unit_price) : ""}</td>
-                    <td>{!isDepositRow(r) ? fmt(r.amount) : ""}</td>
-                    <td>{fmt(r.deposit)}</td>
-                    <td>{fmt(r.curr_balance)}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {bubble.open && (
-        <Bubble
-          anchorEl={bubble.anchorEl}
-          title={bubble.title}
-          content={bubble.content}
-          onClose={() => setBubble({ open: false, title: "", content: "", anchorEl: null })}
-        />
-      )}
-
-      {/* ✅ 표 스타일: 외곽 흰색 1px + 내부 라인 반투명 + 셀 배경 짙은 남색 통일 */}
-      <style jsx>{`
-        .ledger{
-          border-collapse: collapse;
-          width: 100%;
-          table-layout: auto;
-          border: 1px solid #ffffff;               /* 외곽선 선명 */
-          text-align: center;
-          border-radius: 12px; overflow: hidden;
-        }
-        thead th{
-          background: #12132a;                      /* 헤더 짙은 남색 */
-          color: #fff;
-          font-weight: 700;
-          border-bottom: 1px solid #ffffff;         /* 헤더 하단선만 선명 */
-        }
-        thead th, tbody td{
-          padding-block: 8px;
-          padding-inline: 1ch;
-          white-space: nowrap;
-          vertical-align: middle;
-          border-right: 1px solid rgba(255,255,255,.4);  /* 내부 수직선: 반투명 */
-          border-bottom: 1px solid rgba(255,255,255,.35);/* 내부 수평선: 반투명 */
-        }
-        tbody td{
-          background: #0b0d21;                      /* ✅ 모든 데이터 셀 배경 통일 */
-          color: #fff;
-        }
-        tbody tr:last-child td{ border-bottom: none; }
-        thead tr th:last-child, tbody tr td:last-child{ border-right: none; }
-
-        /* 데스크톱 기본 최소폭 */
-        .col-date { min-width: 96px; }
-        .col-name { min-width: 320px; }
-        .col-qty  { min-width: 84px; }
-
-        /* 📱 모바일: 일자·품명·수량 한 화면 */
-        @media (max-width: 480px) {
-          .ledger { font-size: 13px; }
-          thead th, tbody td { padding-block: 6px; padding-inline: .6ch; }
-          .col-date { width: 22vw; min-width: 60px; }
-          .col-name { width: 56vw; min-width: 0; }
-          .col-qty  { width: 22vw; min-width: 54px; }
-          .col-name .truncate { max-width: 52vw; }
-        }
-      `}</style>
-    </div>
-  );
-}
+                            className="ml-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md border border-white text-[11px] hover:bg-white hover:text-
