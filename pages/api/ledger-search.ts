@@ -1,93 +1,86 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import * as https from "https";
-import { URL } from "url";
-
-export const config = { api: { bodyParser: false } };
-
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/[\r\n]+/g, "").replace(/\/+$/g, "").trim();
-const SERVICE_ROLE = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").replace(/[\r\n]+/g, "").trim();
-
-function httpsRequest(urlStr: string, method: string, headers: Record<string, string>) {
-  return new Promise<{ status: number; text: string; headers: any }>((resolve, reject) => {
-    try {
-      const u = new URL(urlStr);
-      const req = https.request({ method, hostname: u.hostname, path: u.pathname + u.search, headers }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (d) => chunks.push(d as Buffer));
-        res.on("end", () => resolve({ status: res.statusCode || 0, text: Buffer.concat(chunks).toString("utf8"), headers: res.headers }));
-      });
-      req.on("error", reject);
-      req.end();
-    } catch (e) { reject(e); }
-  });
-}
-
-function buildFilterURL(base: string, p: any, select: string, order?: string) {
-  const u = new URL(base);
-  u.searchParams.set("select", select);
-  if (p.date_from) u.searchParams.set("tx_date", `gte.${p.date_from}`);
-  if (p.date_to) u.searchParams.append("tx_date", `lte.${p.date_to}`);
-  if (p.q) {
-    const q = p.q.replace(/[%]/g, "");
-    u.searchParams.set("or", `(customer_name.ilike.*${q}*,erp_customer_code.ilike.*${q}*,doc_no.ilike.*${q}*)`);
-  }
-  if (order) u.searchParams.set("order", order);
-  return u.toString();
-}
-
-function toCSV(rows: any[]): string {
-  if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
-  const lines = [headers.join(",")].concat(rows.map((r) => headers.map((h) => escape(r[h])).join(",")));
-  return lines.join("\r\n");
-}
+import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    if (req.method !== "GET") { res.setHeader("Allow", "GET"); return res.status(405).json({ error: "Method Not Allowed" }); }
-    if (!SUPABASE_URL || !SERVICE_ROLE) return res.status(500).json({ error: "ENV missing" });
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  );
 
-    const p = {
-      date_from: (req.query.date_from as string) || "",
-      date_to: (req.query.date_to as string) || "",
-      q: (req.query.q as string) || "",
-      page: Number(req.query.page || 1),
-      limit: Math.min(200, Math.max(1, Number(req.query.limit || 50))),
-      format: (req.query.format as string) || "",
-    };
+  const { date_from, date_to, q = "", page = "1", limit = "50", format } = req.query as any;
+  const p = Math.max(1, Number(page));
+  const l = Math.max(1, Math.min(500, Number(limit)));
+  const from = (p - 1) * l;
+  const to = from + l - 1;
 
-    const apiBase = `${SUPABASE_URL}/rest/v1/ledger_entries`;
-    const from = (p.page - 1) * p.limit;
-    const to = from + p.limit - 1;
+  let qb = supabase
+    .from("ledger_entries")
+    .select(
+      "tx_date, erp_customer_code, customer_name, item_name, spec, unit, qty, price, debit, prev_balance, deposit, balance, remark, profit_loss, doc_no, line_no, erp_row_key",
+      { count: "exact" }
+    );
 
-    const listURL = buildFilterURL(apiBase, p, "tx_date,erp_customer_code,customer_name,doc_no,line_no,description,debit,credit,balance,erp_row_key", "tx_date.desc,doc_no.asc,line_no.asc");
-    const listRes = await httpsRequest(listURL, "GET", { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}`, Prefer: "count=exact", Range: `${from}-${to}` });
-    if (listRes.status < 200 || listRes.status >= 300) return res.status(500).json({ error: `List fail (${listRes.status}) ${listRes.text}` });
-    const rows = JSON.parse(listRes.text || "[]");
-    const totalCount = Number(listRes.headers["content-range"]?.toString().split("/")[1] || "0");
+  if (date_from) qb = qb.gte("tx_date", date_from);
+  if (date_to)   qb = qb.lte("tx_date", date_to);
 
-    if (p.format === "csv") {
-      const csv = toCSV(rows);
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="ledger_export.csv"`);
-      return res.status(200).send(csv);
-    }
-
-    const sumURL = buildFilterURL(apiBase, p, "debit.sum(),credit.sum(),balance.sum()");
-    const sumRes = await httpsRequest(sumURL, "GET", { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` });
-    let sum = { debit: 0, credit: 0, balance: 0 };
-    try {
-      const arr = JSON.parse(sumRes.text || "[]");
-      if (Array.isArray(arr) && arr[0]) {
-        sum.debit = Number(arr[0]["debit_sum"] ?? 0);
-        sum.credit = Number(arr[0]["credit_sum"] ?? 0);
-        sum.balance = Number(arr[0]["balance_sum"] ?? 0);
-      }
-    } catch {}
-
-    return res.status(200).json({ ok: true, page: p.page, limit: p.limit, total: totalCount, rows, sum });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message || String(e) });
+  if (q) {
+    qb = qb.or(
+      [
+        `customer_name.ilike.%${q}%`,
+        `erp_customer_code.ilike.%${q}%`,
+        `item_name.ilike.%${q}%`,
+        `spec.ilike.%${q}%`,
+        `remark.ilike.%${q}%`,
+        `doc_no.ilike.%${q}%`,
+      ].join(",")
+    );
   }
+
+  qb = qb.order("tx_date", { ascending: true })
+         .order("doc_no", { ascending: true, nullsFirst: true })
+         .order("line_no", { ascending: true, nullsFirst: true })
+         .range(from, to);
+
+  const { data, error, count } = await qb;
+  if (error) return res.status(400).json({ error: error.message });
+
+  // 합계 (페이지 합계가 아니라 기간 전체 합계가 필요하면 별도 쿼리)
+  const sum = {
+    debit:   (data || []).reduce((a, r: any) => a + (Number(r.debit   || 0)), 0),
+    credit:  0, // 부가세를 별도로 쓰지 않는 화면이므로 0
+    balance: (data || []).reduce((a, r: any) => a + (Number(r.balance || 0)), 0),
+  };
+
+  // CSV
+  if (format === "csv") {
+    const header = [
+      "거래처","코드","품명","규격","단위","수량","단가","매출금액",
+      "전일잔액","입금액","금일잔액","비고","손익","일자","전표","라인"
+    ];
+    const rows = (data || []).map((r: any) => [
+      r.customer_name || "",
+      r.erp_customer_code || "",
+      r.item_name || "",
+      r.spec || "",
+      r.unit || "",
+      r.qty ?? "",
+      r.price ?? "",
+      r.debit ?? "",
+      r.prev_balance ?? "",
+      r.deposit ?? "",
+      r.balance ?? "",
+      r.remark ?? "",         // 비고: 비어있으면 빈칸
+      r.profit_loss ?? "",
+      r.tx_date || "",
+      r.doc_no || "",
+      r.line_no || "",
+    ]);
+    const csv = [header, ...rows].map(a => a.join(",")).join("\r\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=ledger.csv`);
+    return res.status(200).send(csv);
+  }
+
+  return res.status(200).json({ rows: data || [], total: count || 0, sum });
 }
