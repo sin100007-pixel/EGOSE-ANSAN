@@ -1,5 +1,7 @@
-// CSV/XLSX 업로드 → Supabase PostgREST 업서트 (https 모듈 사용)
-// 멀티파트/본문 모두 Buffer 기반 처리 + ENV 값 개행/공백 제거
+// pages/api/ledger-import.ts
+// CSV/XLSX 업로드 → Supabase REST 업서트 (Buffer + https 사용)
+// - 거래처/코드가 빈칸으로 내려가는 엑셀을 위해 Forward-Fill 적용
+// - "소계/합계/총계" 요약 행은 자동 제외
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { parse as parseCsv } from "csv-parse/sync";
@@ -9,7 +11,7 @@ import { URL } from "url";
 
 export const config = { api: { bodyParser: false } };
 
-// ===== ENV (개행/공백 제거해서 안전하게 사용) =====
+// ===== ENV (개행/공백 제거) =====
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
   .replace(/[\r\n]+/g, "")
   .replace(/\/+$/g, "")
@@ -38,7 +40,7 @@ const toISO = (v: any) => {
 const keyOf = (parts: Array<string | number>) =>
   encodeURIComponent(parts.map((p) => String(p ?? "")).join("|"));
 
-// ===== Buffer 기반 멀티파트 파서 =====
+// ===== multipart by Buffer =====
 async function parseMultipartByBuffer(req: NextApiRequest) {
   const ct = req.headers["content-type"]?.toString() || "";
   const m = ct.match(/boundary=(.*)$/);
@@ -90,7 +92,7 @@ async function parseMultipartByBuffer(req: NextApiRequest) {
   return { file, filename, baseDate };
 }
 
-// ===== 파일 파서 =====
+// ===== file parsers =====
 function rowsFromXLSX(buf: Buffer): Raw[] {
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
@@ -107,23 +109,29 @@ function rowsFromXLSX(buf: Buffer): Raw[] {
     desc: ["적요", "비고", "내용", "품명", "품목", "규격"],
   };
   const hit = (h: string, arr: string[]) => arr.some((k) => h.includes(k));
-  let hi = 0, best = -1;
+  let hi = 0,
+    best = -1;
   for (let r = 0; r < Math.min(8, table.length); r++) {
     const row = table[r] || [];
     const score = row.reduce((a: number, c: any) => {
       const h = S(c);
-      return a
-        + (hit(h, LABELS.code) ? 1 : 0)
-        + (hit(h, LABELS.name) ? 1 : 0)
-        + (hit(h, LABELS.date) ? 1 : 0)
-        + (hit(h, LABELS.doc) ? 1 : 0)
-        + (hit(h, LABELS.line) ? 1 : 0)
-        + (hit(h, LABELS.debit) ? 1 : 0)
-        + (hit(h, LABELS.credit) ? 1 : 0)
-        + (hit(h, LABELS.bal) ? 1 : 0)
-        + (hit(h, LABELS.desc) ? 1 : 0);
+      return (
+        a +
+        (hit(h, LABELS.code) ? 1 : 0) +
+        (hit(h, LABELS.name) ? 1 : 0) +
+        (hit(h, LABELS.date) ? 1 : 0) +
+        (hit(h, LABELS.doc) ? 1 : 0) +
+        (hit(h, LABELS.line) ? 1 : 0) +
+        (hit(h, LABELS.debit) ? 1 : 0) +
+        (hit(h, LABELS.credit) ? 1 : 0) +
+        (hit(h, LABELS.bal) ? 1 : 0) +
+        (hit(h, LABELS.desc) ? 1 : 0)
+      );
     }, 0);
-    if (score > best) { best = score; hi = r; }
+    if (score > best) {
+      best = score;
+      hi = r;
+    }
   }
   const headers = (table[hi] || []).map((h) => S(h));
   const rows = table.slice(hi + 1);
@@ -138,6 +146,37 @@ function rowsFromXLSX(buf: Buffer): Raw[] {
 }
 function rowsFromCSV(buf: Buffer): Raw[] {
   return parseCsv(buf, { columns: true, bom: true, skip_empty_lines: true, trim: true });
+}
+
+// ===== Forward-Fill (거래처/코드 빈칸을 앞줄 값으로 채우기) =====
+function forwardFillCustomerAndCode(rows: Record<string, any>[]) {
+  const NAME_KEYS = ["customer_name", "거래처명", "상호", "거래처"];
+  const CODE_KEYS = ["erp_customer_code", "거래처코드", "고객코드", "코드"];
+
+  let lastName = "";
+  let lastCode = "";
+
+  return rows.map((r) => {
+    const o: Record<string, any> = { ...r };
+
+    const nameKey = NAME_KEYS.find((k) => k in o);
+    const codeKey = CODE_KEYS.find((k) => k in o);
+
+    const rawName = nameKey ? String(o[nameKey] ?? "").trim() : "";
+    const rawCode = codeKey ? String(o[codeKey] ?? "").trim() : "";
+
+    // 소계/합계/총계 같은 그룹 라벨은 forward-fill에 사용하지 않음
+    const label = rawName || rawCode || "";
+    if (/^\s*소계|합계|총계/.test(label)) return o;
+
+    if (rawName) lastName = rawName;
+    if (rawCode) lastCode = rawCode;
+
+    if (nameKey && !rawName) o[nameKey] = lastName;
+    if (codeKey && !rawCode) o[codeKey] = lastCode;
+
+    return o;
+  });
 }
 
 // ===== https.request 유틸 =====
@@ -176,7 +215,7 @@ function httpsRequestBuffer(
   });
 }
 
-// ===== REST 업서트 (https + Buffer 본문) =====
+// ===== REST 업서트 =====
 async function upsertViaREST(table: string, rows: any[], onConflict: string) {
   if (!SUPABASE_URL || !SERVICE_ROLE) {
     throw new Error("Missing env: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
@@ -198,7 +237,9 @@ async function upsertViaREST(table: string, rows: any[], onConflict: string) {
     const { status, text } = await httpsRequestBuffer(url, "POST", baseHeaders, body);
     if (status < 200 || status >= 300) throw new Error(`REST upsert fail (${status}): ${text}`);
     let data: any = [];
-    try { data = JSON.parse(text); } catch {}
+    try {
+      data = JSON.parse(text);
+    } catch {}
     upserted += Array.isArray(data) ? data.length : 0;
   }
   return upserted;
@@ -221,7 +262,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isXlsx = file[0] === 0x50 && file[1] === 0x4b;
 
     stage = isXlsx ? "parse-xlsx" : "parse-csv";
-    const raw = isXlsx ? rowsFromXLSX(file) : rowsFromCSV(file);
+    const raw0 = isXlsx ? rowsFromXLSX(file) : rowsFromCSV(file);
+
+    // ★ Forward-Fill 적용
+    const raw = forwardFillCustomerAndCode(raw0);
 
     stage = "map-rows";
     const rows = raw
@@ -264,7 +308,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             (r as any).적요 ||
             (r as any).비고 ||
             (r as any).내용 ||
-            [item, spec, qty && `x${qty}`, price && `@${price}`, amt && `=${amt}`].filter(Boolean).join(" ")
+            [item, spec, qty && `x${qty}`, price && `@${price}`, amt && `=${amt}`]
+              .filter(Boolean)
+              .join(" ")
         );
 
         const debit = N(
@@ -301,8 +347,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           updated_at: new Date().toISOString(),
         };
       })
+      // 유효 행만 남기기
       .filter((r) => r.tx_date && (r.erp_customer_code || r.customer_name) && r.erp_row_key)
-      .filter((r) => !/합계|총계/.test(r.customer_name || "") && !/합계|총계/.test(r.description || ""));
+      // ★ 소계/합계/총계 라벨 제외
+      .filter(
+        (r) =>
+          !/합계|총계|^\s*소계/.test(r.customer_name || "") &&
+          !/합계|총계|^\s*소계/.test(r.description || "")
+      );
 
     stage = "upsert-rest";
     const upserted = await upsertViaREST("ledger_entries", rows, "erp_row_key");
