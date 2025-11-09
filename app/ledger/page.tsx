@@ -15,7 +15,8 @@ const ymd = (d: Date) =>
   ).padStart(2, "0")}`;
 
 /** 7글자 초과 시 말줄임 */
-const trim7 = (s: string) => (s?.length ?? 0) > 7 ? s.slice(0, 7) + "…" : (s || "");
+const trim7 = (s: string) =>
+  (s?.length ?? 0) > 7 ? s.slice(0, 7) + "…" : (s || "");
 
 /* ---------- 타입 ---------- */
 type Row = {
@@ -94,8 +95,17 @@ const Bubble: React.FC<{
 
   return (
     <>
+      {/* 배경 클릭으로 닫기 */}
       <div className="fixed inset-0 z-[998] bg-black/10" onClick={onClose} aria-hidden="true" />
-      <div id="eg-bubble" style={style} className={`eg-bubble ${arrowSide}`} role="dialog" aria-modal="true">
+      {/* 풍선 자체를 클릭해도 닫힘 */}
+      <div
+        id="eg-bubble"
+        style={style}
+        className={`eg-bubble ${arrowSide}`}
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
+      >
         <div className="eg-bubble-head">
           <div className="eg-bubble-title" title={title || "상세"}>{title || "상세"}</div>
           <button className="eg-bubble-close" onClick={onClose}>닫기</button>
@@ -141,6 +151,8 @@ const Bubble: React.FC<{
 
 /* ---------- 페이지 ---------- */
 export default function LedgerPage() {
+  const HEADER_BLUE = "#1739f7"; // 로그인 버튼과 동일 파랑
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -233,13 +245,13 @@ export default function LedgerPage() {
         <table className="ledger w-full text-[14px] md:text-[15px] leading-tight">
           <thead>
             <tr>
-              <th className="col-date">일자</th>
-              <th className="col-name">품명</th>
-              <th className="col-qty">수량</th>
-              <th>단가</th>
-              <th>공급가</th>
-              <th>입금액</th>
-              <th>잔액</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }} className="col-date">일자</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }} className="col-name">품명</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }} className="col-qty">수량</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }}>단가</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }}>공급가</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }}>입금액</th>
+              <th style={{ background: HEADER_BLUE, color: "#fff" }}>잔액</th>
             </tr>
           </thead>
 
@@ -265,14 +277,20 @@ export default function LedgerPage() {
                         {needInfo && (
                           <button
                             type="button"
-                            onClick={(e) =>
+                            onClick={(e) => {
+                              // ✅ 같은 i 버튼을 다시 누르면 닫기(토글)
+                              if (bubble.open && bubble.anchorEl === e.currentTarget) {
+                                setBubble({ open: false, title: "", content: "", anchorEl: null });
+                                return;
+                              }
+                              // 열기
                               setBubble({
                                 open: true,
                                 title: r.item_name || "",
                                 content: (r.memo && r.memo.trim()) || r.item_name || "",
                                 anchorEl: e.currentTarget,
-                              })
-                            }
+                              });
+                            }}
                             className="ml-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md border border-white text-[11px] hover:bg-white hover:text-[#0b0d21] transition"
                             title="상세 보기" aria-label="상세 보기"
                           >i</button>
@@ -304,11 +322,6 @@ export default function LedgerPage() {
 
       {/* ✅ 스타일 */}
       <style jsx>{`
-        :root{
-          /* 로그인 버튼과 같은 파란색 */
-          --brand-blue: #1739f7;
-        }
-
         .ledger{
           border-collapse: collapse;
           width: 100%;
@@ -318,10 +331,7 @@ export default function LedgerPage() {
           border-radius: 12px; overflow: hidden;
         }
 
-        /* 헤더: 로그인 버튼 파란색 */
         thead th{
-          background: var(--brand-blue);
-          color: #fff;
           font-weight: 800;
           letter-spacing: .02em;
           border-bottom: 1px solid #ffffff;        /* 헤더 하단만 선명 */
@@ -340,13 +350,8 @@ export default function LedgerPage() {
         tbody tr:last-child td{ border-bottom: none; }
 
         /* 데이터 셀: 짙은 남색 기본 + 짝수행 살짝 밝게(가독성) */
-        tbody tr td{
-          background: #0b0d21;
-          color: #fff;
-        }
-        tbody tr:nth-child(even) td{
-          background: #101536;
-        }
+        tbody tr td{ background: #0b0d21; color: #fff; }
+        tbody tr:nth-child(even) td{ background: #101536; }
 
         /* 최소폭 설정 */
         .col-date { min-width: 96px; }
