@@ -173,7 +173,7 @@ export default function LedgerDashboardPage() {
 
   useEffect(() => { fetchData(1); }, []);
 
-  // 표시용 보정: UNK 이어받기 + 단가/매출금액 계산 보정
+  // 표시용 보정: 소계 제외 + UNK 이어받기 + 단가/매출금액 계산 보정
   const displayRows = useMemo((): Array<Row & {
     _display_name: string | null;
     _display_code: string | null;
@@ -191,6 +191,9 @@ export default function LedgerDashboardPage() {
     let lastCode: string | null = null;
 
     for (const r of rows) {
+      // 🔒 추가: 소계 행은 화면에서 완전히 제외
+      if ((r.customer_name ?? "").trim().startsWith("소계")) continue;
+
       const rawName = (r.customer_name ?? "").trim() || null;
       const rawCode = (r.erp_customer_code ?? "").trim() || null;
 
