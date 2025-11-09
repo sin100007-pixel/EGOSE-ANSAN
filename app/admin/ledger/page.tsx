@@ -14,21 +14,16 @@ function toNum(v: any): number | null {
 /* 여러 후보 키 중 첫 값을 '문자열'로 반환 */
 function pickStr(obj: any, keys: string[]): string | null {
   for (const k of keys) {
-    // 중첩 접근 지원: a.b.c
     const parts = k.split(".");
     let cur: any = obj;
     let ok = true;
     for (const p of parts) {
-      if (cur && Object.prototype.hasOwnProperty.call(cur, p)) {
-        cur = cur[p];
-      } else {
-        ok = false;
-        break;
-      }
+      if (cur && Object.prototype.hasOwnProperty.call(cur, p)) cur = cur[p];
+      else { ok = false; break; }
     }
-    if (ok && cur !== undefined && cur !== null && String(cur).length > 0) {
+    if (ok && cur !== undefined && cur !== null) {
       const s = String(cur).trim();
-      return s.length ? s : null;
+      if (s.length) return s;
     }
   }
   return null;
@@ -41,12 +36,8 @@ function pickNum(obj: any, keys: string[]): number | null {
     let cur: any = obj;
     let ok = true;
     for (const p of parts) {
-      if (cur && Object.prototype.hasOwnProperty.call(cur, p)) {
-        cur = cur[p];
-      } else {
-        ok = false;
-        break;
-      }
+      if (cur && Object.prototype.hasOwnProperty.call(cur, p)) cur = cur[p];
+      else { ok = false; break; }
     }
     if (!ok) continue;
     const n = toNum(cur);
@@ -85,16 +76,16 @@ export default function LedgerDashboardPage() {
   const mm = String(today.getMonth() + 1).padStart(2, "0");
   const dd = String(today.getDate()).padStart(2, "0");
 
-  const [dateFrom, setDateFrom] = useState(`${yyyy}-${mm}-01`);
-  const [dateTo, setDateTo] = useState(`${yyyy}-${mm}-${dd}`);
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
-  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState<string>(`${yyyy}-${mm}-01`);
+  const [dateTo, setDateTo] = useState<string>(`${yyyy}-${mm}-${dd}`);
+  const [q, setQ] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(50);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const [rows, setRows] = useState<Row[]>([]);
-  const [total, setTotal] = useState(0);
-  const [sum, setSum] = useState({ debit: 0, credit: 0, balance: 0 });
+  const [total, setTotal] = useState<number>(0);
+  const [sum, setSum] = useState<{ debit: number; credit: number; balance: number }>({ debit: 0, credit: 0, balance: 0 });
 
   const pages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
 
@@ -117,20 +108,17 @@ export default function LedgerDashboardPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "조회 실패");
 
-      // A안 + 강화: 다양한 키/형태를 화면 표준(price/debit)으로 정규화
+      // 다양한 키/형태를 화면 표준(price/debit)으로 정규화
       const normalized: Row[] = (json.rows || []).map((r: any) => {
         const qty = pickNum(r, ["qty", "quantity", "수량"]);
-
         const price = pickNum(
           r,
           ["price", "unit_price", "unitPrice", "unitprice", "판매단가", "매출단가", "단가", "data.unit_price"]
         );
-
         const debit = pickNum(
           r,
           ["debit", "amount", "sales_amount", "salesAmount", "공급가액", "매출금액", "판매금액", "data.amount"]
         );
-
         const prev_balance = pickNum(r, ["prev_balance", "prevBalance", "전일잔액", "이월", "previous_balance"]);
         const deposit = pickNum(r, ["deposit", "입금액", "입금", "credit"]);
         const balance = pickNum(r, ["balance", "curr_balance", "금일잔액", "현재잔액"]);
@@ -186,13 +174,18 @@ export default function LedgerDashboardPage() {
   useEffect(() => { fetchData(1); }, []);
 
   // 표시용 보정: UNK 이어받기 + 단가/매출금액 계산 보정
-  const displayRows = useMemo(() => {
-    const out: (Row & {
+  const displayRows = useMemo((): Array<Row & {
+    _display_name: string | null;
+    _display_code: string | null;
+    _display_price: number | null;
+    _display_debit: number | null;
+  }> => {
+    const out: Array<Row & {
       _display_name: string | null;
       _display_code: string | null;
       _display_price: number | null;
       _display_debit: number | null;
-    })[] = [];
+    }> = [];
 
     let lastName: string | null = null;
     let lastCode: string | null = null;
@@ -201,11 +194,13 @@ export default function LedgerDashboardPage() {
       const rawName = (r.customer_name ?? "").trim() || null;
       const rawCode = (r.erp_customer_code ?? "").trim() || null;
 
-      const name = (!rawName && lastName) ? lastName : rawName;
-      const code = ((!rawCode || isUNK(rawCode)) && lastCode) ? lastCode : rawCode;
+      const displayName: string | null =
+        (!rawName && lastName) ? lastName : rawName;
+      const displayCode: string | null =
+        ((!rawCode || isUNK(rawCode)) && lastCode) ? lastCode : rawCode;
 
-      if (name) lastName = name;
-      if (code && !isUNK(code)) lastCode = code;
+      if (displayName) lastName = displayName;
+      if (displayCode && !isUNK(displayCode)) lastCode = displayCode;
 
       let showPrice: number | null = r.price ?? null;
       let showDebit: number | null = r.debit ?? null;
@@ -222,8 +217,8 @@ export default function LedgerDashboardPage() {
 
       out.push({
         ...r,
-        _display_name: name,
-        _display_code: code,
+        _display_name: displayName,
+        _display_code: displayCode,
         _display_price: showPrice ?? null,
         _display_debit: showDebit ?? null,
       });
@@ -275,7 +270,7 @@ export default function LedgerDashboardPage() {
         </div>
       </div>
 
-      {/* 테이블: 요청하신 열만 표시 */}
+      {/* 테이블 */}
       <div className="overflow-auto rounded-lg border border-white/10">
         <table className="min-w-full text-sm">
           <thead className="bg-white/10 sticky top-0">
@@ -302,9 +297,7 @@ export default function LedgerDashboardPage() {
             {displayRows.map((r) => (
               <tr key={r.erp_row_key} className="odd:bg-white/0 even:bg-white/5">
                 <td className="px-3 py-2">{r._display_code || ""}</td>
-                <td className="px-3 py-2">
-                  {r.item_name || ""}
-                </td>
+                <td className="px-3 py-2">{r.item_name || ""}</td>
                 <td className={`px-3 py-2 text-right ${isNeg(r.qty)}`}>{fmt(r.qty)}</td>
                 <td className={`px-3 py-2 text-right ${isNeg(r._display_price)}`}>{fmt(r._display_price)}</td>
                 <td className={`px-3 py-2 text-right ${isNeg(r._display_debit)}`}>{fmt(r._display_debit)}</td>
