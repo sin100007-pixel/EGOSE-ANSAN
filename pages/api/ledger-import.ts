@@ -1,6 +1,6 @@
 // pages/api/ledger-import.ts
-// CSV/XLSX 업로드 → Supabase PostgREST 직접 업서트 (https 모듈 사용)
-// 전체 경로 UTF-8 바이트 전송: ByteString 이슈 완전 차단
+// CSV/XLSX 업로드 → Supabase PostgREST 업서트 (https 모듈 사용)
+// 멀티파트/본문 모두 Buffer 기반 처리 + ENV 값 개행/공백 제거
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { parse as parseCsv } from "csv-parse/sync";
@@ -10,11 +10,15 @@ import { URL } from "url";
 
 export const config = { api: { bodyParser: false } };
 
-// ===== ENV =====
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string; // e.g. https://xxxxx.supabase.co
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
+// ===== ENV (개행/공백 제거해서 안전하게 사용) =====
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
+  .replace(/[\r\n]+/g, "")
+  .replace(/\/+$/g, "")
+  .trim();
+const SERVICE_ROLE = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "")
+  .replace(/[\r\n]+/g, "")
+  .trim();
 
-// ===== utils =====
 type Raw = Record<string, any>;
 const S = (v: any) => String(v ?? "").trim();
 const N = (v: any) => {
@@ -144,7 +148,12 @@ function rowsFromCSV(buf: Buffer): Raw[] {
 }
 
 // ===== https.request 유틸 =====
-function httpsRequestBuffer(urlStr: string, method: string, headers: Record<string, string>, body?: Buffer): Promise<{ status: number; text: string }> {
+function httpsRequestBuffer(
+  urlStr: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: Buffer
+): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
     try {
       const u = new URL(urlStr);
@@ -154,7 +163,7 @@ function httpsRequestBuffer(urlStr: string, method: string, headers: Record<stri
         path: u.pathname + u.search,
         headers: {
           ...headers,
-          "Content-Length": body ? Buffer.byteLength(body) : 0,
+          ...(body ? { "Content-Length": String(Buffer.byteLength(body)) } : {}),
         },
       };
       const req = https.request(options, (res) => {
@@ -174,30 +183,37 @@ function httpsRequestBuffer(urlStr: string, method: string, headers: Record<stri
   });
 }
 
-// ===== REST 업서트 (https 모듈 + Buffer 본문) =====
+// ===== REST 업서트 (https + Buffer 본문) =====
 async function upsertViaREST(table: string, rows: any[], onConflict: string) {
   if (!SUPABASE_URL || !SERVICE_ROLE) {
     throw new Error("Missing env: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
   const url = `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`;
-  const headers = {
-    apikey: SERVICE_ROLE,
-    Authorization: `Bearer ${SERVICE_ROLE}`,
+
+  // 헤더 값은 개행/공백 제거된 값을 사용
+  const APIKEY = SERVICE_ROLE;
+  const AUTH = `Bearer ${APIKEY}`;
+
+  const baseHeaders: Record<string, string> = {
+    apikey: APIKEY,
+    Authorization: AUTH,
     "Content-Type": "application/json; charset=utf-8",
     Prefer: "return=representation,resolution=merge-duplicates",
-  } as Record<string, string>;
+  };
 
   let upserted = 0;
   for (let i = 0; i < rows.length; i += 1000) {
     const chunk = rows.slice(i, i + 1000);
     const body = Buffer.from(JSON.stringify(chunk), "utf8");
 
-    const { status, text } = await httpsRequestBuffer(url, "POST", headers, body);
+    const { status, text } = await httpsRequestBuffer(url, "POST", baseHeaders, body);
     if (status < 200 || status >= 300) {
       throw new Error(`REST upsert fail (${status}): ${text}`);
     }
     let data: any = [];
-    try { data = JSON.parse(text); } catch {}
+    try {
+      data = JSON.parse(text);
+    } catch {}
     upserted += Array.isArray(data) ? data.length : 0;
   }
   return upserted;
@@ -215,11 +231,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     stage = "parse-multipart";
     const { file, baseDate } = await parseMultipartByBuffer(req);
     if (!file) {
-      return res.status(400).json({ error: "파일이 없습니다.", route: "pages/api/ledger-import", stage });
+      return res
+        .status(400)
+        .json({ error: "파일이 없습니다.", route: "pages/api/ledger-import", stage });
     }
 
     stage = "detect-type";
-    const isXlsx = file[0] === 0x50 && file[1] === 0x4B;
+    const isXlsx = file[0] === 0x50 && file[1] === 0x4b;
 
     stage = isXlsx ? "parse-xlsx" : "parse-csv";
     const raw = isXlsx ? rowsFromXLSX(file) : rowsFromCSV(file);
@@ -308,10 +326,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     stage = "upsert-rest";
     const upserted = await upsertViaREST("ledger_entries", rows, "erp_row_key");
 
-    return res
-      .status(200)
-      .json({ ok: true, route: "pages/api/ledger-import", stage: "done", total: raw.length, valid: rows.length, upserted });
+    return res.status(200).json({
+      ok: true,
+      route: "pages/api/ledger-import",
+      stage: "done",
+      total: raw.length,
+      valid: rows.length,
+      upserted,
+    });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || String(e), route: "pages/api/ledger-import", stage });
+    return res
+      .status(500)
+      .json({ error: e?.message || String(e), route: "pages/api/ledger-import", stage });
   }
 }
