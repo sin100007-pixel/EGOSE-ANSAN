@@ -233,8 +233,15 @@ export default function LedgerPage() {
   const isDepositRow = (r: Row) => (r.deposit ?? 0) > 0 && (r.amount ?? 0) === 0;
 
   return (
-    <div className="wrap text-white" style={{ background: "#0b0d21", fontSize: 18 }}>
-      {/* ✅ 상단 Topbar — 인앱 호환을 위해 sticky */}
+    // ✅ 고정 뷰포트: 바디 스크롤 전이 차단(인앱에서 헤더 튐 방지)
+    <div className="viewport" style={{
+      position: "fixed",
+      inset: 0,
+      background: "#0b0d21",
+      color: "#fff",
+      overflow: "hidden",
+    }}>
+      {/* ✅ 상단 Topbar — sticky (뷰포트가 fixed라 바디 스크롤 없음) */}
       <div
         className="topbar"
         style={{
@@ -277,13 +284,15 @@ export default function LedgerPage() {
         </Link>
       </div>
 
-      {/* ✅ 내부 스크롤 컨테이너 */}
+      {/* ✅ 내부 스크롤 컨테이너: 오직 여기만 스크롤됨 */}
       <div
         className="scroller"
         style={{
           height: `calc(100vh - ${TOPBAR_H}px)`,
           overflow: "auto",
           WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+          touchAction: "pan-y",
           padding: "0 16px 24px",
         }}
       >
@@ -425,8 +434,6 @@ export default function LedgerPage() {
           .ledger { font-size: 15px; }
           tbody td { padding-block: 8px; padding-inline: .8ch; }
         }
-
-        /* 말풍선 스타일은 컴포넌트 내부에 정의됨 */
       `}</style>
     </div>
   );
