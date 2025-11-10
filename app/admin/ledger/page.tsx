@@ -1,3 +1,4 @@
+// app/admin/ledger/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -48,21 +49,17 @@ function pickNum(obj: any, keys: string[]): number | null {
 
 type Row = {
   tx_date: string;
-
-  erp_customer_code: string | null; // 코드
-  customer_name: string | null;     // 거래처
-
+  erp_customer_code: string | null; // 코드(표시 안 함)
+  customer_name: string | null;     // 거래처명
   item_name: string | null;         // 품명
   spec: string | null;              // 규격
   unit: string | null;              // 단위
-
   qty: number | null;               // 수량
   price: number | null;             // 단가
   debit: number | null;             // 매출금액
   prev_balance: number | null;      // 전일잔액
   deposit: number | null;           // 입금액
   balance: number | null;           // 금일잔액
-
   remark: string | null;            // 비고
   profit_loss: number | null;       // 손익
   doc_no: string | null;
@@ -92,7 +89,6 @@ export default function LedgerDashboardPage() {
   const fmt = (n?: number | null) =>
     n === null || n === undefined ? "" : Number(n).toLocaleString("ko-KR");
   const isNeg = (n?: number | null) => (n ?? 0) < 0 ? "text-red-400" : undefined;
-  const isUNK = (s?: string | null) => !!s && /^UNK-\d+$/i.test(s);
 
   const fetchData = async (goPage = page) => {
     setLoading(true);
@@ -108,7 +104,6 @@ export default function LedgerDashboardPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "조회 실패");
 
-      // 다양한 키/형태를 화면 표준(price/debit)으로 정규화
       const normalized: Row[] = (json.rows || []).map((r: any) => {
         const qty = pickNum(r, ["qty", "quantity", "수량"]);
         const price = pickNum(
@@ -173,47 +168,27 @@ export default function LedgerDashboardPage() {
 
   useEffect(() => { fetchData(1); }, []);
 
-  // 표시용 보정: 소계 제외 + UNK 이어받기 + 단가/매출금액 계산 보정
-  const displayRows = useMemo((): Array<Row & {
-    _display_name: string | null;
-    _display_code: string | null;
-    _display_price: number | null;
-    _display_debit: number | null;
-  }> => {
-    const out: Array<Row & {
-      _display_name: string | null;
-      _display_code: string | null;
-      _display_price: number | null;
-      _display_debit: number | null;
-    }> = [];
-
+  const displayRows = useMemo(() => {
+    type T = Row & { _display_name: string | null; _display_price: number | null; _display_debit: number | null; };
+    const out: T[] = [];
     let lastName: string | null = null;
-    let lastCode: string | null = null;
 
     for (const r of rows) {
-      // 🔒 추가: 소계 행은 화면에서 완전히 제외
       if ((r.customer_name ?? "").trim().startsWith("소계")) continue;
 
       const rawName = (r.customer_name ?? "").trim() || null;
-      const rawCode = (r.erp_customer_code ?? "").trim() || null;
-
-      const displayName: string | null =
-        (!rawName && lastName) ? lastName : rawName;
-      const displayCode: string | null =
-        ((!rawCode || isUNK(rawCode)) && lastCode) ? lastCode : rawCode;
-
+      const displayName: string | null = (!rawName && lastName) ? lastName : rawName;
       if (displayName) lastName = displayName;
-      if (displayCode && !isUNK(displayCode)) lastCode = displayCode;
 
       let showPrice: number | null = r.price ?? null;
       let showDebit: number | null = r.debit ?? null;
       const qty = r.qty ?? null;
 
-      if ((showPrice === null || showPrice === undefined) && qty && r.debit != null) {
+      if ((showPrice == null) && qty && r.debit != null) {
         const p = (r.debit as number) / qty;
         if (Number.isFinite(p)) showPrice = Math.round(p);
       }
-      if ((showDebit === null || showDebit === undefined) && qty != null && r.price != null) {
+      if ((showDebit == null) && qty != null && r.price != null) {
         const d = qty * (r.price as number);
         if (Number.isFinite(d)) showDebit = Math.round(d);
       }
@@ -221,7 +196,6 @@ export default function LedgerDashboardPage() {
       out.push({
         ...r,
         _display_name: displayName,
-        _display_code: displayCode,
         _display_price: showPrice ?? null,
         _display_debit: showDebit ?? null,
       });
@@ -244,7 +218,7 @@ export default function LedgerDashboardPage() {
           <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="w-full rounded-md px-3 py-2 text-black"/>
         </div>
         <div className="md:col-span-2">
-          <label className="block text-sm opacity-80">검색어(거래처/코드/전표/품명)</label>
+          <label className="block text-sm opacity-80">검색어(거래처/전표/품명)</label>
           <input value={q} onChange={e=>setQ(e.target.value)} className="w-full rounded-md px-3 py-2 text-black" placeholder="예: 고동희, PS010, GSPW15 ..." />
         </div>
         <div className="md:col-span-6 flex gap-2">
@@ -278,37 +252,47 @@ export default function LedgerDashboardPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-white/10 sticky top-0">
             <tr>
-              <th className="px-3 py-2 text-left">코드</th>
+              <th className="px-3 py-2 text-left">일자</th>
+              <th className="px-3 py-2 text-left">고객명</th>
               <th className="px-3 py-2 text-left">품명</th>
+              <th className="px-3 py-2 text-left">규격</th>
               <th className="px-3 py-2 text-right">수량</th>
               <th className="px-3 py-2 text-right">단가</th>
               <th className="px-3 py-2 text-right">매출금액</th>
               <th className="px-3 py-2 text-right">전일잔액</th>
               <th className="px-3 py-2 text-right">입금액</th>
               <th className="px-3 py-2 text-right">금일잔액</th>
+              <th className="px-3 py-2 text-left">비고</th>
             </tr>
           </thead>
           <tbody>
             {displayRows.length === 0 && (
               <tr>
-                <td className="px-3 py-6 text-center opacity-70" colSpan={8}>
+                <td className="px-3 py-6 text-center opacity-70" colSpan={11}>
                   데이터가 없습니다.
                 </td>
               </tr>
             )}
 
-            {displayRows.map((r) => (
-              <tr key={r.erp_row_key} className="odd:bg-white/0 even:bg-white/5">
-                <td className="px-3 py-2">{r._display_code || ""}</td>
-                <td className="px-3 py-2">{r.item_name || ""}</td>
-                <td className={`px-3 py-2 text-right ${isNeg(r.qty)}`}>{fmt(r.qty)}</td>
-                <td className={`px-3 py-2 text-right ${isNeg(r._display_price)}`}>{fmt(r._display_price)}</td>
-                <td className={`px-3 py-2 text-right ${isNeg(r._display_debit)}`}>{fmt(r._display_debit)}</td>
-                <td className={`px-3 py-2 text-right ${isNeg(r.prev_balance)}`}>{fmt(r.prev_balance)}</td>
-                <td className={`px-3 py-2 text-right ${isNeg(r.deposit)}`}>{fmt(r.deposit)}</td>
-                <td className={`px-3 py-2 text-right ${isNeg(r.balance)}`}>{fmt(r.balance)}</td>
-              </tr>
-            ))}
+            {displayRows.map((r) => {
+              const ymd = (r.tx_date && String(r.tx_date).slice(0,10)) || "";
+              const mmdd = ymd ? ymd.slice(5) : "";
+              return (
+                <tr key={r.erp_row_key} className="odd:bg-white/0 even:bg-white/5 align-top">
+                  <td className="px-3 py-2 whitespace-nowrap">{mmdd}</td>
+                  <td className="px-3 py-2">{r._display_name || ""}</td>
+                  <td className="px-3 py-2">{r.item_name || ""}</td>
+                  <td className="px-3 py-2">{r.spec || ""}</td>
+                  <td className={`px-3 py-2 text-right ${isNeg(r.qty)}`}>{fmt(r.qty)}</td>
+                  <td className={`px-3 py-2 text-right ${isNeg(r._display_price)}`}>{fmt(r._display_price)}</td>
+                  <td className={`px-3 py-2 text-right ${isNeg(r._display_debit)}`}>{fmt(r._display_debit)}</td>
+                  <td className={`px-3 py-2 text-right ${isNeg(r.prev_balance)}`}>{fmt(r.prev_balance)}</td>
+                  <td className={`px-3 py-2 text-right ${isNeg(r.deposit)}`}>{fmt(r.deposit)}</td>
+                  <td className={`px-3 py-2 text-right ${isNeg(r.balance)}`}>{fmt(r.balance)}</td>
+                  <td className="px-3 py-2">{r.remark || ""}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

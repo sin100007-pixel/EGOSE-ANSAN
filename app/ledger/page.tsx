@@ -3,6 +3,29 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+
+/* 안전한 날짜 표기 */
+function toYMD(input?: any): string {
+  if (input === null || input === undefined) return "";
+  if (typeof input === "number" && input > 59) {
+    // excel serial (rough)
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const d = new Date(epoch.getTime() + input * 86400000);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth()+1).padStart(2,"0");
+    const da = String(d.getUTCDate()).padStart(2,"0");
+    return `${y}-${m}-${da}`;
+  }
+  const s = String(input).trim().replace(/\./g, "-").replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const da = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${da}`;
+}
+function toMMDD(ymd: string): string { return ymd ? ymd.slice(5) : ""; }
 /* ---------- 유틸 ---------- */
 const fmt = (n: number | string | null | undefined) => {
   if (n === null || n === undefined || n === "") return "";
@@ -301,7 +324,7 @@ export default function LedgerPage() {
 
                   return (
                     <tr key={rowId}>
-                      <td className="col-date">{r.tx_date?.slice(5)}</td>
+                      <td className="col-date">{toMMDD(toYMD(r.tx_date) || toYMD((r as any).date) || toYMD((r as any)["일자"]) || toYMD((r as any)["날짜"]))}</td>
                       <td className="col-name">
                         <div className="name-wrap">
                           <span className="name-text" title={r.item_name || ""}>{shortName}</span>

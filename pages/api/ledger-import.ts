@@ -1,355 +1,348 @@
 // pages/api/ledger-import.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import formidable from "formidable";
+import formidable, { Fields, Files } from "formidable";
+import * as fs from "fs";
+import * as path from "path";
 import * as XLSX from "xlsx";
-import fs from "node:fs";
-import { createClient } from "@supabase/supabase-js";
+import * as https from "https";
+import { URL } from "url";
 
-// Next.js에서 멀티파트 직접 처리
+/** 이 API는 multipart/form-data 로 파일을 받으므로 bodyParser 비활성화 */
 export const config = { api: { bodyParser: false } };
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* 공통 유틸                                                                  */
-/* ────────────────────────────────────────────────────────────────────────── */
+/* ============================== 타입 ============================== */
+type Row = Record<string, any>;
+type Ok = {
+  ok: true;
+  used_baseDate: boolean;
+  baseDate: string;
+  inserted: number;
+  skipped: number;
+  preview: any[];
+  message?: string;
+};
+type Err = { ok: false; message: string; detail?: any };
+type Data = Ok | Err;
+
+/* ============================== ENV ============================== */
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
+  .replace(/[\r\n]+/g, "")
+  .replace(/\/+$/g, "")
+  .trim();
+const SERVICE_ROLE = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "")
+  .replace(/[\r\n]+/g, "")
+  .trim();
+
+/* ============================== 유틸 ============================== */
 const S = (v: any) => (v == null ? "" : String(v).trim());
-const N = (v: any): number | null => {
+function N(v: any): number | null {
   const s = S(v).replace(/[, ]+/g, "");
   if (!s) return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
-};
-
-/** 날짜 파서: baseDate를 기본값으로 사용 + 엑셀 직렬값/여러 포맷 허용 */
-function toISODate(input: any, baseDate?: string | Date): string | null {
-  const fallback = () => {
-    if (!baseDate) return null;
-    const d = new Date(baseDate);
-    if (isNaN(d.getTime())) return null;
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${dd}`;
-  };
-
-  if (input == null || input === "") return fallback();
-  const raw = S(input);
-
-  // 엑셀 직렬값 (1899-12-30 기준)
-  if (/^\d{4,6}$/.test(raw)) {
-    const serial = Number(raw);
-    if (Number.isFinite(serial)) {
-      const base = new Date(Date.UTC(1899, 11, 30));
-      base.setUTCDate(base.getUTCDate() + serial);
-      const y = base.getUTCFullYear();
-      const m = String(base.getUTCMonth() + 1).padStart(2, "0");
-      const d = String(base.getUTCDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
+}
+function toYMD(input: any): string {
+  if (input === null || input === undefined || input === "") return "";
+  if (typeof input === "number" && input > 59) {
+    // Excel date serial
+    const d = XLSX.SSF.parse_date_code(input);
+    if (d) {
+      const mm = String(d.m).padStart(2, "0");
+      const dd = String(d.d).padStart(2, "0");
+      return `${d.y}-${mm}-${dd}`;
     }
   }
-
-  // 2025.11.09 / 25-11-9 / 2025 11 09 등
-  const norm = raw.replace(/[./\s]/g, "-");
-  const m1 = norm.match(/^(\d{2,4})-(\d{1,2})-(\d{1,2})$/);
-  if (m1) {
-    let y = Number(m1[1]);
-    const mm = Number(m1[2]);
-    const dd = Number(m1[3]);
-    if (y < 100) y += 2000;
-    const d = new Date(Date.UTC(y, mm - 1, dd));
-    if (!isNaN(d.getTime())) {
-      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
-        d.getUTCDate()
-      ).padStart(2, "0")}`;
-    }
-  }
-
-  const d = new Date(raw);
-  if (!isNaN(d.getTime())) {
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
-      d.getUTCDate()
-    ).padStart(2, "0")}`;
-  }
-  return fallback();
+  const s = String(input).trim().replace(/\./g, "-").replace(/\//g, "-");
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mm}-${dd}`;
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* 헤더 감지(느슨 매핑)                                                       */
-/* ────────────────────────────────────────────────────────────────────────── */
-const H = {
-  date: ["일자", "기준일", "날짜", "date", "tx_date"],
-  code: ["코드", "거래처코드", "거래처 코드", "code"],
-  name: ["거래처", "거래처명", "name", "customer", "거래처 이름"],
-  item: ["품명", "품목", "상품명", "item", "product"],
-  spec: ["규격", "스펙", "사양", "spec"],
-  qty: ["수량", "qty", "수 량"],
-  unit_price: ["단가", "unit price", "판매단가", "매출단가", "단 가"],
-  amount: ["금액", "합계", "총액", "amount", "매출금액", "공급가액", "판매금액"],
-  deposit: ["입금액", "입금", "입 금", "deposit", "credit"], // ★입금
-  prev_balance: ["전일잔액", "전잔", "이월", "previous", "prev_balance", "전 잔 액"],
-  curr_balance: ["금일잔액", "현재잔액", "curr", "curr_balance", "금 일 잔 액"],
-  memo: ["비고", "메모", "note", "memo"],
-} as const;
-
-function buildHeaderIndex(headerRow: any[]): Record<string, number> {
-  const idx: Record<string, number> = {};
-  const lower = (headerRow || []).map((h) => S(h).toLowerCase());
-  (Object.keys(H) as (keyof typeof H)[]).forEach((key) => {
-    const candidates = H[key].map((s) => s.toLowerCase());
-    const found = lower.findIndex((col) => candidates.some((c) => col.includes(c)));
-    if (found >= 0) idx[key] = found;
-  });
-  return idx;
+/* “0/빈값” 판정 & 전체 0줄 판정 */
+function zeroish(v: any): boolean {
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim();
+  if (s === "" || s === "0") return true;
+  const n = Number(s.replace(/[, ]+/g, ""));
+  return Number.isFinite(n) ? n === 0 : false;
+}
+function isAllZeroRow(r: Record<string, any>): boolean {
+  const vals = Object.values(r ?? {});
+  if (vals.length === 0) return true;
+  return vals.every(zeroish);
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* 키 생성                                                                    */
-/* ────────────────────────────────────────────────────────────────────────── */
-function makeRowKey(o: { tx_date?: string | null; code?: string | null; item?: string | null; rowNo: number }) {
-  return [o.tx_date || "", (o.code || "").replace(/\s+/g, ""), (o.item || "").replace(/\s+/g, ""), String(o.rowNo)].join(
-    "|"
-  );
+/* 헤더 감지 */
+const HEADER_WORDS = new Set([
+  "거래처","고객명",
+  "코드","전표","코드명",
+  "품명","상품명","품목",
+  "규격","규격명",
+  "단위",
+  "수량",
+  "단가",
+  "매출금액","공급가액","판매금액",
+  "전일잔액","이월",
+  "입금액","입금",
+  "금일잔액","현재잔액",
+  "비고",
+]);
+function isHeaderLikeRow(cells: string[]): boolean {
+  if (cells.length === 0) return false;
+  if (["거래처","고객명","총계","합계"].includes(cells[0])) return true;
+  const nonEmpty = cells.filter((s) => s !== "");
+  if (nonEmpty.length === 0) return false;
+  const headerCount = nonEmpty.filter((s) => HEADER_WORDS.has(s)).length;
+  return headerCount >= Math.max(2, Math.floor(nonEmpty.length * 0.6));
 }
-function makeErpCustomerCode(codeRaw: string, nameRaw: string, rowNo: number) {
-  const code = (codeRaw || "").trim();
-  if (code && code !== "0") return code;
-  const name = (nameRaw || "").trim();
-  if (name) {
-    const slug = name.replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 24);
-    return slug || `UNK-${rowNo}`;
-  }
-  return `UNK-${rowNo}`;
-}
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* 메인 핸들러                                                                */
-/* ────────────────────────────────────────────────────────────────────────── */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
-
-  // Supabase (업서트이므로 service role 권장)
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // 필수
-  );
-
-  // multipart parsing (A안: any 허용)
+/* 폼 파싱 */
+function parseForm(req: NextApiRequest): Promise<{ fields: Fields; files: Files }> {
   const form = formidable({ multiples: false, keepExtensions: true });
-  let fields: any, files: any;
-  try {
-    [fields, files] = await new Promise((resolve, reject) => {
-      (form as any).parse(req, (err: any, f: any, fi: any) => (err ? reject(err) : resolve([f, fi])));
+  return new Promise((resolve, reject) => {
+    form.parse(req, (err, fields, files) => (err ? reject(err) : resolve({ fields, files })));
+  });
+}
+function firstOf<T = any>(obj: Record<string, any> | undefined, keys: string[]): T | undefined {
+  if (!obj) return undefined;
+  for (const k of keys) {
+    const v: any = (obj as any)[k];
+    if (Array.isArray(v)) {
+      if (v.length > 0 && v[0] !== undefined && v[0] !== "") return v[0] as T;
+    } else if (v !== undefined && v !== "") {
+      return v as T;
+    }
+  }
+  return undefined;
+}
+function pickFirstFile(files: Files): any {
+  for (const key of Object.keys(files || {})) {
+    const v: any = (files as any)[key];
+    if (Array.isArray(v)) { if (v.length > 0) return v[0]; }
+    else if (v) return v;
+  }
+  return null;
+}
+
+/* 파일 읽기 */
+function readRowsFromUpload(filePath: string): Row[] {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".csv" || ext === ".txt") {
+    const buf = fs.readFileSync(filePath, "utf8");
+    const lines = buf.split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) return [];
+    const header = lines[0].split(/,|\t/).map((h) => h.trim());
+    return lines.slice(1).map((line) => {
+      const cols = line.split(/,|\t/);
+      const obj: Row = {};
+      header.forEach((h, i) => (obj[h] = (cols[i] ?? "").trim()));
+      return obj;
     });
-  } catch (err: any) {
-    return res.status(400).json({ error: `폼 파싱 실패: ${err.message}`, stage: "formidable" });
+  }
+  const wb = XLSX.read(fs.readFileSync(filePath));
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json<Row>(ws, { defval: "" });
+}
+
+/* Supabase REST 호출 */
+function httpsRequest(urlStr: string, method: string, headers: Record<string, string>, body?: string) {
+  return new Promise<{ status: number; text: string; headers: any }>((resolve, reject) => {
+    try {
+      const u = new URL(urlStr);
+      const req = https.request(
+        { method, hostname: u.hostname, path: u.pathname + u.search, headers },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (d) => chunks.push(d as Buffer));
+          res.on("end", () =>
+            resolve({ status: res.statusCode || 0, text: Buffer.concat(chunks).toString("utf8"), headers: res.headers })
+          );
+        }
+      );
+      req.on("error", reject);
+      if (body) req.write(body);
+      req.end();
+    } catch (e) { reject(e); }
+  });
+}
+
+/* ============================== 메인 핸들러 ============================== */
+export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, message: "POST only" });
   }
 
-  // baseDate 추출 (폼/쿼리 모두 허용, 없으면 오늘)
-  const getField = (k: string) => (Array.isArray(fields?.[k]) ? fields[k][0] : fields?.[k]);
-  const q = (k: string) => {
-    const v = (req.query as any)[k];
-    return Array.isArray(v) ? v[0] : v;
-  };
-
-  let baseDateRaw =
-    getField("baseDate") || getField("date") || getField("startDate") || q("baseDate") || q("date") || q("startDate");
-
-  const today = new Date();
-  const baseDate =
-    baseDateRaw && String(baseDateRaw).trim()
-      ? String(baseDateRaw)
-      : `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(
-          today.getUTCDate()
-        ).padStart(2, "0")}`;
-
-  // 파일 찾기
-  const fileObj = (files?.file || files?.upload || files?.excel) as any;
-  const fileOne = Array.isArray(fileObj) ? fileObj[0] : fileObj;
-  if (!fileOne?.filepath) {
-    return res.status(400).json({ error: "업로드 파일을 찾을 수 없습니다.(필드명: file)", stage: "nofile" });
-  }
-
-  // 엑셀 로딩
-  let workbook: XLSX.WorkBook;
   try {
-    const buf = fs.readFileSync(fileOne.filepath);
-    workbook = XLSX.read(buf, { type: "buffer" });
-  } catch (err: any) {
-    return res.status(400).json({ error: `엑셀 읽기 실패: ${err.message}`, stage: "xlsx" });
-  }
+    const { fields, files } = await parseForm(req);
 
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  if (!sheet) return res.status(400).json({ error: "시트를 찾을 수 없습니다.", stage: "sheet" });
+    // 기준일
+    const baseDateField = firstOf<string>(fields as any, ["baseDate","base_date","기준일","date","startDate"]);
+    const baseDateQuery = firstOf<string>(req.query as any, ["baseDate","base_date","기준일","date","startDate"]);
+    const baseDateRaw = baseDateField ?? baseDateQuery;
+    const today = toYMD(new Date());
+    const baseDate = toYMD(baseDateRaw) || today;
+    const used_baseDate = Boolean(toYMD(baseDateRaw));
 
-  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) as any[][];
-  if (!rows.length) return res.status(400).json({ error: "엑셀 내용이 비어 있습니다.", stage: "empty" });
-
-  // 헤더 감지(최대 30행)
-  let guessedHeaderRow = 0;
-  let headerMap: Record<string, number> = {};
-  for (let i = 0; i < Math.min(rows.length, 30); i++) {
-    const m = buildHeaderIndex(rows[i]);
-    if (Object.keys(m).length >= 2) {
-      guessedHeaderRow = i;
-      headerMap = m;
-      break;
+    // 파일
+    const fileObj: any = pickFirstFile(files);
+    if (!fileObj?.filepath && !fileObj?.path) {
+      return res.status(400).json({ ok: false, message: "업로드된 파일을 찾을 수 없습니다. (input type='file')" });
     }
-  }
-  if (!Object.keys(headerMap).length) {
-    headerMap = buildHeaderIndex(rows[0] || []);
-    guessedHeaderRow = 0;
-  }
-  const dataRows = rows.slice(guessedHeaderRow + 1);
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* 변환/정규화                                                              */
-  /* ──────────────────────────────────────────────────────────────────────── */
-  const valid: any[] = [];
-  const rejected = { blank_row: 0, missing_date: 0 };
-  const sample_in: any[] = [];
-  const sample_out: any[] = [];
-
-  // 같은 블록에서 거래처 셀 생략된 경우 이어받기
-  let lastNonEmptyName = "";
-  let lastNonEmptyCode = "";
-
-  dataRows.forEach((r, i) => {
-    // 완전 빈 행 skip
-    const joined = r.map((v: any) => S(v)).join("");
-    if (!joined) {
-      rejected.blank_row++;
-      return;
+    const filepath = fileObj.filepath || fileObj.path;
+    const rawRows = readRowsFromUpload(filepath);
+    if (rawRows.length === 0) {
+      return res.status(400).json({ ok: false, message: "빈 파일입니다." });
     }
 
-    const rawDate = headerMap.date !== undefined ? r[headerMap.date] : r[0];
-    const tx_date = toISODate(rawDate, baseDate);
-    if (!tx_date) {
-      rejected.missing_date++;
-      return;
-    }
+    // 컬럼 포인터
+    const firstColKey = Object.keys(rawRows[0] || {})[0] || "col0";
+    const K = (index: number) =>
+      index === 0 ? firstColKey : `__EMPTY${index === 1 ? "" : "_" + (index - 1)}`;
 
-    // 기본 필드
-    let code = S(headerMap.code !== undefined ? r[headerMap.code] : "");
-    let name = S(headerMap.name !== undefined ? r[headerMap.name] : "");
-    let item = S(headerMap.item !== undefined ? r[headerMap.item] : "");
-    const spec = S(headerMap.spec !== undefined ? r[headerMap.spec] : "");
+    // 파싱
+    let currentName = "";
+    let rowNo = 0;
+    const normalized: any[] = [];
 
-    // 숫자들
-    let qty = N(headerMap.qty !== undefined ? r[headerMap.qty] : null);
-    let unit_price = N(headerMap.unit_price !== undefined ? r[headerMap.unit_price] : null);
-    let amount = N(headerMap.amount !== undefined ? r[headerMap.amount] : null);
-    let deposit = N(headerMap.deposit !== undefined ? r[headerMap.deposit] : null);
-    const prev_balance = N(headerMap.prev_balance !== undefined ? r[headerMap.prev_balance] : null);
-    const curr_balance = N(headerMap.curr_balance !== undefined ? r[headerMap.curr_balance] : null);
-    const memo = S(headerMap.memo !== undefined ? r[headerMap.memo] : "");
+    for (const r of rawRows) {
+      const c0 = S(r[firstColKey]);
+      const c1 = S(r[K(1)]), c2 = S(r[K(2)]), c3 = S(r[K(3)]), c4 = S(r[K(4)]);
 
-    if (sample_in.length < 5) sample_in.push(r);
-
-    // 거래처 이어받기
-    if (!name && lastNonEmptyName) name = lastNonEmptyName;
-    if (!code && lastNonEmptyCode) code = lastNonEmptyCode;
-    if (name) lastNonEmptyName = name;
-    if (code) lastNonEmptyCode = code;
-
-    // 소계 행 제거 (거래처가 "소계..." 로 시작)
-    if (name.startsWith("소계")) return;
-
-    // 입금행 판정 & 금액 이동
-    const isDepositLike =
-      /입금/.test(item.replace(/\s/g, "")) ||
-      /입금/.test(spec.replace(/\s/g, "")) ||
-      (!item && headerMap.deposit !== undefined); // 품명 공란 + deposit 열 존재
-
-    if (isDepositLike) {
-      const candidates: (number | null)[] = [];
-      candidates.push(deposit);
-      candidates.push(amount);
-      candidates.push(curr_balance); // 일부 양식 대비
-      const picked = candidates.find((v) => v !== null) ?? null;
-      if (picked !== null) {
-        deposit = picked;
-        amount = null;
-        // 수량/단가/품명은 입금 맥락에서 의미없음 (보존 원하면 주석)
-        // qty = null;
-        // unit_price = null;
-        if (!item) item = "입금";
+      // 0만 있는 줄/빈 줄/헤더/안내/소계/총계 스킵
+      if (isAllZeroRow(r)) continue;
+      const emptyLine = Object.values(r).every((v) => S(v) === "");
+      const headerLikeA = c0.includes("매출일보") && c1 === "코드";
+      const headerLikeB = isHeaderLikeRow([c0, c1, c2, c3, c4]);
+      if (emptyLine || headerLikeA || headerLikeB) continue;
+      if (/^\s*소계\s*:/i.test(c0) || /^\s*총계/i.test(c0)) {
+        if (/^\s*소계\s*:/i.test(c0)) currentName = c0.replace(/^소계\s*:/i, "").trim();
+        continue;
       }
-    } else {
-      // 매출행: qty*unit_price → amount
-      if (amount == null && qty != null && unit_price != null) {
-        amount = Math.round(qty * unit_price);
-      }
+
+      // 고객명 추적
+      if (/^\s*\*/.test(c0)) currentName = c0.replace(/^\s*\*\s*/, "").trim();
+      else if (c0) currentName = c0.trim();
+      const name = currentName;
+
+      const erp_customer_code = S(r[K(1)]) || null;
+      const item_name = S(r[K(2)]) || null;
+      const spec = S(r[K(3)]) || null;
+
+      const qty = N(r[K(5)]);
+      const unit_price = N(r[K(6)]);
+      const amount = N(r[K(7)]);
+      const prev_balance = N(r[K(8)]);
+      const deposit = N(r[K(9)]);
+      const curr_balance = N(r[K(10)]);
+      const memo = S(r[K(11)]) || null;
+
+      // “품명/규격/비고”가 비어 있고 숫자 전부가 0/빈값이면 제외
+      const allNumsZero =
+        (qty ?? 0) === 0 &&
+        (unit_price ?? 0) === 0 &&
+        (amount ?? 0) === 0 &&
+        (prev_balance ?? 0) === 0 &&
+        (deposit ?? 0) === 0 &&
+        (curr_balance ?? 0) === 0;
+      const noTextCols =
+        !(item_name && item_name.trim()) &&
+        !(spec && spec.trim()) &&
+        !(memo && memo.trim());
+      if (allNumsZero && noTextCols) continue;
+
+      // 최소 의미 검사(헤더 단어 방어)
+      const hasMeaning =
+        (name && name !== "거래처" && name !== "고객명") ||
+        (item_name && item_name !== "품명" && item_name !== "상품명") ||
+        qty != null || unit_price != null || amount != null ||
+        deposit != null || prev_balance != null || curr_balance != null;
+      if (!hasMeaning) continue;
+
+      rowNo += 1;
+      const tx_date = toYMD((r as any)["tx_date"]) || baseDate;
+
+      const erp_row_key = [
+        tx_date,
+        String(rowNo).padStart(5, "0"),
+        erp_customer_code || "",
+        item_name || "",
+      ].join("|");
+
+      normalized.push({
+        erp_row_key,
+        tx_date,            // YYYY-MM-DD
+        row_no: rowNo,
+        erp_customer_code,
+        name: name || null, // customer_name
+        item_name,
+        spec,
+        qty,
+        unit_price,
+        amount,
+        prev_balance,
+        deposit,
+        curr_balance,
+        memo,
+      });
     }
 
-    const erp_customer_code = makeErpCustomerCode(code, name, i + 1);
-
-    const row: any = {
-      tx_date,
-      code: code || null,
-      name: name || null,
-      item_name: item || null,
-      spec: spec || null,
-      qty,
-      unit_price,
-      amount,
-      deposit, // ★ 저장
-      prev_balance,
-      curr_balance,
-      memo: memo || null,
-      erp_customer_code,
-      row_no: i + 1, // ★ 엑셀 원본 행 순서 저장 → 조회 시 row_no ASC 정렬
+    /* 저장(Upsert) */
+    if (!SUPABASE_URL || !SERVICE_ROLE) {
+      return res.status(500).json({
+        ok: false,
+        message: "환경변수 누락: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY",
+      });
+    }
+    const endpoint = `${SUPABASE_URL}/rest/v1/ledger_entries`;
+    const headers = {
+      apikey: SERVICE_ROLE,
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=representation",
     };
 
-    const erp_row_key = makeRowKey({ tx_date, code, item, rowNo: i + 1 });
-    const out = { ...row, erp_row_key };
-
-    if (sample_out.length < 5) sample_out.push(out);
-    valid.push(out);
-  });
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* 업서트                                                                   */
-  /* ──────────────────────────────────────────────────────────────────────── */
-  const CHUNK = 500;
-  let upserted = 0;
-
-  try {
-    for (let off = 0; off < valid.length; off += CHUNK) {
-      const chunk = valid.slice(off, off + CHUNK);
-      if (!chunk.length) continue;
-
-      const { data, error } = await supabase
-        .from("ledger_entries")
-        .upsert(chunk, { onConflict: "erp_row_key", ignoreDuplicates: false })
-        .select("erp_row_key"); // 실제 영향받은 행 반환
-
-      if (error) {
+    let inserted = 0;
+    const chunkSize = 500;
+    for (let i = 0; i < normalized.length; i += chunkSize) {
+      const chunk = normalized.slice(i, i + chunkSize);
+      const resp = await httpsRequest(endpoint, "POST", headers, JSON.stringify(chunk));
+      if (resp.status >= 200 && resp.status < 300) {
+        try {
+          const arr = JSON.parse(resp.text || "[]");
+          inserted += Array.isArray(arr) ? arr.length : chunk.length;
+        } catch {
+          inserted += chunk.length;
+        }
+      } else {
         return res.status(400).json({
-          error: error.message,
-          stage: "upsert",
-          at: `${off}~${Math.min(off + CHUNK - 1, valid.length - 1)}`,
-          debug: { guessedHeaderRow, headerMap, baseDate, sample_in, sample_out },
+          ok: false,
+          message: `업서트 실패(${resp.status})`,
+          detail: resp.text,
         });
       }
-      upserted += data?.length ?? 0;
     }
-  } catch (e: any) {
-    return res.status(400).json({ error: e.message || String(e), stage: "upsert-unknown" });
-  }
 
-  return res.status(200).json({
-    ok: true,
-    stage: "done",
-    total_rows_scanned: dataRows.length,
-    total_valid: valid.length,
-    upserted,
-    used_baseDate: !!baseDateRaw,
-    debug: {
-      guessedHeaderRow,
-      headerMap,
+    const preview = normalized.slice(0, 10);
+    const skipped = rawRows.length - normalized.length;
+
+    return res.status(200).json({
+      ok: true,
+      used_baseDate,
       baseDate,
-      sample_in,
-      sample_out,
-    },
-  });
+      inserted,
+      skipped,
+      preview,
+      message: used_baseDate
+        ? "기준일을 반영해 업로드 & 저장 완료"
+        : "기준일 미전달 → 오늘 날짜로 저장",
+    });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ ok: false, message: "업로드/저장 처리 중 오류", detail: err?.message });
+  }
 }
