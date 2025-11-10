@@ -160,8 +160,6 @@ const Bubble: React.FC<{
 
 /* ---------- 페이지 ---------- */
 export default function LedgerPage() {
-  const HEADER_BLUE = "#1739f7";
-
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -263,17 +261,18 @@ export default function LedgerPage() {
         대시보드로
       </Link>
 
-      <h1 className="text-[24px] md:text-[32px] font-extrabold mb-2">내 거래 내역 (최근 3개월)</h1>
-
-      <div className="mb-2 text-white/80" style={{ fontSize: 15 }}>
-        <span className="mr-2">{loginName || "고객"} 님,</span>
-        기간: <span className="font-semibold">{ymd(date_from)}</span> ~{" "}
-        <span className="font-semibold">{ymd(date_to)}</span>
+      {/* ✅ 페이지 제목도 sticky로 고정 */}
+      <div className="page-sticky-title">
+        <h1 className="title">내 거래 내역 (최근 3개월)</h1>
+        <div className="subtitle">
+          <span className="mr-2">{loginName || "고객"} 님,</span>
+          기간: <span className="strong">{ymd(date_from)}</span> ~ <span className="strong">{ymd(date_to)}</span>
+        </div>
       </div>
 
-      {/* 스크롤(가로/세로) 컨테이너: 인앱 sticky 지원을 위해 overflow는 여기 한 곳에만 둔다 */}
+      {/* 스크롤(가로/세로) 컨테이너 */}
       <div className="scroll-viewport">
-        {/* 프레임: 겉 테두리만 담당(overflow는 끈다 → sticky가 끊기지 않음) */}
+        {/* 프레임: 겉 테두리만 담당 */}
         <div className="scroll-frame">
           <table className="ledger">
             <thead className="sticky-head">
@@ -305,14 +304,13 @@ export default function LedgerPage() {
                     <tr key={rowId}>
                       <td className="col-date">{r.tx_date?.slice(5)}</td>
                       <td className="col-name">
-                        <div className="inline-flex items-center justify-center gap-1 max-w-full">
-                          <span className="truncate max-w-[60vw] md:max-w-[260px]">{shortName}</span>
+                        <div className="name-wrap">
+                          <span className="name-text" title={r.item_name || ""}>{shortName}</span>
                           {needInfo && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // 토글
                                 if (bubble.open && bubble.rowId === rowId) {
                                   setBubble({ open: false, title: "", content: "", anchorEl: null, rowId: null });
                                   return;
@@ -325,8 +323,7 @@ export default function LedgerPage() {
                                   rowId,
                                 });
                               }}
-                              className="ml-0.5 shrink-0 inline-flex items-center justify-center info-btn"
-                              title="상세 보기" aria-label="상세 보기"
+                              className="info-btn" title="상세 보기" aria-label="상세 보기"
                             >i</button>
                           )}
                         </div>
@@ -359,7 +356,7 @@ export default function LedgerPage() {
 
       {/* 스타일 */}
       <style jsx>{`
-        /* 크기(두번째 사진 느낌으로 컴팩트) */
+        /* 크기(컴팩트) */
         :root {
           --cell-xpad: 2ch;   /* 좌우 여백 (공백 2칸) */
           --cell-ypad: 6px;   /* 데이터 셀 상하 여백 */
@@ -367,21 +364,33 @@ export default function LedgerPage() {
           --table-font: 14px; /* 폰트 */
         }
 
-        /* 스크롤을 담당하는 단 하나의 컨테이너(인앱 sticky 대응) */
+        /* 페이지 상단 제목도 sticky */
+        .page-sticky-title{
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          background: #0b0d21;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+        }
+        .title{ font-size: 24px; font-weight: 800; margin: 0 0 4px 0; }
+        .subtitle{ font-size: 15px; color: rgba(255,255,255,.8); }
+        .subtitle .strong{ font-weight: 700; color: #fff; }
+
+        /* 스크롤 컨테이너 */
         .scroll-viewport{
           max-height: 75vh;
           overflow: auto;
-          -webkit-overflow-scrolling: touch; /* iOS 인앱 */
+          -webkit-overflow-scrolling: touch;
           background: rgba(255,255,255,.02);
         }
 
-        /* 겉 테두리만 담당 — overflow를 쓰지 않는다(인앱 sticky 깨짐 방지) */
+        /* 겉 테두리 */
         .scroll-frame{
           display: inline-block;
           border: 1px solid #ffffff;
           border-radius: 12px;
           box-shadow: 0 6px 24px rgba(0,0,0,.35);
-          /* overflow: visible;  기본값(visible) 유지 */
           background: transparent;
         }
 
@@ -398,8 +407,8 @@ export default function LedgerPage() {
         .sticky-head th{
           position: sticky;
           top: 0;
-          z-index: 20;                    /* 인앱에서 위로 확실히 */
-          background: #1739f7;            /* 로그인 버튼과 동일 파랑 */
+          z-index: 20;
+          background: #1739f7;
           color: #fff;
           font-weight: 800;
           letter-spacing: .02em;
@@ -421,6 +430,22 @@ export default function LedgerPage() {
         thead tr th:last-child, tbody tr td:last-child{ border-right: none; }
         tbody tr:last-child td{ border-bottom: none; }
 
+        /* 품명 셀을 최대한 좁게 */
+        .col-date { min-width: 84px; }
+        .col-name { min-width: 180px; } /* ↓ 기존 260px → 180px */
+        .col-qty  { min-width: 70px; }
+
+        .name-wrap{
+          display:inline-flex; align-items:center; gap:6px;
+          max-width: 100%;
+          justify-content:center;
+        }
+        .name-text{
+          display:inline-block;
+          max-width: 18ch;               /* 데스크톱 기준 텍스트 폭 */
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+
         /* i 버튼(작게) */
         .info-btn{
           width: 20px; height: 20px;
@@ -433,16 +458,13 @@ export default function LedgerPage() {
         }
         .info-btn:hover{ background:#fff; color:#0b0d21; }
 
-        /* 최소 너비 */
-        .col-date { min-width: 84px; }
-        .col-name { min-width: 260px; }
-        .col-qty  { min-width: 70px; }
-
         /* 모바일 세밀조정 */
         @media (max-width: 480px) {
           :root{ --table-font: 13.5px; --cell-ypad: 5px; --head-ypad: 6px; }
           .col-date { min-width: 60px; }
+          .col-name { min-width: 140px; }   /* 모바일은 더 좁게 */
           .col-qty  { min-width: 54px; }
+          .name-text{ max-width: 14ch; }    /* 모바일 텍스트 폭 더 줄임 */
         }
       `}</style>
     </div>
