@@ -1,13 +1,13 @@
 // pages/api/ledger-import.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import formidable from "formidable"; // ❗ named import 제거
+import formidable from "formidable"; // named type import 제거
 import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx";
 import * as https from "https";
 import { URL } from "url";
 
-/** 이 API는 multipart/form-data 로 파일을 받으므로 bodyParser 비활성화 */
+/** multipart/form-data 이므로 bodyParser 비활성화 */
 export const config = { api: { bodyParser: false } };
 
 /* ============================== 타입 ============================== */
@@ -61,7 +61,6 @@ function toYMD(input: any): string {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${mm}-${dd}`;
 }
-
 function zeroish(v: any): boolean {
   if (v === null || v === undefined) return true;
   const s = String(v).trim();
@@ -75,10 +74,19 @@ function isAllZeroRow(r: Record<string, any>): boolean {
   return vals.every(zeroish);
 }
 
+/* 헤더 감지 */
 const HEADER_WORDS = new Set([
-  "거래처","고객명","코드","전표","코드명","품명","상품명","품목","규격","규격명",
-  "단위","수량","단가","매출금액","공급가액","판매금액","전일잔액","이월","입금액","입금",
-  "금일잔액","현재잔액","비고",
+  "거래처","고객명","코드","전표","코드명",
+  "품명","상품명","품목",
+  "규격","규격명",
+  "단위",
+  "수량",
+  "단가",
+  "매출금액","공급가액","판매금액",
+  "전일잔액","이월",
+  "입금액","입금",
+  "금일잔액","현재잔액",
+  "비고",
 ]);
 function isHeaderLikeRow(cells: string[]): boolean {
   if (cells.length === 0) return false;
@@ -89,11 +97,15 @@ function isHeaderLikeRow(cells: string[]): boolean {
   return headerCount >= Math.max(2, Math.floor(nonEmpty.length * 0.6));
 }
 
-/* 폼 파싱 – 타입을 any로 완화 */
+/* ============================== 폼 파싱 ============================== */
+// noImplicitAny 오류 방지 타입 명시
 function parseForm(req: NextApiRequest): Promise<{ fields: any; files: any }> {
   const form = formidable({ multiples: false, keepExtensions: true });
   return new Promise((resolve, reject) => {
-    form.parse(req, (err, fields, files) => (err ? reject(err) : resolve({ fields, files })));
+    form.parse(req as any, (err: any, fields: any, files: any) => {
+      if (err) return reject(err);
+      resolve({ fields, files });
+    });
   });
 }
 function firstOf<T = any>(obj: Record<string, any> | undefined, keys: string[]): T | undefined {
@@ -117,7 +129,7 @@ function pickFirstFile(files: any): any {
   return null;
 }
 
-/* 파일 읽기 */
+/* ============================== 파일 읽기 ============================== */
 function readRowsFromUpload(filePath: string): Row[] {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".csv" || ext === ".txt") {
@@ -137,7 +149,7 @@ function readRowsFromUpload(filePath: string): Row[] {
   return XLSX.utils.sheet_to_json<Row>(ws, { defval: "" });
 }
 
-/* Supabase REST 호출 */
+/* ============================== Supabase REST 호출 ============================== */
 function httpsRequest(urlStr: string, method: string, headers: Record<string, string>, body?: string) {
   return new Promise<{ status: number; text: string; headers: any }>((resolve, reject) => {
     try {
@@ -192,7 +204,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const K = (index: number) =>
       index === 0 ? firstColKey : `__EMPTY${index === 1 ? "" : "_" + (index - 1)}`;
 
-    // 파싱
+    // 파싱 & 정리
     let currentName = "";
     let rowNo = 0;
     const normalized: any[] = [];
@@ -201,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const c0 = S(r[firstColKey]);
       const c1 = S(r[K(1)]), c2 = S(r[K(2)]), c3 = S(r[K(3)]), c4 = S(r[K(4)]);
 
-      // 0만 있는 줄/빈 줄/헤더/안내/소계/총계 스킵
+      // 0만 있는 줄/빈 줄/헤더/소계/총계 스킵
       if (isAllZeroRow(r)) continue;
       const emptyLine = Object.values(r).every((v) => S(v) === "");
       const headerLikeA = c0.includes("매출일보") && c1 === "코드";
@@ -229,7 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const curr_balance = N(r[K(10)]);
       const memo = S(r[K(11)]) || null;
 
-      // “품명/규격/비고”가 비어 있고 숫자 전부가 0/빈값이면 제외
+      // “품명/규격/비고” 비어 있고 숫자 전부 0/빈값 → 제외
       const allNumsZero =
         (qty ?? 0) === 0 &&
         (unit_price ?? 0) === 0 &&
@@ -262,8 +274,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
       normalized.push({
         erp_row_key,
-        tx_date,
-        row_no: rowNo,
+        tx_date,            // YYYY-MM-DD
+        row_no: rowNo,      // 업로드 순번 (정렬에 사용)
         erp_customer_code,
         name: name || null, // customer_name
         item_name,
