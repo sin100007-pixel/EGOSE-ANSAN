@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-
 /* 안전한 날짜 표기 */
 function toYMD(input?: any): string {
   if (input === null || input === undefined) return "";
@@ -12,20 +11,23 @@ function toYMD(input?: any): string {
     const epoch = new Date(Date.UTC(1899, 11, 30));
     const d = new Date(epoch.getTime() + input * 86400000);
     const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth()+1).padStart(2,"0");
-    const da = String(d.getUTCDate()).padStart(2,"0");
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const da = String(d.getUTCDate()).padStart(2, "0");
     return `${y}-${m}-${da}`;
   }
   const s = String(input).trim().replace(/\./g, "-").replace(/\//g, "-");
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   const d = new Date(s);
   if (isNaN(d.getTime())) return "";
   const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const da = String(d.getDate()).padStart(2,"0");
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${da}`;
 }
-function toMMDD(ymd: string): string { return ymd ? ymd.slice(5) : ""; }
+function toMMDD(ymd: string): string {
+  return ymd ? ymd.slice(5) : "";
+}
+
 /* ---------- 유틸 ---------- */
 const fmt = (n: number | string | null | undefined) => {
   if (n === null || n === undefined || n === "") return "";
@@ -37,8 +39,7 @@ const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
-const trim7 = (s: string) =>
-  (s?.length ?? 0) > 7 ? s.slice(0, 7) + "…" : (s || "");
+const trim7 = (s: string) => ((s?.length ?? 0) > 7 ? s.slice(0, 7) + "…" : s || "");
 
 /* ---------- 타입 ---------- */
 type Row = {
@@ -69,21 +70,20 @@ const Bubble: React.FC<{
     const calc = () => {
       const rect = anchorEl.getBoundingClientRect();
       const pad = 8;
-      const w = 320;  // ← 길이(너비) 늘림
-      const h = 168;  // ← 높이 약간 늘림
+      const w = 320;
+      const h = 168;
 
-      // ✅ 항상 버튼의 오른쪽에 배치
+      // 항상 오른쪽에 배치
       let left = rect.right + pad;
       let top = rect.top + rect.height / 2 - h / 2;
 
-      // 화면 밖으로 넘어가면 살짝만 클램프 (그래도 기준은 오른쪽)
       const maxLeft = window.innerWidth - w - 8;
       if (left > maxLeft) left = Math.max(rect.right + 2, maxLeft);
       if (top < 8) top = 8;
       if (top + h > window.innerHeight - 8) top = window.innerHeight - h - 8;
 
       setStyle({ position: "fixed", left, top, width: w, height: h, zIndex: 999 });
-      setArrowSide("right"); // ← 항상 오른쪽 화살표
+      setArrowSide("right");
     };
 
     calc();
@@ -131,7 +131,9 @@ const Bubble: React.FC<{
         }}
       >
         <div className="eg-bubble-head">
-          <div className="eg-bubble-title" title={title || "상세"}>{title || "상세"}</div>
+          <div className="eg-bubble-title" title={title || "상세"}>
+            {title || "상세"}
+          </div>
           <button
             className="eg-bubble-close"
             onClick={(e) => {
@@ -146,35 +148,67 @@ const Bubble: React.FC<{
       </div>
 
       <style jsx>{`
-        .eg-bubble{
+        .eg-bubble {
           border-radius: 12px;
-          border: 1px solid rgba(255,255,255,.9);
+          border: 1px solid rgba(255, 255, 255, 0.9);
           background: linear-gradient(180deg, #1a1d3a 0%, #0f1129 100%);
           color: #fff;
-          box-shadow: 0 8px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
           overflow: hidden;
           font-size: 14px;
         }
-        .eg-bubble-head{
-          display:flex;align-items:center;justify-content:space-between;
-          padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.6);
-          background: rgba(255,255,255,.06);
+        .eg-bubble-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 8px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+          background: rgba(255, 255, 255, 0.06);
         }
-        .eg-bubble-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px;}
-        .eg-bubble-close{
-          font-size:12px;padding:2px 7px;border-radius:7px;
-          border:1px solid #fff;background:transparent;color:#fff;
+        .eg-bubble-title {
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding-right: 6px;
         }
-        .eg-bubble-close:hover{background:#fff;color:#0b0d21;}
-        .eg-bubble-body{
-          padding:8px;line-height:1.5;white-space:pre-wrap;overflow:auto;height:calc(100% - 34px);
+        .eg-bubble-close {
+          font-size: 12px;
+          padding: 2px 7px;
+          border-radius: 7px;
+          border: 1px solid #fff;
+          background: transparent;
+          color: #fff;
         }
-        .eg-bubble.right::after,.eg-bubble.left::after{
-          content:"";position:absolute;top:50%;transform:translateY(-50%);
-          width:0;height:0;border:8px solid transparent;
+        .eg-bubble-close:hover {
+          background: #fff;
+          color: #0b0d21;
         }
-        .eg-bubble.right::after{left:-16px;border-right-color:#1a1d3a;}
-        .eg-bubble.left::after{right:-16px;border-left-color:#1a1d3a;}
+        .eg-bubble-body {
+          padding: 8px;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          overflow: auto;
+          height: calc(100% - 34px);
+        }
+        .eg-bubble.right::after,
+        .eg-bubble.left::after {
+          content: "";
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 0;
+          height: 0;
+          border: 8px solid transparent;
+        }
+        .eg-bubble.right::after {
+          left: -16px;
+          border-right-color: #1a1d3a;
+        }
+        .eg-bubble.left::after {
+          right: -16px;
+          border-left-color: #1a1d3a;
+        }
       `}</style>
     </>
   );
@@ -210,7 +244,9 @@ export default function LedgerPage() {
       const urlName = (usp.get("name") || "").trim();
       if (urlName) {
         setLoginName(urlName);
-        try { localStorage.setItem("session_user", urlName); } catch {}
+        try {
+          localStorage.setItem("session_user", urlName);
+        } catch {}
         return;
       }
       try {
@@ -218,13 +254,18 @@ export default function LedgerPage() {
         const d = await r.json();
         if (d?.name) {
           setLoginName(d.name);
-          try { localStorage.setItem("session_user", d.name); } catch {}
+          try {
+            localStorage.setItem("session_user", d.name);
+          } catch {}
           return;
         }
       } catch {}
       try {
         const ls = (localStorage.getItem("session_user") || "").trim();
-        if (ls) { setLoginName(ls); return; }
+        if (ls) {
+          setLoginName(ls);
+          return;
+        }
       } catch {}
       setLoginName("");
     };
@@ -233,8 +274,13 @@ export default function LedgerPage() {
 
   useEffect(() => {
     const run = async () => {
-      setErr(""); setRows([]);
-      if (!loginName) { setLoading(false); setErr("로그인 이름을 확인할 수 없습니다."); return; }
+      setErr("");
+      setRows([]);
+      if (!loginName) {
+        setLoading(false);
+        setErr("로그인 이름을 확인할 수 없습니다.");
+        return;
+      }
       setLoading(true);
       try {
         const q = encodeURIComponent(loginName);
@@ -288,13 +334,13 @@ export default function LedgerPage() {
         <h1 className="title">내 거래 내역 (최근 3개월)</h1>
         <div className="subtitle">
           <span className="mr-2">{loginName || "고객"} 님,</span>
-          기간: <span className="strong">{ymd(date_from)}</span> ~ <span className="strong">{ymd(date_to)}</span>
+          기간: <span className="strong">{ymd(date_from)}</span> ~{" "}
+          <span className="strong">{ymd(date_to)}</span>
         </div>
       </div>
 
-      {/* 내부 스크롤 뷰포트 (윈도우 스크롤이 아니라 여기에서만 스크롤 → 헤더 끝까지 고정) */}
+      {/* 내부 스크롤 뷰포트 */}
       <div className="scroll-viewport">
-        {/* 프레임: 겉 테두리만 담당 */}
         <div className="scroll-frame">
           <table className="ledger">
             <thead className="sticky-head">
@@ -311,30 +357,66 @@ export default function LedgerPage() {
 
             <tbody>
               {loading ? (
-                <tr><td className="py-3" colSpan={7}>불러오는 중…</td></tr>
+                <tr>
+                  <td className="py-3" colSpan={7}>
+                    불러오는 중…
+                  </td>
+                </tr>
               ) : err ? (
-                <tr><td className="py-3 text-red-300" colSpan={7}>{err}</td></tr>
+                <tr>
+                  <td className="py-3 text-red-300" colSpan={7}>
+                    {err}
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td className="py-5 text-white/80" colSpan={7}>표시할 내역이 없습니다.</td></tr>
+                <tr>
+                  <td className="py-5 text-white/80" colSpan={7}>
+                    표시할 내역이 없습니다.
+                  </td>
+                </tr>
               ) : (
                 rows.map((r, i) => {
+                  // 날짜 경계(굵은 선) 판단
+                  const curYMD =
+                    toYMD(r.tx_date) ||
+                    toYMD((r as any).date) ||
+                    toYMD((r as any)["일자"]) ||
+                    toYMD((r as any)["날짜"]);
+                  const prevYMD =
+                    i > 0
+                      ? toYMD(rows[i - 1].tx_date) ||
+                        toYMD((rows[i - 1] as any).date) ||
+                        toYMD((rows[i - 1] as any)["일자"]) ||
+                        toYMD((rows[i - 1] as any)["날짜"])
+                      : "";
+                  const isDateBreak = i === 0 || curYMD !== prevYMD;
+
                   const shortName = trim7(r.item_name || "");
-                  const needInfo = (r.item_name?.length || 0) > 7 || (r.memo && r.memo.trim().length > 0);
-                  const rowId = `${r.tx_date}-${r.item_name}-${i}`;
+                  const needInfo =
+                    (r.item_name?.length || 0) > 7 || (r.memo && r.memo.trim().length > 0);
+                  const rowId = `${curYMD}-${r.item_name}-${i}`;
 
                   return (
-                    <tr key={rowId}>
-                      <td className="col-date">{toMMDD(toYMD(r.tx_date) || toYMD((r as any).date) || toYMD((r as any)["일자"]) || toYMD((r as any)["날짜"]))}</td>
+                    <tr key={rowId} className={isDateBreak ? "dateBreak" : ""}>
+                      <td className="col-date">{toMMDD(curYMD)}</td>
                       <td className="col-name">
                         <div className="name-wrap">
-                          <span className="name-text" title={r.item_name || ""}>{shortName}</span>
+                          <span className="name-text" title={r.item_name || ""}>
+                            {shortName}
+                          </span>
                           {needInfo && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (bubble.open && bubble.rowId === rowId) {
-                                  setBubble({ open: false, title: "", content: "", anchorEl: null, rowId: null });
+                                  setBubble({
+                                    open: false,
+                                    title: "",
+                                    content: "",
+                                    anchorEl: null,
+                                    rowId: null,
+                                  });
                                   return;
                                 }
                                 setBubble({
@@ -345,8 +427,12 @@ export default function LedgerPage() {
                                   rowId,
                                 });
                               }}
-                              className="info-btn" title="상세 보기" aria-label="상세 보기"
-                            >i</button>
+                              className="info-btn"
+                              title="상세 보기"
+                              aria-label="상세 보기"
+                            >
+                              i
+                            </button>
                           )}
                         </div>
                       </td>
@@ -385,7 +471,7 @@ export default function LedgerPage() {
           --table-font: 14px;
         }
 
-        .page-sticky-title{
+        .page-sticky-title {
           position: sticky;
           top: 0;
           z-index: 40;
@@ -393,28 +479,38 @@ export default function LedgerPage() {
           padding-bottom: 8px;
           margin-bottom: 8px;
         }
-        .title{ font-size: 24px; font-weight: 800; margin: 0 0 4px 0; }
-        .subtitle{ font-size: 15px; color: rgba(255,255,255,.8); }
-        .subtitle .strong{ font-weight: 700; color: #fff; }
+        .title {
+          font-size: 24px;
+          font-weight: 800;
+          margin: 0 0 4px 0;
+        }
+        .subtitle {
+          font-size: 15px;
+          color: rgba(255, 255, 255, 0.8);
+        }
+        .subtitle .strong {
+          font-weight: 700;
+          color: #fff;
+        }
 
-        /* ✅ 윈도우 스크롤이 아닌 내부 스크롤만 발생하도록 높이를 고정 */
-        .scroll-viewport{
-          height: calc(100vh - 120px); /* 제목/여백 고려한 대략값 */
+        /* 내부 스크롤 */
+        .scroll-viewport {
+          height: calc(100vh - 120px);
           min-height: 320px;
           overflow: auto;
           -webkit-overflow-scrolling: touch;
-          background: rgba(255,255,255,.02);
+          background: rgba(255, 255, 255, 0.02);
         }
 
-        .scroll-frame{
+        .scroll-frame {
           display: inline-block;
           border: 1px solid #ffffff;
           border-radius: 12px;
-          box-shadow: 0 6px 24px rgba(0,0,0,.35);
+          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
           background: transparent;
         }
 
-        .ledger{
+        .ledger {
           width: max-content;
           border-collapse: collapse;
           table-layout: auto;
@@ -424,66 +520,107 @@ export default function LedgerPage() {
           text-align: center;
         }
 
-        .sticky-head th{
+        .sticky-head th {
           position: sticky;
           top: 0;
           z-index: 20;
           background: #1739f7;
           color: #fff;
           font-weight: 800;
-          letter-spacing: .02em;
+          letter-spacing: 0.02em;
           border-bottom: 1px solid #ffffff;
-          text-shadow: 0 1px 0 rgba(0,0,0,.25);
+          text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
           padding: var(--head-ypad) var(--cell-xpad);
         }
 
-        thead th, tbody td{
+        thead th,
+        tbody td {
           vertical-align: middle;
-          border-right: 1px solid rgba(255,255,255,.35);
-          border-bottom: 1px solid rgba(255,255,255,.3);
+          border-right: 1px solid rgba(255, 255, 255, 0.35);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         }
-        tbody td{
+        tbody td {
           padding: var(--cell-ypad) var(--cell-xpad);
           background: #0b0d21;
         }
-        tbody tr:nth-child(even) td{ background: #101536; }
-        thead tr th:last-child, tbody tr td:last-child{ border-right: none; }
-        tbody tr:last-child td{ border-bottom: none; }
+        tbody tr:nth-child(even) td {
+          background: #101536;
+        }
+        thead tr th:last-child,
+        tbody tr td:last-child {
+          border-right: none;
+        }
+        tbody tr:last-child td {
+          border-bottom: none;
+        }
 
-        /* 품명은 최대한 좁게 유지 */
-        .col-date { min-width: 84px; }
-        .col-name { min-width: 180px; }
-        .col-qty  { min-width: 70px; }
+        /* ✅ 날짜가 바뀌는 첫 행 위에 굵은 경계선 */
+        .dateBreak td {
+          border-top: 3px solid rgba(140, 170, 255, 0.95);
+        }
 
-        .name-wrap{
-          display:inline-flex; align-items:center; gap:6px;
+        /* 컬럼 너비 */
+        .col-date {
+          min-width: 84px;
+        }
+        .col-name {
+          min-width: 180px;
+        }
+        .col-qty {
+          min-width: 70px;
+        }
+
+        .name-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           max-width: 100%;
-          justify-content:center;
+          justify-content: center;
         }
-        .name-text{
-          display:inline-block;
+        .name-text {
+          display: inline-block;
           max-width: 18ch;
-          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        .info-btn{
-          width: 20px; height: 20px;
+        .info-btn {
+          width: 20px;
+          height: 20px;
           border-radius: 6px;
           border: 1px solid #fff;
           background: transparent;
-          color:#fff;
+          color: #fff;
           font-size: 12px;
           line-height: 1;
         }
-        .info-btn:hover{ background:#fff; color:#0b0d21; }
+        .info-btn:hover {
+          background: #fff;
+          color: #0b0d21;
+        }
 
         @media (max-width: 480px) {
-          :root{ --table-font: 13.5px; --cell-ypad: 5px; --head-ypad: 6px; }
-          .col-date { min-width: 60px; }
-          .col-name { min-width: 140px; }
-          .col-qty  { min-width: 54px; }
-          .name-text{ max-width: 14ch; }
-          .scroll-viewport{ height: calc(100vh - 128px); }
+          :root {
+            --table-font: 13.5px;
+            --cell-ypad: 5px;
+            --head-ypad: 6px;
+          }
+          .col-date {
+            min-width: 60px;
+          }
+          .col-name {
+            min-width: 140px;
+          }
+          .col-qty {
+            min-width: 54px;
+          }
+          .name-text {
+            max-width: 14ch;
+          }
+          .scroll-viewport {
+            height: calc(100vh - 128px);
+          }
         }
       `}</style>
     </div>
