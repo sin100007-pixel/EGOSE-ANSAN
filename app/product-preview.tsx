@@ -47,7 +47,7 @@ export default function ProductPreview({
     margin: "0 0 12px 0",
     borderRadius: 12,
     border: "1px solid transparent",
-    background: "#0019C9",
+    background: "#1739f7",
     color: "#ffffff",
     fontWeight: 700,
     fontSize: 16,

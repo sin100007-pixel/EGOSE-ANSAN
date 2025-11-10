@@ -1,454 +1,125 @@
-"use client";
+// app/dashboard/page.tsx
+import Image from "next/image";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import ProductToggle from "@/app/components/ProductToggle";
+import InstallButton from "@/app/components/InstallButton";
 
-import React, { useEffect, useMemo, useState } from "react";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-/* ---------- 유틸 ---------- */
-const fmt = (n: number | string | null | undefined) => {
-  if (n === null || n === undefined || n === "") return "";
-  const v = typeof n === "string" ? Number(n) : n;
-  if (Number.isNaN(v)) return "";
-  return v.toLocaleString("ko-KR");
-};
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
+export default async function DashboardPage() {
+  const sessionCookie = cookies().get("session_user");
+  if (!sessionCookie) redirect("/");
+  const name = decodeURIComponent(sessionCookie.value || "");
 
-const trim7 = (s: string) =>
-  (s?.length ?? 0) > 7 ? s.slice(0, 7) + "…" : (s || "");
+  const user = await prisma.user.findFirst({ where: { name } });
+  if (!user) redirect("/");
 
-/* ---------- 타입 ---------- */
-type Row = {
-  tx_date: string;
-  item_name: string;
-  qty: number | null;
-  unit_price: number | null;
-  amount: number | null;
-  deposit: number | null;
-  curr_balance: number | null;
-  memo?: string | null;
-};
-type ApiResp = { ok: boolean; rows?: Row[]; message?: string };
-
-/* ---------- 말풍선 ---------- */
-const Bubble: React.FC<{
-  anchorEl: HTMLButtonElement | null;
-  title: string;
-  content: string;
-  onClose: () => void;
-}> = ({ anchorEl, title, content, onClose }) => {
-  const [style, setStyle] = useState<React.CSSProperties>({});
-  const [arrowSide, setArrowSide] = useState<"right" | "left">("right");
-
-  useEffect(() => {
-    if (!anchorEl) return;
-    const calc = () => {
-      const rect = anchorEl.getBoundingClientRect();
-      const pad = 8,
-        w = 240,
-        h = 140;
-      let left = rect.right + pad;
-      let top = rect.top + rect.height / 2 - h / 2;
-      let side: "right" | "left" = "right";
-      if (left + w > window.innerWidth - 8) {
-        left = rect.left - pad - w;
-        side = "left";
-      }
-      if (top < 8) top = 8;
-      if (top + h > window.innerHeight - 8) top = window.innerHeight - h - 8;
-      setStyle({ position: "fixed", left, top, width: w, height: h, zIndex: 999 });
-      setArrowSide(side);
-    };
-    calc();
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    const onClickAway = (e: MouseEvent) => {
-      const panel = document.getElementById("eg-bubble");
-      if (
-        panel &&
-        !panel.contains(e.target as Node) &&
-        !anchorEl!.contains(e.target as Node)
-      )
-        onClose();
-    };
-    window.addEventListener("resize", calc);
-    window.addEventListener("scroll", calc, true);
-    window.addEventListener("keydown", onEsc);
-    window.addEventListener("mousedown", onClickAway);
-    return () => {
-      window.removeEventListener("resize", calc);
-      window.removeEventListener("scroll", calc, true);
-      window.removeEventListener("keydown", onEsc);
-      window.removeEventListener("mousedown", onClickAway);
-    };
-  }, [anchorEl, onClose]);
-
-  if (!anchorEl) return null;
+  // 공통 버튼 스타일 (로그아웃/ledger/설치/카카오 동일)
+  const btnStyle: React.CSSProperties = {
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    padding: 12,
+    margin: "0 0 12px 0",
+    borderRadius: 12,
+    border: "1px solid transparent",
+    background: "#1739f7",
+    color: "#ffffff",
+    fontWeight: 700,
+    textAlign: "center",
+    cursor: "pointer",
+  };
 
   return (
-    <>
-      <div className="fixed inset-0 z-[998] bg-black/10" onClick={onClose} aria-hidden="true" />
-      <div id="eg-bubble" style={style} className={`eg-bubble ${arrowSide}`} role="dialog" aria-modal="true">
-        <div className="eg-bubble-head">
-          <div className="eg-bubble-title" title={title || "상세"}>
-            {title || "상세"}
-          </div>
-          <button className="eg-bubble-close" onClick={onClose}>
-            닫기
-          </button>
+    <main
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: "24px 16px 80px",
+        color: "#fff",
+        background: "#0F0C2E",
+        minHeight: "100vh",
+      }}
+    >
+      <header style={{ width: "100%", marginBottom: 16 }}>
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "7 / 3",
+            borderRadius: 12,
+            overflow: "hidden",
+          }}
+        >
+          <Image
+            src="/london-market-hero.png"
+            alt="LONDON MARKET"
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
+          />
         </div>
-        <div className="eg-bubble-body">{content}</div>
+      </header>
+
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>{name}님의 QR</h1>
+
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ width: 260, borderRadius: 12, overflow: "hidden", background: "#111" }}>
+          <img src={user.qrUrl} alt="QR" style={{ display: "block", width: "100%", height: "auto" }} />
+        </div>
+        <div style={{ alignSelf: "center" }}>
+          <p style={{ opacity: 0.9, marginTop: 8 }}>전화번호 뒷자리: {user.phoneLast4}</p>
+        </div>
       </div>
 
-      <style jsx>{`
-        .eg-bubble {
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.9);
-          background: linear-gradient(180deg, #1a1d3a 0%, #0f1129 100%);
-          color: #fff;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-          overflow: hidden;
-          font-size: 12px;
-        }
-        .eg-bubble-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 6px 8px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.6);
-          background: rgba(255, 255, 255, 0.06);
-        }
-        .eg-bubble-title {
-          font-weight: 600;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          padding-right: 6px;
-        }
-        .eg-bubble-close {
-          font-size: 11px;
-          padding: 2px 7px;
-          border-radius: 7px;
-          border: 1px solid #fff;
-          background: transparent;
-          color: #fff;
-        }
-        .eg-bubble-close:hover {
-          background: #fff;
-          color: #0b0d21;
-        }
-        .eg-bubble-body {
-          padding: 8px;
-          line-height: 1.45;
-          white-space: pre-wrap;
-          overflow: auto;
-          height: calc(100% - 34px);
-        }
-        .eg-bubble.right::after,
-        .eg-bubble.left::after {
-          content: "";
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 0;
-          height: 0;
-          border: 8px solid transparent;
-        }
-        .eg-bubble.right::after {
-          left: -16px;
-          border-right-color: #1a1d3a;
-        }
-        .eg-bubble.left::after {
-          right: -16px;
-          border-left-color: #1a1d3a;
-        }
-      `}</style>
-    </>
-  );
-};
+      <section style={{ marginTop: 24 }}>
+        {/* 로그아웃 */}
+        <form action="/api/logout" method="POST">
+          <button type="submit" style={btnStyle}>
+            로그아웃
+          </button>
+        </form>
 
-/* ---------- 페이지 ---------- */
-export default function LedgerPage() {
-  const HEADER_BLUE = "#1739f7"; // ✅ 로그인 버튼과 동일 파랑
+        {/* ✅ /ledger 이동 버튼 — 로그아웃 바로 아래, 동일 스타일 */}
+        <a href="/ledger" style={{ textDecoration: "none" }}>
+          <button type="button" style={btnStyle}>
+            거래내역 보기(공사중)
+          </button>
+        </a>
 
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+        {/* 앱 설치 버튼 (PWA 설치 가능 시에만 보임) */}
+        <InstallButton style={btnStyle}>앱 설치</InstallButton>
 
-  const [bubble, setBubble] = useState<{
-    open: boolean;
-    title: string;
-    content: string;
-    anchorEl: HTMLButtonElement | null;
-  }>({ open: false, title: "", content: "", anchorEl: null });
+        {/* 카카오 채팅문의 */}
+        <a href="http://pf.kakao.com/_IxgdJj/chat" target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+          <button type="button" style={btnStyle}>
+            카카오 채팅문의
+          </button>
+        </a>
 
-  const date_to = useMemo(() => new Date(), []);
-  const date_from = useMemo(() => {
-    const d = new Date(date_to);
-    d.setMonth(d.getMonth() - 3);
-    return d;
-  }, [date_to]);
+        <ProductToggle />
+      </section>
 
-  const [loginName, setLoginName] = useState("");
-
-  useEffect(() => {
-    const getName = async () => {
-      const usp = new URLSearchParams(window.location.search);
-      const urlName = (usp.get("name") || "").trim();
-      if (urlName) {
-        setLoginName(urlName);
-        try {
-          localStorage.setItem("session_user", urlName);
-        } catch {}
-        return;
-      }
-      try {
-        const r = await fetch("/api/whoami", { cache: "no-store" });
-        const d = await r.json();
-        if (d?.name) {
-          setLoginName(d.name);
-          try {
-            localStorage.setItem("session_user", d.name);
-          } catch {}
-          return;
-        }
-      } catch {}
-      try {
-        const ls = (localStorage.getItem("session_user") || "").trim();
-        if (ls) {
-          setLoginName(ls);
-          return;
-        }
-      } catch {}
-      setLoginName("");
-    };
-    getName();
-  }, []);
-
-  useEffect(() => {
-    const run = async () => {
-      setErr("");
-      setRows([]);
-      if (!loginName) {
-        setLoading(false);
-        setErr("로그인 이름을 확인할 수 없습니다.");
-        return;
-      }
-      setLoading(true);
-      try {
-        const q = encodeURIComponent(loginName);
-        const url =
-          `/api/ledger-search?order=excel&limit=2000` +
-          `&date_from=${ymd(date_from)}` +
-          `&date_to=${ymd(date_to)}` +
-          `&q=${q}`;
-        const r = await fetch(url, { cache: "no-store" });
-        const data: ApiResp = await r.json();
-        if (!data.ok) throw new Error(data.message || "불러오기 실패");
-        setRows(data.rows || []);
-      } catch (e: any) {
-        setErr(e?.message || "에러가 발생했습니다.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    run();
-  }, [loginName, date_from, date_to]);
-
-  const isDepositRow = (r: Row) =>
-    (r.deposit ?? 0) > 0 && (r.amount ?? 0) === 0;
-
-  return (
-    <div className="wrap p-4 md:p-6 text-white" style={{ background: "#0b0d21" }}>
-      <h1 className="text-[24px] md:text-[34px] font-extrabold mb-3">
-        내 거래 내역 (최근 3개월)
-      </h1>
-
-      <div className="mb-3 text-white/80 text-sm md:text-base">
-        <span className="mr-2">{loginName || "고객"} 님,</span>
-        기간: <span className="font-semibold">{ymd(date_from)}</span> ~{" "}
-        <span className="font-semibold">{ymd(date_to)}</span>
+      {/* 회사 정보 푸터 */}
+      <div
+        style={{
+          marginTop: 24,
+          paddingTop: 8,
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          fontSize: 12,
+          lineHeight: "18px",
+          color: "rgba(255,255,255,0.6)",
+          textAlign: "center",
+        }}
+      >
+        <div>이고세(주)</div>
+        <div>경기도 안산시 상록구 안산천서로 237</div>
+        <div>Tel. 031-486-6882</div>
       </div>
-
-      <div className="relative overflow-auto rounded-xl shadow-[0_6px_24px_rgba(0,0,0,.35)]">
-        <table className="ledger w-full text-[14px] md:text-[15px] leading-tight">
-          <thead>
-            <tr>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }} className="col-date">
-                일자
-              </th>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }} className="col-name">
-                품명
-              </th>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }} className="col-qty">
-                수량
-              </th>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }}>단가</th>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }}>공급가</th>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }}>입금액</th>
-              <th style={{ background: HEADER_BLUE, color: "#fff" }}>잔액</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading ? (
-              <tr>
-                <td className="py-3" colSpan={7}>
-                  불러오는 중…
-                </td>
-              </tr>
-            ) : err ? (
-              <tr>
-                <td className="py-3 text-red-300" colSpan={7}>
-                  {err}
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td className="py-5 text-white/80" colSpan={7}>
-                  표시할 내역이 없습니다.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r, i) => {
-                const shortName = trim7(r.item_name || "");
-                const needInfo =
-                  (r.item_name?.length || 0) > 7 ||
-                  (r.memo && r.memo.trim().length > 0);
-                return (
-                  <tr key={`${r.tx_date}-${i}`}>
-                    <td className="col-date">{r.tx_date?.slice(5)}</td>
-                    <td className="col-name">
-                      <div className="inline-flex items-center justify-center gap-1 max-w-full">
-                        <span className="truncate max-w-[60vw] md:max-w-[260px]">
-                          {shortName}
-                        </span>
-                        {needInfo && (
-                          <button
-                            type="button"
-                            onClick={(e) =>
-                              setBubble({
-                                open: true,
-                                title: r.item_name || "",
-                                content:
-                                  (r.memo && r.memo.trim()) || r.item_name || "",
-                                anchorEl: e.currentTarget,
-                              })
-                            }
-                            className="ml-0.5 shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md border border-white text-[11px] hover:bg-white hover:text-[#0b0d21] transition"
-                            title="상세 보기"
-                            aria-label="상세 보기"
-                          >
-                            i
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="col-qty">
-                      {!isDepositRow(r) ? r.qty ?? "" : ""}
-                    </td>
-                    <td>{!isDepositRow(r) ? fmt(r.unit_price) : ""}</td>
-                    <td>{!isDepositRow(r) ? fmt(r.amount) : ""}</td>
-                    <td>{fmt(r.deposit)}</td>
-                    <td>{fmt(r.curr_balance)}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {bubble.open && (
-        <Bubble
-          anchorEl={bubble.anchorEl}
-          title={bubble.title}
-          content={bubble.content}
-          onClose={() =>
-            setBubble({ open: false, title: "", content: "", anchorEl: null })
-          }
-        />
-      )}
-
-      <style jsx>{`
-        .ledger {
-          border-collapse: collapse;
-          width: 100%;
-          table-layout: auto;
-          border: 1px solid #ffffff; /* 외곽선 */
-          text-align: center;
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        thead th {
-          font-weight: 800;
-          letter-spacing: 0.02em;
-          border-bottom: 1px solid #ffffff; /* 헤더 하단만 선명 */
-          text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
-        }
-
-        thead th,
-        tbody td {
-          padding-block: 8px;
-          padding-inline: 1ch;
-          white-space: nowrap;
-          vertical-align: middle;
-          border-right: 1px solid rgba(255, 255, 255, 0.35);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-        }
-        thead tr th:last-child,
-        tbody tr td:last-child {
-          border-right: none;
-        }
-        tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        /* 본문 줄무늬 */
-        tbody tr td {
-          background: #0b0d21;
-          color: #fff;
-        }
-        tbody tr:nth-child(even) td {
-          background: #101536;
-        }
-
-        .col-date {
-          min-width: 96px;
-        }
-        .col-name {
-          min-width: 320px;
-        }
-        .col-qty {
-          min-width: 84px;
-        }
-
-        @media (max-width: 480px) {
-          .ledger {
-            font-size: 13px;
-          }
-          thead th,
-          tbody td {
-            padding-block: 6px;
-            padding-inline: 0.6ch;
-          }
-          .col-date {
-            width: 22vw;
-            min-width: 60px;
-          }
-          .col-name {
-            width: 56vw;
-            min-width: 0;
-          }
-          .col-qty {
-            width: 22vw;
-            min-width: 54px;
-          }
-          .col-name .truncate {
-            max-width: 52vw;
-          }
-        }
-      `}</style>
-    </div>
+    </main>
   );
 }
