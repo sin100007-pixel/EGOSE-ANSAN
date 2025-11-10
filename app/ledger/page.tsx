@@ -154,8 +154,8 @@ export default function LedgerPage() {
   const TOPBAR_H = 64;
   const HDR_H = 44;
 
-  // ✅ 테이블/헤더 최소 가로폭(px) — 화면이 더 좁으면 좌우 스크롤 생성
-  const TABLE_MIN_W = 1120;
+  // ✅ 테이블 최소 가로폭(px) — 화면이 더 좁으면 좌우 스크롤
+  const TABLE_MIN_W = 1080;
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +254,7 @@ export default function LedgerPage() {
           <div className="text-[26px] md:text-[28px] font-extrabold leading-none">
             내 거래 내역 (최근 3개월)
           </div>
-        <div className="text-white/80 text-[14px] mt-1">
+          <div className="text-white/80 text-[14px] mt-1">
             <span className="mr-2">{loginName || "고객"} 님,</span>
             기간: <span className="font-semibold">{ymd(date_from)}</span> ~{" "}
             <span className="font-semibold">{ymd(date_to)}</span>
@@ -277,19 +277,20 @@ export default function LedgerPage() {
         </Link>
       </div>
 
-      {/* 내부 스크롤 컨테이너 (가로/세로 스크롤 모두 허용) */}
+      {/* 내부 스크롤 컨테이너 — 가로/세로 스크롤 모두 허용 */}
       <div
         className="scroller"
         style={{
           height: `calc(100vh - ${TOPBAR_H}px)`,
-          overflow: "auto",
+          overflowY: "auto",
+          overflowX: "auto",                 // ✅ 좌우 스크롤 복구
           WebkitOverflowScrolling: "touch",
           overscrollBehavior: "contain",
           touchAction: "pan-y",
-          padding: "0 16px 24px",
+          padding: "0 12px 20px",
         }}
       >
-        {/* 복제 헤더(Grid) — 좌우 스크롤 동기화를 위해 같은 컨테이너 안에 배치 + minWidth */}
+        {/* 복제 헤더(Grid) — minWidth로 스크롤 생성 */}
         <div
           className="hdr-grid"
           style={{
@@ -297,7 +298,8 @@ export default function LedgerPage() {
             top: 0,
             zIndex: 800,
             display: "grid",
-            gridTemplateColumns: "110px 300px 90px 130px 140px 120px 140px", // px 고정폭
+            // 데스크톱 기준 px 고정폭
+            gridTemplateColumns: "110px 320px 90px 130px 140px 120px 140px",
             height: HDR_H,
             alignItems: "center",
             border: "1px solid #fff",
@@ -305,8 +307,8 @@ export default function LedgerPage() {
             background: BTN_BLUE,
             color: "#fff",
             fontWeight: 800,
-            padding: "0 8px",
-            minWidth: TABLE_MIN_W,   // ✅ 화면이 더 좁으면 가로 스크롤
+            padding: "0 6px",
+            minWidth: TABLE_MIN_W,           // ✅ 가로 스크롤 트리거
           }}
         >
           <div className="text-center">일자</div>
@@ -318,15 +320,15 @@ export default function LedgerPage() {
           <div className="text-center">잔액</div>
         </div>
 
-        {/* 테이블 본문 — 헤더와 동일한 최소 가로폭 부여 */}
+        {/* 테이블 본문 */}
         <div className="relative rounded-xl shadow-[0_6px_24px_rgba(0,0,0,.35)]">
           <table
             className="ledger leading-tight"
-            style={{ fontSize: 16, minWidth: TABLE_MIN_W, width: "100%" }} // ✅ minWidth
+            style={{ fontSize: 16, minWidth: TABLE_MIN_W, width: "100%" }}
           >
             <colgroup>
               <col style={{ width: "110px" }} />
-              <col style={{ width: "300px" }} />
+              <col style={{ width: "320px" }} />
               <col style={{ width: "90px" }} />
               <col style={{ width: "130px" }} />
               <col style={{ width: "140px" }} />
@@ -405,15 +407,14 @@ export default function LedgerPage() {
         .ledger{
           border-collapse: separate;
           border-spacing: 0;
-          table-layout: fixed;      /* colgroup 폭 고정 반영 */
+          table-layout: fixed;
           border: 1px solid #ffffff;
           text-align: center;
           border-radius: 12px; overflow: hidden;
         }
-
         tbody td{
           padding-block: 10px;
-          padding-inline: 12px;
+          padding-inline: 10px;
           white-space: nowrap;
           vertical-align: middle;
           border-right: 1px solid rgba(255,255,255,.35);
@@ -425,10 +426,21 @@ export default function LedgerPage() {
         tbody tr td:last-child{ border-right: none; }
         tbody tr:last-child td{ border-bottom: none; }
 
-        /* 모바일에서도 가로 스크롤 허용 (최소 폭을 테이블/헤더에 줬기 때문에 자동 생성) */
+        /* ▼ 모바일: 여백 확 줄이고, 첫 화면에 일자/품명/수량 보이도록 폭 조정 */
         @media (max-width: 480px) {
+          .hdr-grid{
+            grid-template-columns: 72px 220px 68px 108px 110px 100px 110px !important;
+          }
+          .ledger colgroup col:nth-child(1){ width:72px !important; }
+          .ledger colgroup col:nth-child(2){ width:220px !important; }
+          .ledger colgroup col:nth-child(3){ width:68px !important; }
+          .ledger colgroup col:nth-child(4){ width:108px !important; }
+          .ledger colgroup col:nth-child(5){ width:110px !important; }
+          .ledger colgroup col:nth-child(6){ width:100px !important; }
+          .ledger colgroup col:nth-child(7){ width:110px !important; }
+
           .ledger { font-size: 15px; }
-          tbody td { padding-block: 8px; padding-inline: 10px; }
+          tbody td { padding-block: 6px; padding-inline: 6px; }
         }
       `}</style>
     </div>
