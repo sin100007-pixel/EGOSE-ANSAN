@@ -151,8 +151,11 @@ const Bubble: React.FC<{
 /* ---------- 페이지 ---------- */
 export default function LedgerPage() {
   const BTN_BLUE = "#1739f7";
-  const TOPBAR_H = 64;   // 상단바 높이
-  const HDR_H = 44;      // 헤더바 높이
+  const TOPBAR_H = 64;
+  const HDR_H = 44;
+
+  // ✅ 테이블/헤더 최소 가로폭(px) — 화면이 더 좁으면 좌우 스크롤 생성
+  const TABLE_MIN_W = 1120;
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,7 +169,6 @@ export default function LedgerPage() {
     rowId: string | null;
   }>({ open: false, title: "", content: "", anchorEl: null, rowId: null });
 
-  // 기간: 최근 3개월
   const date_to = useMemo(() => new Date(), []);
   const date_from = useMemo(() => {
     const d = new Date(date_to);
@@ -176,7 +178,6 @@ export default function LedgerPage() {
 
   const [loginName, setLoginName] = useState("");
 
-  // 로그인 이름 확보
   useEffect(() => {
     const getName = async () => {
       const usp = new URLSearchParams(window.location.search);
@@ -204,7 +205,6 @@ export default function LedgerPage() {
     getName();
   }, []);
 
-  // 데이터 로드
   useEffect(() => {
     const run = async () => {
       setErr(""); setRows([]);
@@ -233,15 +233,8 @@ export default function LedgerPage() {
   const isDepositRow = (r: Row) => (r.deposit ?? 0) > 0 && (r.amount ?? 0) === 0;
 
   return (
-    // ✅ 고정 뷰포트: 바디 스크롤 전이 차단(인앱에서 헤더 튐 방지)
-    <div className="viewport" style={{
-      position: "fixed",
-      inset: 0,
-      background: "#0b0d21",
-      color: "#fff",
-      overflow: "hidden",
-    }}>
-      {/* ✅ 상단 Topbar — sticky (뷰포트가 fixed라 바디 스크롤 없음) */}
+    <div className="viewport" style={{ position: "fixed", inset: 0, background: "#0b0d21", color: "#fff", overflow: "hidden" }}>
+      {/* 상단 Topbar (인앱 호환 sticky) */}
       <div
         className="topbar"
         style={{
@@ -261,7 +254,7 @@ export default function LedgerPage() {
           <div className="text-[26px] md:text-[28px] font-extrabold leading-none">
             내 거래 내역 (최근 3개월)
           </div>
-          <div className="text-white/80 text-[14px] mt-1">
+        <div className="text-white/80 text-[14px] mt-1">
             <span className="mr-2">{loginName || "고객"} 님,</span>
             기간: <span className="font-semibold">{ymd(date_from)}</span> ~{" "}
             <span className="font-semibold">{ymd(date_to)}</span>
@@ -284,7 +277,7 @@ export default function LedgerPage() {
         </Link>
       </div>
 
-      {/* ✅ 내부 스크롤 컨테이너: 오직 여기만 스크롤됨 */}
+      {/* 내부 스크롤 컨테이너 (가로/세로 스크롤 모두 허용) */}
       <div
         className="scroller"
         style={{
@@ -296,7 +289,7 @@ export default function LedgerPage() {
           padding: "0 16px 24px",
         }}
       >
-        {/* ✅ 복제 헤더(Grid) — 스크롤해도 항상 상단 고정 */}
+        {/* 복제 헤더(Grid) — 좌우 스크롤 동기화를 위해 같은 컨테이너 안에 배치 + minWidth */}
         <div
           className="hdr-grid"
           style={{
@@ -304,7 +297,7 @@ export default function LedgerPage() {
             top: 0,
             zIndex: 800,
             display: "grid",
-            gridTemplateColumns: "12% 32% 10% 12% 12% 10% 12%",
+            gridTemplateColumns: "110px 300px 90px 130px 140px 120px 140px", // px 고정폭
             height: HDR_H,
             alignItems: "center",
             border: "1px solid #fff",
@@ -313,6 +306,7 @@ export default function LedgerPage() {
             color: "#fff",
             fontWeight: 800,
             padding: "0 8px",
+            minWidth: TABLE_MIN_W,   // ✅ 화면이 더 좁으면 가로 스크롤
           }}
         >
           <div className="text-center">일자</div>
@@ -324,17 +318,20 @@ export default function LedgerPage() {
           <div className="text-center">잔액</div>
         </div>
 
-        {/* ✅ 테이블 본문만 스크롤 */}
+        {/* 테이블 본문 — 헤더와 동일한 최소 가로폭 부여 */}
         <div className="relative rounded-xl shadow-[0_6px_24px_rgba(0,0,0,.35)]">
-          <table className="ledger w-full leading-tight" style={{ fontSize: 16 }}>
+          <table
+            className="ledger leading-tight"
+            style={{ fontSize: 16, minWidth: TABLE_MIN_W, width: "100%" }} // ✅ minWidth
+          >
             <colgroup>
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "32%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "12%" }} />
+              <col style={{ width: "110px" }} />
+              <col style={{ width: "300px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "120px" }} />
+              <col style={{ width: "140px" }} />
             </colgroup>
 
             <tbody>
@@ -353,10 +350,10 @@ export default function LedgerPage() {
 
                   return (
                     <tr key={rowId}>
-                      <td className="col-date text-center">{r.tx_date?.slice(5)}</td>
-                      <td className="col-name text-center">
+                      <td className="text-center">{r.tx_date?.slice(5)}</td>
+                      <td className="text-center">
                         <div className="inline-flex items-center justify-center gap-1 max-w-full">
-                          <span className="truncate max-w-[60vw] md:max-w-[260px]">{shortName}</span>
+                          <span className="truncate">{shortName}</span>
                           {needInfo && (
                             <button
                               type="button"
@@ -381,7 +378,7 @@ export default function LedgerPage() {
                         </div>
                       </td>
 
-                      <td className="col-qty text-center">{!isDepositRow(r) ? (r.qty ?? "") : ""}</td>
+                      <td className="text-center">{!isDepositRow(r) ? (r.qty ?? "") : ""}</td>
                       <td className="text-center">{!isDepositRow(r) ? fmt(r.unit_price) : ""}</td>
                       <td className="text-center">{!isDepositRow(r) ? fmt(r.amount) : ""}</td>
                       <td className="text-center">{fmt(r.deposit)}</td>
@@ -406,10 +403,9 @@ export default function LedgerPage() {
 
       <style jsx>{`
         .ledger{
-          border-collapse: separate;   /* sticky 헤더 충돌 방지 */
+          border-collapse: separate;
           border-spacing: 0;
-          width: 100%;
-          table-layout: fixed;         /* colgroup 퍼센트 폭 반영 */
+          table-layout: fixed;      /* colgroup 폭 고정 반영 */
           border: 1px solid #ffffff;
           text-align: center;
           border-radius: 12px; overflow: hidden;
@@ -417,7 +413,7 @@ export default function LedgerPage() {
 
         tbody td{
           padding-block: 10px;
-          padding-inline: 1.2ch;
+          padding-inline: 12px;
           white-space: nowrap;
           vertical-align: middle;
           border-right: 1px solid rgba(255,255,255,.35);
@@ -429,10 +425,10 @@ export default function LedgerPage() {
         tbody tr td:last-child{ border-right: none; }
         tbody tr:last-child td{ border-bottom: none; }
 
-        /* 모바일 최적화 */
+        /* 모바일에서도 가로 스크롤 허용 (최소 폭을 테이블/헤더에 줬기 때문에 자동 생성) */
         @media (max-width: 480px) {
           .ledger { font-size: 15px; }
-          tbody td { padding-block: 8px; padding-inline: .8ch; }
+          tbody td { padding-block: 8px; padding-inline: 10px; }
         }
       `}</style>
     </div>
