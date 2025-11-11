@@ -1,7 +1,7 @@
 // app/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ProductPreview from "./product-preview";
 import InstallButton from "./components/InstallButton";
@@ -19,21 +19,50 @@ export default function Page() {
 
   // 자동 로그인 안내 풍선
   const [autoLogging, setAutoLogging] = useState(false);
+
+  // ✅ 풍선을 이름 입력칸의 왼쪽 상단에 고정하기 위한 ref/좌표
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const [bubblePos, setBubblePos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const justLoggedOut = sessionStorage.getItem("justLoggedOut") === "1";
     if (justLoggedOut) return;
+
     const hasCookie = document.cookie.includes("session_user=");
     if (hasCookie) return;
+
     try {
       const stored = localStorage.getItem("session_user");
       if (stored) {
         setAutoLogging(true);
+        // 12초 뒤 자동 숨김
         const t = setTimeout(() => setAutoLogging(false), 12000);
         return () => clearTimeout(t);
       }
     } catch {}
   }, []);
+
+  // ✅ 이름 입력칸 기준으로 풍선 위치 계산
+  useEffect(() => {
+    const calc = () => {
+      if (!formRef.current || !nameInputRef.current) return;
+      const formRect = formRef.current.getBoundingClientRect();
+      const inputRect = nameInputRef.current.getBoundingClientRect();
+      const left = inputRect.left - formRect.left;  // 이름 입력칸의 왼쪽
+      const top = inputRect.top - formRect.top;     // 이름 입력칸의 위쪽
+      setBubblePos({ left, top });
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    window.addEventListener("scroll", calc, true);
+    return () => {
+      window.removeEventListener("resize", calc);
+      window.removeEventListener("scroll", calc, true);
+    };
+  }, [autoLogging]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -80,7 +109,7 @@ export default function Page() {
     background: BTN_BLUE,
     color: "#ffffff",
     fontWeight: 700,
-    fontSize: 16,           // 로그인 버튼 글자 크기
+    fontSize: 16,
     lineHeight: "20px",
     textAlign: "center",
     cursor: "pointer",
@@ -122,11 +151,13 @@ export default function Page() {
           런던마켓으로 로그인
         </h1>
 
-        <form onSubmit={onSubmit} style={{ position: "relative" }}>
+        <form ref={formRef} onSubmit={onSubmit} style={{ position: "relative" }}>
+          {/* 이름 */}
           <label style={{ display: "block", marginTop: 6, marginBottom: 4, color: "#e5e7eb" }}>
             이름
           </label>
           <input
+            ref={nameInputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="예) 홍길동"
@@ -134,6 +165,7 @@ export default function Page() {
             style={fieldStyle}
           />
 
+          {/* 비밀번호 */}
           <label style={{ display: "block", marginTop: 6, marginBottom: 4, color: "#e5e7eb" }}>
             비밀번호
           </label>
@@ -145,16 +177,23 @@ export default function Page() {
             style={fieldStyle}
           />
 
-          {/* 자동 로그인 중 풍선 */}
+          {/* 🔔 자동 로그인 중 풍선 — 이름 입력칸의 왼쪽 상단에 고정 */}
           {autoLogging && (
-            <>
-              <div className="login-bubble" role="status" aria-live="polite">
-                <div className="bubble-head">
-                  <span className="dot" /> 자동 로그인 중
-                </div>
-                <div className="bubble-body">로그인중입니다. 잠시만 기다려주세요.</div>
+            <div
+              className="login-bubble at-name"
+              role="status"
+              aria-live="polite"
+              style={{
+                left: bubblePos.left,
+                top: bubblePos.top,
+                transform: "translateY(-110%)", // 입력칸 바로 위로 살짝 띄우기
+              }}
+            >
+              <div className="bubble-head">
+                <span className="dot" /> 자동 로그인 중
               </div>
-            </>
+              <div className="bubble-body">로그인중입니다. 잠시만 기다려주세요.</div>
+            </div>
           )}
 
           <div
@@ -213,7 +252,7 @@ export default function Page() {
             </div>
           )}
 
-          {/* 앱 설치 버튼 */}
+          {/* 앱 설치 버튼 (asChild 제거) */}
           <InstallButton
             style={{ ...buttonStyle, marginTop: 8 }}
             onMouseEnter={(e) =>
@@ -226,7 +265,7 @@ export default function Page() {
             앱 설치
           </InstallButton>
 
-          {/* ✅ 카카오 채팅문의 — 로그인 버튼과 동일 스타일, 밑줄 제거 */}
+          {/* 카카오 채팅문의 — 로그인 버튼과 동일 스타일 */}
           <a
             href="http://pf.kakao.com/_IxgdJj/chat"
             target="_blank"
@@ -234,7 +273,7 @@ export default function Page() {
             style={{
               ...buttonStyle,
               marginTop: 8,
-              textDecoration: "none", // 밑줄 제거
+              textDecoration: "none",
               display: "block",
               textAlign: "center",
               color: "#ffffff",
@@ -249,10 +288,8 @@ export default function Page() {
             카카오 채팅문의
           </a>
 
-          {/* 판매중인 상품 보기(컴포넌트 내부에서 버튼 렌더) */}
           <ProductPreview />
 
-          {/* 회사 정보 */}
           <div
             style={{
               marginTop: 14,
@@ -274,8 +311,6 @@ export default function Page() {
       <style jsx>{`
         .login-bubble {
           position: absolute;
-          right: -4px;
-          top: 86px;
           width: 280px;
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.85);
@@ -285,13 +320,14 @@ export default function Page() {
           overflow: hidden;
           z-index: 20;
         }
-        .login-bubble::after {
+        /* ⬇️ 이름 입력칸 상단에 붙는 버전: 아래 방향 화살표 */
+        .login-bubble.at-name::after {
           content: "";
           position: absolute;
-          right: 18px;
-          top: -16px;
+          left: 22px;     /* 이름 입력칸의 왼쪽 쪽을 가리키게 */
+          bottom: -16px;  /* 풍선 아래에서 아래쪽으로 뾰족 나가게 */
           border: 8px solid transparent;
-          border-bottom-color: #1a1d3a;
+          border-top-color: #1a1d3a; /* 아래로 향하는 삼각형 */
         }
         .bubble-head {
           display: flex;
@@ -322,12 +358,7 @@ export default function Page() {
         }
 
         @media (max-width: 480px) {
-          .login-bubble {
-            right: 0;
-            top: 78px;
-            width: calc(100% - 4px);
-          }
-          .login-bubble::after { right: 28px; }
+          .login-bubble { width: min(280px, 92%); }
         }
       `}</style>
     </div>
