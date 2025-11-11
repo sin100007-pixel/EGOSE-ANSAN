@@ -101,7 +101,7 @@ export default async function DashboardPage() {
         {/* /ledger 이동 버튼 */}
         <a href="/ledger" style={{ textDecoration: "none" }}>
           <button type="button" style={btnStyle}>
-            거래내역 보기(공사중)
+            거래내역 보기
           </button>
         </a>
 
