@@ -338,11 +338,14 @@ export default function LedgerPage() {
           <span className="strong">{ymd(date_to)}</span>
         </div>
 
-        {/* ✅ 요청하신 안내문(빨간색) */}
+        {/* ✅ 안내문 - 로컬 CSS로 폰트 고정(모바일 6px / 데스크탑 7px) */}
         <div className="mt-2 px-1">
-          <ul className="space-y-1 text-[11px] md:text-xs leading-5 font-medium text-red-400">
+          <ul
+            className="space-y-[2px] font-medium text-red-400 eg-notice"
+            style={{ color: "#f87171" }} // red-400 강제
+          >
             <li>* 금일 발주 건은 차일 오후12시에 반영됩니다.</li>
-            <li>** 누락, 중복, 오기입이 있을 수 있습니다. 대략으로만 봐주세요. </li>
+            <li>** 누락, 중복, 오기입이 있을 수 있습니다. 대략으로만 봐주세요.</li>
             <li>
               *** 최근거래의 대략을 보여주므로 정확한 내용은 이고세로 직접 연락주세요.
               Tel.031-486-6882
@@ -616,27 +619,23 @@ export default function LedgerPage() {
           color: #0b0d21;
         }
 
+        /* 🔻 안내문 폰트/줄간격 고정 (TW purge/우선순위 영향 방지) */
+        .eg-notice { font-size: 10px; line-height: 11px; }
+        @media (min-width: 768px) {
+          .eg-notice { font-size: 11px; line-height: 12px; }
+        }
+
         @media (max-width: 480px) {
           :root {
             --table-font: 13.5px;
             --cell-ypad: 5px;
             --head-ypad: 6px;
           }
-          .col-date {
-            min-width: 60px;
-          }
-          .col-name {
-            min-width: 140px;
-          }
-          .col-qty {
-            min-width: 54px;
-          }
-          .name-text {
-            max-width: 14ch;
-          }
-          .scroll-viewport {
-            height: calc(100vh - 128px);
-          }
+          .col-date { min-width: 60px; }
+          .col-name { min-width: 140px; }
+          .col-qty  { min-width: 54px; }
+          .name-text { max-width: 14ch; }
+          .scroll-viewport { height: calc(100vh - 128px); }
         }
       `}</style>
     </div>
