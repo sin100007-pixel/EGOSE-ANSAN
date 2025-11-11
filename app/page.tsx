@@ -186,7 +186,7 @@ export default function Page() {
               style={{
                 left: bubblePos.left,
                 top: bubblePos.top,
-                transform: "translateY(-110%)", // 입력칸 바로 위로 살짝 띄우기
+                transform: "translateY(-90%)", // 입력칸 바로 위로 살짝 띄우기
               }}
             >
               <div className="bubble-head">
