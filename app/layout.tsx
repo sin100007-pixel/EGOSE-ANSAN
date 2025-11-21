@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import PWAClient from "./pwa-client";
 import SessionHydrator from "./components/SessionHydrator";
+import PageViewTracker from "./components/PageViewTracker";
 
 export const viewport: Viewport = {
   themeColor: [
@@ -44,6 +45,7 @@ export default function RootLayout({
         {/* PWA 설치 버튼/힌트 + 세션 자동복구 */}
         <PWAClient />
         <SessionHydrator />
+        <PageViewTracker />
         {children}
       </body>
     </html>

@@ -37,16 +37,18 @@ function prettyDevice(type: string | null) {
 }
 
 export default async function AdminDashboardPage() {
-  const logs = await prisma.loginLog.findMany({
-    orderBy: { loginAt: "desc" },
+  const logs = await prisma.pageView.findMany({
+    orderBy: { viewedAt: "desc" },
     take: 200,
   });
 
   return (
     <div className="mx-auto max-w-5xl p-4 text-white">
-      <h2 className="mb-1 text-2xl font-bold">접속 로그 (admin/dashboard)</h2>
+      <h2 className="mb-1 text-2xl font-bold">
+        페이지 방문 로그 (admin/dashboard)
+      </h2>
       <p className="mb-4 text-[13px] opacity-80">
-        최근 로그인 순으로 최대 200건까지 표시합니다. 새로고침(F5) 하면 최신
+        최근 방문 순으로 최대 200건까지 표시합니다. 새로고침(F5) 하면 최신
         정보로 갱신됩니다.
       </p>
 
@@ -55,9 +57,10 @@ export default async function AdminDashboardPage() {
           <thead className="bg-white/10">
             <tr>
               <th className="whitespace-nowrap px-3 py-2 text-left">
-                로그인 시각
+                방문 시각
               </th>
               <th className="whitespace-nowrap px-3 py-2 text-left">이름</th>
+              <th className="whitespace-nowrap px-3 py-2 text-left">경로</th>
               <th className="whitespace-nowrap px-3 py-2 text-left">기기</th>
               <th className="whitespace-nowrap px-3 py-2 text-left">IP</th>
               <th className="whitespace-nowrap px-3 py-2 text-left">
@@ -69,10 +72,10 @@ export default async function AdminDashboardPage() {
             {logs.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-2 py-5 text-center text-sm opacity-80"
                 >
-                  아직 로그인 로그가 없습니다.
+                  아직 방문 기록이 없습니다.
                 </td>
               </tr>
             )}
@@ -85,14 +88,19 @@ export default async function AdminDashboardPage() {
                 <tr
                   key={log.id}
                   className={
-                    idx % 2 === 1 ? "bg-white/5 border-t border-white/5" : "border-t border-white/5"
+                    idx % 2 === 1
+                      ? "bg-white/5 border-t border-white/5"
+                      : "border-t border-white/5"
                   }
                 >
                   <td className="whitespace-nowrap px-3 py-2 align-top">
-                    {formatKoreanDate(log.loginAt)}
+                    {formatKoreanDate(log.viewedAt)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 align-top">
-                    {log.userName}
+                    {log.userName || "-"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 align-top">
+                    {log.path}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 align-top">
                     {prettyDevice(log.deviceType)}
@@ -113,6 +121,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       <p className="mt-2 text-[11px] opacity-65">
+        * 이름은 로그인 시 생성된 session_user 쿠키 기준입니다.  
         * 기기 정보는 브라우저에서 전송하는 User-Agent 를 기반으로 대략 분류한
         값입니다.
       </p>

@@ -7,29 +7,6 @@ import { withSessionCookie } from "../../../lib/session";
 export const runtime = "nodejs";
 const prisma = new PrismaClient();
 
-// user-agent 문자열을 기반으로 기기 유형 대략 분류
-function detectDeviceType(userAgent: string | null): string {
-  if (!userAgent) return "unknown";
-  const ua = userAgent.toLowerCase();
-
-  if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod")) {
-    return "ios";
-  }
-  if (ua.includes("android")) {
-    return "android";
-  }
-  if (ua.includes("windows")) {
-    return "windows";
-  }
-  if (ua.includes("mac os x") || ua.includes("macintosh")) {
-    return "macos";
-  }
-  if (ua.includes("linux")) {
-    return "linux";
-  }
-  return "other";
-}
-
 export async function POST(req: Request) {
   try {
     const { name, password, remember } = await req.json();
@@ -41,7 +18,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1) 사용자 조회 (이름은 유일하다고 가정)
+    // 1) 이름으로 회원 찾기
     const user = await prisma.user.findFirst({ where: { name } });
     if (!user) {
       return NextResponse.json(
@@ -50,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) 비밀번호 확인
+    // 2) 비밀번호 체크
     let ok = false;
     if (user.passwordHash) {
       ok = await bcrypt.compare(password, user.passwordHash);
@@ -65,33 +42,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2.5) ✅ 로그인 성공 시, 로그인 로그 남기기
-    try {
-      const userAgent = req.headers.get("user-agent") || "";
-      const forwardedFor =
-        req.headers.get("x-forwarded-for") ||
-        req.headers.get("x-real-ip") ||
-        "";
-      const ip =
-        forwardedFor
-          .split(",")[0]
-          .trim() || null;
-      const deviceType = detectDeviceType(userAgent);
-
-      await prisma.loginLog.create({
-        data: {
-          userName: user.name,
-          deviceType,
-          userAgent,
-          ip,
-        },
-      });
-    } catch (logError) {
-      // 로그 남기기가 실패해도 로그인 자체는 막지 않음
-      console.error("login log insert error", logError);
-    }
-
-    // 3) 응답 + 세션 쿠키
+    // 3) 세션 쿠키 + 응답
     const res = NextResponse.json({ ok: true });
     withSessionCookie(
       res,
