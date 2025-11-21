@@ -105,11 +105,9 @@ export default async function AdminDashboardPage() {
 
   return (
     <div style={wrapperStyle}>
-      <h2 style={titleStyle}>페이지 방문 로그 (admin/dashboard)</h2>
+      <h2 style={titleStyle}>페이지 방문 로그</h2>
       <p style={descStyle}>
-        최근 방문 순으로 최대 300건까지 표시합니다. 스크롤을 내려도 헤더는
-        위에 고정됩니다. 사람 또는 날짜가 바뀌는 구간은 굵은 선으로
-        구분합니다.
+        관계자가 아니라면 보고계신 페이지에서 이탈해 주시길 바랍니다.
       </p>
 
       <div style={viewportStyle}>
