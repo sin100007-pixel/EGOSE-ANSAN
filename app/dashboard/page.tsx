@@ -1,10 +1,10 @@
 // app/dashboard/page.tsx
-import Image from "next/image";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
+import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,42 +62,44 @@ export default async function DashboardPage() {
       }}
     >
       <header style={{ width: "100%", marginBottom: 16 }}>
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            aspectRatio: "7 / 3",
-            borderRadius: 12,
-            overflow: "hidden",
-          }}
-        >
-          <Image
-            src="/london-market-hero.png"
-            alt="LONDON MARKET"
-            fill
-            priority
-            sizes="100vw"
-            style={{ objectFit: "cover" }}
-          />
-        </div>
+        {/* LONDON MARKET 이미지 10번 클릭 시 /admin/dashboard 로 이동 */}
+        <LondonMarketBanner />
       </header>
 
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>
         {name}님의 QR
       </h1>
 
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div style={{ width: 260, borderRadius: 12, overflow: "hidden", background: "#111" }}>
-          <img src={user.qrUrl} alt="QR" style={{ display: "block", width: "100%", height: "auto" }} />
+      <div
+        style={{
+          display: "flex",
+          gap: 24,
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          style={{
+            width: 260,
+            borderRadius: 12,
+            overflow: "hidden",
+            background: "#111",
+          }}
+        >
+          <img
+            src={user.qrUrl}
+            alt="QR"
+            style={{ display: "block", width: "100%", height: "auto" }}
+          />
         </div>
         <div style={{ alignSelf: "center" }}>
-          <p style={{ opacity: 0.9, marginTop: 8 }}>전화번호 뒷자리: {user.phoneLast4}</p>
+          <p style={{ opacity: 0.9, marginTop: 8 }}>
+            전화번호 뒷자리: {user.phoneLast4}
+          </p>
         </div>
       </div>
 
       <section style={{ marginTop: 24 }}>
-        {/* ⬇️ 기존 '로그아웃' 버튼은 제거했습니다 */}
-
         {/* /ledger 이동 버튼 */}
         <a href="/ledger" style={{ textDecoration: "none" }}>
           <button type="button" style={btnStyle}>
@@ -137,7 +139,7 @@ export default async function DashboardPage() {
         <div>Tel. 031-486-6882</div>
       </div>
 
-      {/* ⬇️ 푸터 '아래'에 위치한 링크형 로그아웃 */}
+      {/* 푸터 아래 링크형 로그아웃 */}
       <form action="/api/logout" method="POST" style={{ marginTop: 4 }}>
         <p style={{ textAlign: "center", margin: 0 }}>
           <button type="submit" style={logoutLinkStyle}>
