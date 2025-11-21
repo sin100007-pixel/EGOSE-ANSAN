@@ -1,5 +1,5 @@
-// app/layout.tsx
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import PWAClient from "./pwa-client";
 import SessionHydrator from "./components/SessionHydrator";
 import PageViewTracker from "./components/PageViewTracker";
@@ -16,7 +16,6 @@ export const metadata: Metadata = {
   description: "고객 전용 QR 코드 뷰어",
   manifest: "/manifest.json",
   icons: {
-    // 프로젝트에 존재하는 아이콘들만 사용
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192" },
       { url: "/icons/icon-512.png", sizes: "512x512" },
@@ -45,7 +44,12 @@ export default function RootLayout({
         {/* PWA 설치 버튼/힌트 + 세션 자동복구 */}
         <PWAClient />
         <SessionHydrator />
-        <PageViewTracker />
+
+        {/* ✅ useSearchParams 사용하는 PageViewTracker 는 Suspense 로 감싸기 */}
+        <Suspense fallback={null}>
+          <PageViewTracker />
+        </Suspense>
+
         {children}
       </body>
     </html>
