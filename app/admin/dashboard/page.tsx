@@ -5,17 +5,48 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// YYYY-MM-DD
-function toYMD(d: Date): string {
-  return d.toISOString().slice(0, 10);
+// 한국 시간(Asia/Seoul) 기준으로 YYYY-MM-DD HH:MM:SS 문자열 만들기
+function formatKoreanDateTime(d: Date): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Seoul", // ✅ 한국 시간
+    });
+
+    const parts = formatter.formatToParts(d);
+    const get = (type: string) =>
+      parts.find((p) => p.type === type)?.value?.padStart(2, "0") ?? "";
+
+    const year = get("year");
+    const month = get("month");
+    const day = get("day");
+    const hour = get("hour");
+    const minute = get("minute");
+    const second = get("second");
+
+    // 최종 표기 형식: 2025-11-22 11:03:44
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  } catch {
+    // 포맷이 실패하면, UTC 기준으로 9시간 더해서 한국 시간 비슷하게라도 보여주기
+    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return kst.toISOString().replace("T", " ").slice(0, 19);
+  }
 }
 
-// 화면에 보여줄 시각 (YYYY-MM-DD HH:MM:SS)
+// YYYY-MM-DD (한국 시간 기준)
+function toYMD(d: Date): string {
+  return formatKoreanDateTime(d).slice(0, 10);
+}
+
+// 화면에 보여줄 시각 (YYYY-MM-DD HH:MM:SS, 한국 시간 기준)
 function formatDateTime(d: Date): string {
-  const iso = d.toISOString(); // 2025-11-21T03:12:45.000Z
-  const ymd = iso.slice(0, 10);
-  const time = iso.slice(11, 19);
-  return `${ymd} ${time}`;
+  return formatKoreanDateTime(d);
 }
 
 // 공통 스타일들
@@ -143,8 +174,7 @@ export default async function AdminDashboardPage() {
 
                 const sameDate = prev && prevYMD === curYMD;
                 const sameUser =
-                  prev &&
-                  (prev.userName || "") === (log.userName || "");
+                  prev && (prev.userName || "") === (log.userName || "");
 
                 // 날짜가 바뀌면 빨간색, 같은 날짜 안에서 사람만 바뀌면 파란색
                 let borderTopStyle: React.CSSProperties = {};

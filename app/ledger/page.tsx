@@ -357,7 +357,7 @@ export default function LedgerPage() {
           </ul>
           {/* ✅ 계좌 안내 */}
           <div className="mt-3 px-1 eg-bank"></div>
-              우리은행 1005-802-884869 이고세(주)
+          우리은행 1005-802-884869 이고세(주)
         </div>
       </div>
 
