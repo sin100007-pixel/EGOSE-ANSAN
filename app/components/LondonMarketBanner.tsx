@@ -29,7 +29,7 @@ export default function LondonMarketBanner() {
       style={{
         position: "relative",
         width: "100%",
-        aspectRatio: "7 / 3",
+        aspectRatio: "16 / 9",
         borderRadius: 12,
         overflow: "hidden",
         cursor: "pointer",
