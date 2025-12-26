@@ -102,13 +102,16 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
           }
         }
 
-        /* ✅ 문구: top% 기준을 버리고 bottom 기준으로 "태양 위"에 안정적으로 고정 */
+        /* ✅ 문구: bottom 기준 고정 (폴드 접힘/일반폰에서 겹침 방지 + 더 아래로) */
         .thanks-message {
           position: absolute;
           left: 47%;
 
-          /* 🔥 핵심: 화면 높이가 줄어도 덜 겹치도록 bottom 기준 */
-          bottom: clamp(0px, 0%, 92px);
+          /* 🔥 여기만 조절하면 내려갑니다 (값이 작아질수록 더 아래로)
+             기존: bottom: clamp(0px, 0%, 92px);
+             변경: 음수 허용해서 "조금 더" 아래로 고정
+          */
+          bottom: clamp(-18px, -2%, 60px);
 
           transform: translateX(-50%);
           text-align: center;
@@ -118,26 +121,20 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
           line-height: 1.35;
           letter-spacing: 0.01em;
 
-          /* ✅ 작은 화면에서도 줄바꿈/겹침 최소화 */
           width: min(92%, 420px);
           padding: 6px 10px;
 
           opacity: 0;
           filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.15));
 
-          /* ✅ 태양이 다 뜬 뒤(5초)에 등장 */
           animation: thanksIn 800ms ease forwards;
           animation-delay: 5s;
 
-          /* 로고(이미지) 위로 올려서 확실히 보이게 */
           z-index: 3;
-
-          /* 클릭 10번 기능 방해 금지 */
           pointer-events: none;
         }
 
         .thanks-message div {
-          /* 화면에 따라 자동 크기 조절(겹침 방지) */
           font-size: clamp(11px, 2.8vw, 14px);
         }
 
@@ -152,10 +149,11 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
           }
         }
 
-        /* ✅ (2) 아주 작은 화면에서만 bottom을 조금 더 안전하게 보정 */
+        /* ✅ (2) 아주 작은 화면(폴드 접힘 포함)에서만 추가로 더 내려줌 */
         @media (max-width: 380px) {
           .thanks-message {
-            bottom: clamp(22px, 8%, 48px);
+            /* 기존: bottom: clamp(22px, 8%, 48px); */
+            bottom: clamp(-26px, -4%, 36px);
           }
           .thanks-message div {
             font-size: 11px;
