@@ -47,7 +47,7 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
       {/* 🌅 해(뒤) */}
       <div className="sun-half-rise" aria-hidden="true" />
 
-      {/* ✅ 문구: MARKET 글자와 태양 최하단 사이에 배치 */}
+      {/* ✅ 감사 문구(태양 다 뜬 뒤 등장) */}
       {showThanksMessage && (
         <div className="thanks-message" aria-hidden="true">
           <div>2025년 노고에 감사드립니다.</div>
@@ -102,18 +102,25 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
           }
         }
 
-        /* ✅ 문구: 배너 내부에서 "MARKET과 태양 사이"로 보이게 배치 */
+        /* ✅ 문구: top% 기준을 버리고 bottom 기준으로 "태양 위"에 안정적으로 고정 */
         .thanks-message {
           position: absolute;
           left: 47%;
-          top: 85%; /* 핵심: MARKET 아래~태양 위 사이 */
+
+          /* 🔥 핵심: 화면 높이가 줄어도 덜 겹치도록 bottom 기준 */
+          bottom: clamp(0px, 0%, 92px);
+
           transform: translateX(-50%);
           text-align: center;
 
-          color: #f2e6c9; /* ✅ 아이보리 */
+          color: #f2e6c9; /* 아이보리 */
           font-weight: 800;
-          line-height: 1.45;
+          line-height: 1.35;
           letter-spacing: 0.01em;
+
+          /* ✅ 작은 화면에서도 줄바꿈/겹침 최소화 */
+          width: min(92%, 420px);
+          padding: 6px 10px;
 
           opacity: 0;
           filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.15));
@@ -130,7 +137,8 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
         }
 
         .thanks-message div {
-          font-size: 14px;
+          /* 화면에 따라 자동 크기 조절(겹침 방지) */
+          font-size: clamp(11px, 2.8vw, 14px);
         }
 
         @keyframes thanksIn {
@@ -144,20 +152,22 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
           }
         }
 
+        /* ✅ (2) 아주 작은 화면에서만 bottom을 조금 더 안전하게 보정 */
+        @media (max-width: 380px) {
+          .thanks-message {
+            bottom: clamp(22px, 8%, 48px);
+          }
+          .thanks-message div {
+            font-size: 11px;
+          }
+        }
+
         @media (max-width: 480px) {
           .sun-half-rise {
             width: 200px;
             height: 200px;
             bottom: -56%;
             transform: translateX(-50%) translateY(190px) scale(0.95);
-          }
-
-          .thanks-message {
-            top: 60%; /* 모바일에서 살짝 아래로 */
-          }
-
-          .thanks-message div {
-            font-size: 12.5px;
           }
         }
       `}</style>
