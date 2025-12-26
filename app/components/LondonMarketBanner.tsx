@@ -105,8 +105,8 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
         /* ✅ 문구: 배너 내부에서 "MARKET과 태양 사이"로 보이게 배치 */
         .thanks-message {
           position: absolute;
-          left: 45%;
-          top: 80%; /* 핵심: MARKET 아래~태양 위 사이 */
+          left: 47%;
+          top: 85%; /* 핵심: MARKET 아래~태양 위 사이 */
           transform: translateX(-50%);
           text-align: center;
 
