@@ -42,7 +42,8 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
         <div className="brightOverlay" aria-hidden />
 
         <div className="content">
-          <LondonMarketBanner />
+          {/* ✅ 배너 안에 “감사 문구(2줄)” 표시 */}
+          <LondonMarketBanner showThanksMessage />
 
           {/* 흰색 -> 검정으로 바뀌는 텍스트 */}
           <h2 className="info-text title">{name}님의 QR</h2>
@@ -91,6 +92,10 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
             /* ✅ z-index를 주지 말아야 오버레이/컨텐츠 레이어링이 정상 동작 */
             position: relative;
             overflow: hidden;
+
+            /* 텍스트/버튼 색 변화(오버레이 타이밍과 동일) */
+            animation: themeShift 4s ease-in-out forwards;
+            animation-delay: 1s;
           }
 
           /* ✅ 남색 배경 위로 올라오는 “흰색 밝아짐 레이어” */
@@ -144,12 +149,6 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
             width: 240px;
             height: auto;
             display: block;
-          }
-
-          /* 텍스트/버튼 색 변화(오버레이 타이밍과 동일) */
-          .dash-root {
-            animation: themeShift 4s ease-in-out forwards;
-            animation-delay: 1s;
           }
 
           @keyframes themeShift {
