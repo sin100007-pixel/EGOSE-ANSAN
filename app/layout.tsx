@@ -37,15 +37,13 @@ export default function RootLayout({
         style={{
           background: BG_DARK,
           color: "#fff",
-          minHeight: "100vh",
+          minHeight: "100dvh", // ✅ 모바일 하단 남는 영역 방지
           margin: 0,
         }}
       >
-        {/* PWA 설치 버튼/힌트 + 세션 자동복구 */}
         <PWAClient />
         <SessionHydrator />
 
-        {/* ✅ useSearchParams 사용하는 PageViewTracker 는 Suspense 로 감싸기 */}
         <Suspense fallback={null}>
           <PageViewTracker />
         </Suspense>

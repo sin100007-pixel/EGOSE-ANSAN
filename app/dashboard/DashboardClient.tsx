@@ -42,9 +42,7 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
 
           <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
             <img src={qrUrl} alt="QR" style={{ width: 240 }} />
-            <p className="info-text">
-              전화번호 뒷자리: {phoneLast4}
-            </p>
+            <p className="info-text">전화번호 뒷자리: {phoneLast4}</p>
           </div>
 
           <section style={{ marginTop: 24 }}>
@@ -67,21 +65,20 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
           </section>
         </div>
 
-        {/* ✅ 핵심: 텍스트 색상 애니메이션 */}
         <style jsx>{`
           .dash-root {
-            min-height: 100vh;
-            padding: 24px 16px 80px;
+            /* ✅ 모바일 하단 남는 영역 방지 (핵심) */
+            min-height: 100dvh;
+
+            /* ✅ iOS 하단 안전영역까지 여유 */
+            padding: 24px 16px max(80px, env(safe-area-inset-bottom));
             background: #0f0c2e;
 
-            /* 정보 텍스트 색상 (처음 흰색) */
             --info-fg: #ffffff;
-
-            /* 버튼 배경 */
             --btn-bg: #1739f7;
 
             animation: themeShift 4s ease-in-out forwards;
-            animation-delay: 1s; /* 해가 뜨기 시작하는 타이밍 */
+            animation-delay: 1s;
           }
 
           .info-text {
@@ -107,7 +104,7 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
             }
 
             100% {
-              --info-fg: #111111; /* ✅ 최종 검정 */
+              --info-fg: #111111;
               --btn-bg: #ff936e;
             }
           }
