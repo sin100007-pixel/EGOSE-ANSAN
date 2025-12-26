@@ -1,50 +1,61 @@
 // app/components/ProductToggle.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import ProductPreview from "@/app/product-preview";
 
-export default function ProductToggle() {
+type Props = {
+  buttonStyle?: React.CSSProperties;
+};
+
+export default function ProductToggle({ buttonStyle }: Props) {
   const [open, setOpen] = useState(false);
 
-  const buttonStyle: React.CSSProperties = {
-    display: "block",
-    width: "100%",
-    boxSizing: "border-box",
-    padding: 12,
-    margin: "0 0 12px 0",
-    borderRadius: 12,
-    border: "1px solid transparent",
-    background: "#0019C9", // ✅ 로그인/다른 버튼들과 동일한 파란색
-    color: "#ffffff",
-    fontWeight: 700,
-    fontSize: 16, // ✅ 글자 크기 통일
-    textAlign: "center",
-    cursor: "pointer",
-  };
+  // ✅ 기본값(혹시 다른 페이지에서 props 없이 써도 깨지지 않게)
+  const fallbackStyle: React.CSSProperties = useMemo(
+    () => ({
+      display: "block",
+      width: "100%",
+      boxSizing: "border-box",
+      padding: 12,
+      margin: "0 0 12px 0",
+      borderRadius: 12,
+      border: "1px solid transparent",
+      background: "#0019C9",
+      color: "#111111",
+      fontWeight: 700,
+      fontSize: 16,
+      textAlign: "center",
+      cursor: "pointer",
+      transition: "background-color 200ms ease",
+    }),
+    []
+  );
+
+  const styleToUse = buttonStyle ?? fallbackStyle;
 
   return (
     <div>
-      {/* 부모 토글 버튼 (여기서만 인터랙션) */}
       <button
         type="button"
-        style={buttonStyle}
+        style={styleToUse}
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "#1326D9"; // hover
+          // ✅ hover: 배경만 살짝 진하게 (텍스트 색은 그대로 유지)
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.filter = "brightness(0.96)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "#0019C9";
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.filter = "none";
         }}
       >
         {open ? "상품 사진 닫기(확대해서 보세요.)" : "판매중인 상품 보기"}
       </button>
 
-      {/* 열렸을 때만 이미지, 내부 토글/힌트는 숨김(중복 방지) */}
       {open && (
         <div style={{ marginTop: 12 }}>
           <ProductPreview showToggle={false} />
-          {/* ✅ 힌트는 여기서만 1회 출력 */}
           <p style={{ color: "#ef4444", marginTop: 8, fontSize: 14 }}>
             이미지를 확대 할 수 있습니다.
           </p>

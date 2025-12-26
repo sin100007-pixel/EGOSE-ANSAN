@@ -1,10 +1,11 @@
+// app/page.tsx
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ProductPreview from "./product-preview";
 import InstallButton from "./components/InstallButton";
-import Snowfall from "./components/Snowfall";
+import Snowfall from "./components/Snowfall"; // ✅ (추가) 눈 효과
 
 const BG_DARK = "#0F0C2E";
 const BTN_BLUE = "#0019C9";
@@ -41,6 +42,7 @@ export default function Page() {
       const stored = localStorage.getItem("session_user");
       if (stored) {
         setAutoLogging(true);
+        // 12초 뒤 자동 숨김
         const t = setTimeout(() => setAutoLogging(false), 12000);
         return () => clearTimeout(t);
       }
@@ -53,8 +55,8 @@ export default function Page() {
       if (!formRef.current || !nameInputRef.current) return;
       const formRect = formRef.current.getBoundingClientRect();
       const inputRect = nameInputRef.current.getBoundingClientRect();
-      const left = inputRect.left - formRect.left;
-      const top = inputRect.top - formRect.top;
+      const left = inputRect.left - formRect.left; // 이름 입력칸의 왼쪽
+      const top = inputRect.top - formRect.top; // 이름 입력칸의 위쪽
       setBubblePos({ left, top });
     };
     calc();
@@ -121,6 +123,7 @@ export default function Page() {
 
   return (
     <>
+      {/* ✅ (추가) 눈 레이어: 클릭/입력 방해 없음 */}
       <Snowfall count={90} opacity={0.85} zIndex={60} />
 
       <div
@@ -131,13 +134,10 @@ export default function Page() {
           display: "flex",
           justifyContent: "center",
           position: "relative",
-          zIndex: 1,
+          zIndex: 1, // 눈(60) 위/아래 문제 없도록: 눈은 fixed + 높은 zIndex
         }}
       >
-        {/* 🌤️ 해가 다 뜬 뒤 배경을 흰색으로 자연스럽게 밝히는 레이어 */}
-        <div className="bg-to-white" aria-hidden="true" />
-
-        <div style={{ width: "100%", maxWidth: 560, padding: 16, position: "relative", zIndex: 2 }}>
+        <div style={{ width: "100%", maxWidth: 560, padding: 16 }}>
           <header style={{ margin: "6px 0 14px" }}>
             <div
               style={{
@@ -148,20 +148,13 @@ export default function Page() {
                 overflow: "hidden",
               }}
             >
-              {/* 🌅 해 */}
-              <div className="sun-half-rise" aria-hidden="true" />
-
-              {/* 🏷️ 로고 */}
               <Image
                 src="/london-market-hero.png"
                 alt="LONDON MARKET"
                 fill
                 priority
                 sizes="100vw"
-                style={{
-                  objectFit: "contain",
-                  zIndex: 2,
-                }}
+                style={{ objectFit: "cover" }}
               />
             </div>
           </header>
@@ -196,7 +189,7 @@ export default function Page() {
               style={fieldStyle}
             />
 
-            {/* 🔔 자동 로그인 중 풍선 */}
+            {/* 🔔 자동 로그인 중 풍선 — 이름 입력칸의 왼쪽 상단에 고정 */}
             {autoLogging && (
               <div
                 className="login-bubble at-name"
@@ -233,6 +226,7 @@ export default function Page() {
               <label htmlFor="rememberMe">로그인 유지</label>
             </div>
 
+            {/* 로그인 버튼 */}
             <button
               type="submit"
               disabled={loading}
@@ -251,6 +245,7 @@ export default function Page() {
               {loading ? "로그인 중…" : "로그인"}
             </button>
 
+            {/* 에러 메시지 */}
             {error && (
               <div
                 style={{
@@ -269,6 +264,7 @@ export default function Page() {
               </div>
             )}
 
+            {/* 앱 설치 버튼 */}
             <InstallButton
               style={{ ...buttonStyle, marginTop: 8 }}
               onMouseEnter={(e) =>
@@ -281,6 +277,7 @@ export default function Page() {
               앱 설치
             </InstallButton>
 
+            {/* 카카오 채팅문의 */}
             <a
               href="http://pf.kakao.com/_IxgdJj/chat"
               target="_blank"
@@ -322,62 +319,8 @@ export default function Page() {
           </form>
         </div>
 
+        {/* 로그인중 풍선 스타일 */}
         <style jsx>{`
-          /* ===== 해 애니메이션 ===== */
-          .sun-half-rise {
-            position: absolute;
-            left: 50%;
-            bottom: -20%;
-            width: 260px;
-            height: 260px;
-            border-radius: 50%;
-            background: radial-gradient(
-              circle,
-              rgba(255, 170, 110, 1) 0%,
-              rgba(255, 120, 85, 0.95) 26%,
-              rgba(255, 90, 70, 0.75) 46%,
-              rgba(255, 90, 70, 0.38) 62%,
-              rgba(255, 90, 70, 0.16) 72%,
-              rgba(255, 90, 70, 0) 80%
-            );
-            filter: blur(0.6px);
-            transform: translateX(-50%) translateY(210px) scale(0.93);
-            animation: sunHalfRise 5s ease-out forwards;
-            z-index: 1;
-          }
-
-          @keyframes sunHalfRise {
-            0%,
-            20% {
-              transform: translateX(-50%) translateY(210px) scale(0.93);
-            }
-            100% {
-              transform: translateX(-50%) translateY(0) scale(1);
-            }
-          }
-
-          /* ===== 배경 밝아짐 ===== */
-          .bg-to-white {
-            position: absolute;
-            inset: 0;
-            background: #ffffff;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 0;
-            animation: bgFadeToWhite 4s ease-in-out forwards;
-            animation-delay: 1s; /* 해가 다 뜬 뒤 */
-          }
-
-          @keyframes bgFadeToWhite {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-
-          /* ===== 로그인중 풍선 ===== */
           .login-bubble {
             position: absolute;
             width: 280px;
@@ -385,8 +328,7 @@ export default function Page() {
             border: 1px solid rgba(255, 255, 255, 0.85);
             background: linear-gradient(180deg, #1a1d3a 0%, #0f1129 100%);
             color: #fff;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35),
-              inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
             overflow: hidden;
             z-index: 20;
           }
@@ -432,12 +374,6 @@ export default function Page() {
           }
 
           @media (max-width: 480px) {
-            .sun-half-rise {
-              width: 200px;
-              height: 200px;
-              bottom: -56%;
-              transform: translateX(-50%) translateY(190px) scale(0.95);
-            }
             .login-bubble {
               width: min(280px, 92%);
             }
