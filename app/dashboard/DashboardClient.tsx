@@ -1,4 +1,3 @@
-// app/dashboard/DashboardClient.tsx
 "use client";
 
 import React from "react";
@@ -15,69 +14,42 @@ type Props = {
 };
 
 export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
-  // ✅ 버튼 스타일: 글자색은 항상 흰색으로 고정
   const btnStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
-    boxSizing: "border-box",
     padding: 12,
-    margin: "0 0 12px 0",
+    marginBottom: 12,
     borderRadius: 12,
-    border: "1px solid transparent",
-    background: "var(--btn-bg)", // 배경만 애니메이션
-    color: "#ffffff", // ✅ 절대 고정 (중요)
+    border: "none",
+    background: "var(--btn-bg)",
+    color: "#ffffff", // ✅ 버튼 글자는 항상 흰색
     fontWeight: 700,
-    textAlign: "center",
     cursor: "pointer",
-  };
-
-  const linkResetStyle: React.CSSProperties = {
-    textDecoration: "none",
-    color: "inherit",
   };
 
   return (
     <>
       <Snowfall count={90} opacity={0.85} zIndex={60} />
 
-      <main
-        className="dash-root"
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "24px 16px 80px",
-          minHeight: "100vh",
-          background: "#0F0C2E",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* 배경 밝아짐 */}
+      <main className="dash-root">
         <BgToWhiteOverlay />
 
         <div style={{ position: "relative", zIndex: 1 }}>
-          <header style={{ width: "100%", marginBottom: 16 }}>
-            <LondonMarketBanner />
-          </header>
+          <LondonMarketBanner />
 
-          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16, color: "#111" }}>
-            {name}님의 QR
-          </h1>
+          {/* ✅ 색이 변해야 하는 텍스트 */}
+          <h2 className="info-text title">{name}님의 QR</h2>
 
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <div style={{ width: 260 }}>
-              <img src={qrUrl} alt="QR" style={{ width: "100%" }} />
-            </div>
-            <p style={{ marginTop: 12, color: "#111" }}>
+          <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+            <img src={qrUrl} alt="QR" style={{ width: 240 }} />
+            <p className="info-text">
               전화번호 뒷자리: {phoneLast4}
             </p>
           </div>
 
           <section style={{ marginTop: 24 }}>
-            <a href="/ledger" style={linkResetStyle}>
-              <button type="button" style={btnStyle}>
-                거래내역 보기
-              </button>
+            <a href="/ledger" style={{ textDecoration: "none" }}>
+              <button style={btnStyle}>거래내역 보기</button>
             </a>
 
             <InstallButton style={btnStyle}>앱 설치</InstallButton>
@@ -86,35 +58,56 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
               href="http://pf.kakao.com/_IxgdJj/chat"
               target="_blank"
               rel="noreferrer"
-              style={linkResetStyle}
+              style={{ textDecoration: "none" }}
             >
-              <button type="button" style={btnStyle}>
-                카카오 채팅문의
-              </button>
+              <button style={btnStyle}>카카오 채팅문의</button>
             </a>
 
-            {/* 판매중인 상품보기 */}
             <ProductToggle buttonStyle={btnStyle} />
           </section>
         </div>
 
-        {/* 버튼 배경만 변하는 애니메이션 */}
+        {/* ✅ 핵심: 텍스트 색상 애니메이션 */}
         <style jsx>{`
           .dash-root {
-            --btn-bg: #1739f7; /* 시작: 파랑 */
+            min-height: 100vh;
+            padding: 24px 16px 80px;
+            background: #0f0c2e;
 
-            animation: btnBgShift 4s ease-in-out forwards;
-            animation-delay: 1s;
+            /* 정보 텍스트 색상 (처음 흰색) */
+            --info-fg: #ffffff;
+
+            /* 버튼 배경 */
+            --btn-bg: #1739f7;
+
+            animation: themeShift 4s ease-in-out forwards;
+            animation-delay: 1s; /* 해가 뜨기 시작하는 타이밍 */
           }
 
-          @keyframes btnBgShift {
+          .info-text {
+            color: var(--info-fg);
+            transition: color 300ms ease;
+          }
+
+          .info-text.title {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 16px 0;
+          }
+
+          @keyframes themeShift {
             0% {
+              --info-fg: #ffffff;
               --btn-bg: #1739f7;
             }
-            50% {
+
+            40% {
+              --info-fg: #666666;
               --btn-bg: #ff7a55;
             }
+
             100% {
+              --info-fg: #111111; /* ✅ 최종 검정 */
               --btn-bg: #ff936e;
             }
           }
