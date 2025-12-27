@@ -105,7 +105,7 @@ export default function LondonMarketBanner({ showThanksMessage = false }: Props)
         /* ✅ 문구: bottom 기준 고정 (폴드 접힘/일반폰에서 겹침 방지 + 더 아래로) */
         .thanks-message {
           position: absolute;
-          left: 47%;
+          left: 46%;
 
           /* 🔥 여기만 조절하면 내려갑니다 (값이 작아질수록 더 아래로)
              기존: bottom: clamp(0px, 0%, 92px);
