@@ -75,6 +75,23 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
 
             <ProductToggle buttonStyle={btnStyle} />
           </section>
+
+          {/* ✅ 푸터 (흰색 → 검정색 전환 효과에 같이 포함) */}
+          <footer className="footer info-text" aria-label="회사 정보">
+            <div className="footerInner">
+              <div>이고세(주)</div>
+              <div>경기도 안산시 상록구 안산천서로 237</div>
+              <div>Tel. 031-486-6882</div>
+            </div>
+          </footer>
+
+          {/* ✅ 로그아웃 (안양점과 동일: POST /api/logout)
+              - info-text를 사용해서 흰색→검정색 전환에 같이 포함 */}
+          <form action="/api/logout" method="POST" className="logoutForm">
+            <button type="submit" className="logoutLink info-text">
+              로그아웃
+            </button>
+          </form>
         </div>
 
         <style jsx>{`
@@ -149,6 +166,36 @@ export default function DashboardClient({ name, phoneLast4, qrUrl }: Props) {
             width: 240px;
             height: auto;
             display: block;
+          }
+
+          /* ✅ 푸터 스타일 (기존 톤 유지 + info-text 색 전환 따라감) */
+          .footer {
+            margin-top: 18px;
+          }
+
+          .footerInner {
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 12px;
+            line-height: 18px;
+            text-align: center;
+            opacity: 0.7;
+          }
+
+          /* ✅ 로그아웃 버튼 스타일 (안양점과 동일한 느낌) */
+          .logoutForm {
+            margin-top: 8px;
+            text-align: center;
+          }
+
+          .logoutLink {
+            font-size: 12px;
+            line-height: 18px;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            text-decoration: underline;
           }
 
           @keyframes themeShift {
