@@ -40,7 +40,7 @@ export default function LondonMarketBanner() {
       }}
     >
       <Image
-        src="/london-market-hero.png"
+        src="/family.gif"
         alt="LONDON MARKET"
         fill
         priority

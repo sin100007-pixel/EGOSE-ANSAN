@@ -149,7 +149,7 @@ export default function Page() {
               }}
             >
               <Image
-                src="/london-market-hero.png"
+                src="/family.gif"
                 alt="LONDON MARKET"
                 fill
                 priority
