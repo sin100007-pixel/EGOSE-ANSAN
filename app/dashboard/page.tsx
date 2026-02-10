@@ -1,6 +1,7 @@
 // app/dashboard/page.tsx
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
@@ -70,6 +71,28 @@ export default async function DashboardPage() {
           {/* LONDON MARKET 이미지 10번 클릭 시 /admin/dashboard 로 이동 */}
           <LondonMarketBanner />
         </header>
+
+        {/* ✅ GIF(상단 배너)와 QR 사이에 이고세 배너 */}
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "2048 / 412",
+            borderRadius: 12,
+            overflow: "hidden",
+            marginBottom: 20,
+            background: "rgba(255,255,255,0.04)",
+          }}
+        >
+          <Image
+            src="/egose-banner.jpg"
+            alt="이고세 배너"
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
+          />
+        </div>
 
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>
           {name}님의 QR
