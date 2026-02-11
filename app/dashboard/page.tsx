@@ -17,7 +17,9 @@ export default async function DashboardPage() {
   const name = decodeURIComponent(sessionCookie.value || "");
 
   const user = await prisma.user.findFirst({ where: { name } });
-  if (!user) redirect("/");
+
+  // ✅ 1단계: DB에 회원이 없으면 세션 쿠키 삭제 후 이동(무한 '로그인중' 방지)
+  if (!user) redirect("/api/logout");
 
   // 공통 버튼 스타일 (ledger/설치/카카오)
   const btnStyle: React.CSSProperties = {
