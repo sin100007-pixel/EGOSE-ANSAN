@@ -149,12 +149,12 @@ export default function Page() {
               }}
             >
               <Image
-                src="/family.gif"
+                src="/london-market-hero.png"
                 alt="LONDON MARKET"
                 fill
                 priority
                 sizes="100vw"
-                style={{ objectFit: "cover" }}
+                style={{ objectFit: "contain" }}
               />
             </div>
           </header>
