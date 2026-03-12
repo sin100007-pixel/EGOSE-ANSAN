@@ -1,6 +1,12 @@
 "use client";
 
-import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  ButtonHTMLAttributes,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -13,10 +19,9 @@ declare global {
   }
 }
 
-interface InstallButtonProps {
+interface InstallButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
-  style?: CSSProperties;
-  className?: string;
 }
 
 function isStandaloneMode() {
@@ -27,7 +32,10 @@ function isStandaloneMode() {
     "standalone" in window.navigator &&
     Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
 
-  return window.matchMedia("(display-mode: standalone)").matches || navigatorStandalone;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    navigatorStandalone
+  );
 }
 
 function getUserAgent() {
@@ -45,8 +53,9 @@ function isAndroidDevice(ua: string) {
 
 export default function InstallButton({
   children,
-  style,
-  className,
+  onClick,
+  type = "button",
+  ...buttonProps
 }: InstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -102,8 +111,16 @@ export default function InstallButton({
     );
   };
 
-  const handleInstall = async () => {
+  const handleInstall = async (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ) => {
     if (isInstalled) return;
+
+    if (onClick) {
+      onClick(e);
+    }
+
+    if (e.defaultPrevented) return;
 
     if (deferredPrompt) {
       try {
@@ -135,11 +152,10 @@ export default function InstallButton({
 
   return (
     <button
-      type="button"
+      {...buttonProps}
+      type={type}
       onClick={handleInstall}
-      style={style}
-      className={className}
-      aria-label="앱 설치"
+      aria-label={buttonProps["aria-label"] ?? "앱 설치"}
     >
       {children ?? "앱 설치"}
     </button>
