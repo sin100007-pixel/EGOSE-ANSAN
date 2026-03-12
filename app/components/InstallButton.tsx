@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,6 +11,12 @@ declare global {
   interface WindowEventMap {
     beforeinstallprompt: BeforeInstallPromptEvent;
   }
+}
+
+interface InstallButtonProps {
+  children?: ReactNode;
+  style?: CSSProperties;
+  className?: string;
 }
 
 function isStandaloneMode() {
@@ -37,7 +43,11 @@ function isAndroidDevice(ua: string) {
   return /Android/i.test(ua);
 }
 
-export default function InstallButton() {
+export default function InstallButton({
+  children,
+  style,
+  className,
+}: InstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -120,21 +130,18 @@ export default function InstallButton() {
 
   if (isInstalled) return null;
 
-  // 표시 조건:
-  // 1) beforeinstallprompt를 받은 경우
-  // 2) 웨일 브라우저인 경우(직접 설치 안내용 버튼 표시)
   const shouldShow = Boolean(deferredPrompt) || isWhale;
-
   if (!shouldShow) return null;
 
   return (
     <button
       type="button"
       onClick={handleInstall}
-      className="inline-flex items-center justify-center rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+      style={style}
+      className={className}
       aria-label="앱 설치"
     >
-      앱 설치
+      {children ?? "앱 설치"}
     </button>
   );
 }
