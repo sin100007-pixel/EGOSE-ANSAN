@@ -7,7 +7,6 @@ import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 import EgoseBannerCarousel from "@/app/components/EgoseBannerCarousel";
-import Snowfall from "@/app/components/Snowfall";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,8 +56,6 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {/* ✅ 눈 내리는 레이어 (버튼 클릭/스크롤 방해 X) */}
-      <Snowfall count={90} opacity={0.85} zIndex={60} />
 
       <main
         style={{

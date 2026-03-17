@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ProductPreview from "./product-preview";
 import InstallButton from "./components/InstallButton";
-import Snowfall from "./components/Snowfall"; // ✅ (추가) 눈 효과
 
 const BG_DARK = "#0F0C2E";
 const BTN_BLUE = "#0019C9";
@@ -123,9 +122,6 @@ export default function Page() {
 
   return (
     <>
-      {/* ✅ (추가) 눈 레이어: 클릭/입력 방해 없음 */}
-      <Snowfall count={90} opacity={0.85} zIndex={60} />
-
       <div
         style={{
           minHeight: "100vh",
