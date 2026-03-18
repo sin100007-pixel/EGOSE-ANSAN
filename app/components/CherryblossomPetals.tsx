@@ -22,7 +22,7 @@ export default function CherryBlossomPetals() {
   const petals = useMemo<Petal[]>(() => {
     return Array.from({ length: 24 }).map((_, i) => ({
       id: i,
-      left: Math.random() * 100, // 화면 전체에서 시작
+      left: Math.random() * 100,
       size: 10 + Math.random() * 12,
       duration: 10 + Math.random() * 8,
       delay: Math.random() * 10,
@@ -116,3 +116,4 @@ export default function CherryBlossomPetals() {
     </>
   );
 }
+
