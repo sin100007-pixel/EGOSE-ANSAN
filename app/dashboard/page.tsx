@@ -1,12 +1,11 @@
-// app/dashboard/page.tsx
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 import EgoseBannerCarousel from "@/app/components/EgoseBannerCarousel";
+import CherryBlossomPetals from "@/app/components/CherryBlossomPetals";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +17,9 @@ export default async function DashboardPage() {
 
   const user = await prisma.user.findFirst({ where: { name } });
 
-  // ✅ 1단계: DB에 회원이 없으면 세션 쿠키 삭제 후 이동(무한 '로그인중' 방지)
+  // DB에 회원이 없으면 세션 쿠키 삭제 후 이동
   if (!user) redirect("/api/logout");
 
-  // 공통 버튼 스타일 (ledger/설치/카카오)
   const btnStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
@@ -37,13 +35,13 @@ export default async function DashboardPage() {
     cursor: "pointer",
   };
 
-  // 푸터(회사정보)와 동일 톤/크기의 링크형 로그아웃 스타일
   const footerTextStyle: React.CSSProperties = {
     fontSize: 12,
     lineHeight: "18px",
     color: "rgba(255,255,255,0.6)",
     textAlign: "center",
   };
+
   const logoutLinkStyle: React.CSSProperties = {
     ...footerTextStyle,
     textDecoration: "underline",
@@ -55,24 +53,59 @@ export default async function DashboardPage() {
   };
 
   return (
-    <>
-
-      <main
+    <main
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: "24px 16px 80px",
+        color: "#fff",
+        background: "#0F0C2E",
+        minHeight: "100vh",
+      }}
+    >
+      {/* 오른쪽 벚꽃 배경 장식 */}
+      <div
         style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "24px 16px 80px",
-          color: "#fff",
-          background: "#0F0C2E",
-          minHeight: "100vh",
+          position: "absolute",
+          top: -40,
+          right: -10,
+          width: "62%",
+          maxWidth: 640,
+          minWidth: 260,
+          height: "100%",
+          pointerEvents: "none",
+          opacity: 0.94,
+          zIndex: 0,
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "flex-start",
         }}
       >
+        <img
+          src="/cherry-blossom-right.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+            objectFit: "contain",
+            transform: "translateY(30px)",
+          }}
+        />
+      </div>
+
+      {/* 벚꽃잎 흩날림 */}
+      <CherryBlossomPetals />
+
+      {/* 실제 내용 */}
+      <div style={{ position: "relative", zIndex: 2 }}>
         <header style={{ width: "100%", marginBottom: 16 }}>
-          {/* LONDON MARKET 이미지 10번 클릭 시 /admin/dashboard 로 이동 */}
           <LondonMarketBanner />
         </header>
 
-        {/* ✅ GIF(상단 배너)와 QR 사이에 이고세 배너 */}
         <EgoseBannerCarousel />
 
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>
@@ -101,6 +134,7 @@ export default async function DashboardPage() {
               style={{ display: "block", width: "100%", height: "auto" }}
             />
           </div>
+
           <div style={{ alignSelf: "center" }}>
             <p style={{ opacity: 0.9, marginTop: 8 }}>
               전화번호 뒷자리: {user.phoneLast4}
@@ -109,17 +143,14 @@ export default async function DashboardPage() {
         </div>
 
         <section style={{ marginTop: 24 }}>
-          {/* /ledger 이동 버튼 */}
           <a href="/ledger" style={{ textDecoration: "none" }}>
             <button type="button" style={btnStyle}>
               거래내역 보기
             </button>
           </a>
 
-          {/* 앱 설치 버튼 (PWA 설치 가능 시에만 보임) */}
           <InstallButton style={btnStyle}>앱 설치</InstallButton>
 
-          {/* 카카오 채팅문의 */}
           <a
             href="http://pf.kakao.com/_IxgdJj/chat"
             target="_blank"
@@ -134,7 +165,6 @@ export default async function DashboardPage() {
           <ProductToggle />
         </section>
 
-        {/* 회사 정보 푸터 */}
         <div
           style={{
             marginTop: 24,
@@ -148,7 +178,6 @@ export default async function DashboardPage() {
           <div>Tel. 031-486-6882</div>
         </div>
 
-        {/* 푸터 아래 링크형 로그아웃 */}
         <form action="/api/logout" method="POST" style={{ marginTop: 4 }}>
           <p style={{ textAlign: "center", margin: 0 }}>
             <button type="submit" style={logoutLinkStyle}>
@@ -156,7 +185,7 @@ export default async function DashboardPage() {
             </button>
           </p>
         </form>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }
