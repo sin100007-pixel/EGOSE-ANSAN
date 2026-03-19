@@ -17,6 +17,7 @@ export default async function DashboardPage() {
 
   const user = await prisma.user.findFirst({ where: { name } });
 
+  // DB에 회원이 없으면 세션 쿠키 삭제 후 이동
   if (!user) redirect("/api/logout");
 
   const btnStyle: React.CSSProperties = {
@@ -64,12 +65,15 @@ export default async function DashboardPage() {
         minHeight: "100vh",
       }}
     >
+      {/* 오른쪽 벚꽃 배경 장식 */}
       <div
         style={{
           position: "absolute",
           top: -40,
           right: -10,
-          width: "clamp(180px, 42vw, 640px)",
+          width: "62%",
+          maxWidth: 640,
+          minWidth: 260,
           height: "100%",
           pointerEvents: "none",
           opacity: 0.94,
@@ -93,17 +97,16 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* 벚꽃잎 흩날림 */}
       <CherryBlossomPetals />
 
+      {/* 실제 내용 */}
       <div style={{ position: "relative", zIndex: 2 }}>
-        <header
-          style={{
-            width: "100%",
-            marginBottom: 16,
-            boxSizing: "border-box",
-            paddingRight: "clamp(120px, 26vw, 300px)",
-          }}
-        >
+        <header style={{ 
+         width: "100%",
+         marginBottom: 16,
+         transform: "translateX(-50px)",
+        }}>
           <LondonMarketBanner />
         </header>
 
