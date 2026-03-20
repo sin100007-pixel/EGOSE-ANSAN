@@ -1,191 +1,135 @@
+// app/components/InstallButton.tsx
 "use client";
 
-import {
-  ButtonHTMLAttributes,
-  ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
-interface BeforeInstallPromptEvent extends Event {
+type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  /** 버튼 라벨 (기본: 앱 설치) */
+  children?: React.ReactNode;
+};
+
+type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+function detectEnv(ua: string) {
+  const isKakao = /KAKAOTALK/i.test(ua);
+  const isNaver = /NAVER\(inapp|NAVERAPP/i.test(ua);
+  const isFBIG = /FBAN|FBAV|FB_IAB|Instagram/i.test(ua);
+  const isDaum = /DaumApps/i.test(ua);
+  const isInApp = isKakao || isNaver || isFBIG || isDaum;
+
+  const isIOS = /iPad|iPhone|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+
+  return { isInApp, isIOS, isAndroid, isKakao };
 }
 
-declare global {
-  interface WindowEventMap {
-    beforeinstallprompt: BeforeInstallPromptEvent;
-  }
+function buildChromeIntentUrl(href: string) {
+  // https 기준 (http면 scheme을 http로 바꿔야 함)
+  const url = new URL(href);
+  const scheme = url.protocol.replace(":", ""); // 'https'
+  const pathPlusQuery = `${url.host}${url.pathname}${url.search}`;
+  return `intent://${pathPlusQuery}#Intent;scheme=${scheme};package=com.android.chrome;end`;
 }
 
-interface InstallButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  children?: ReactNode;
-}
+export default function InstallButton({ children = "앱 설치", ...btnProps }: Props) {
+  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [show, setShow] = useState(false);
 
-function isStandaloneMode() {
-  if (typeof window === "undefined") return false;
-
-  const navigatorStandalone =
-    typeof window.navigator !== "undefined" &&
-    "standalone" in window.navigator &&
-    Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
-
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    navigatorStandalone
-  );
-}
-
-function getUserAgent() {
-  if (typeof window === "undefined") return "";
-  return window.navigator.userAgent || "";
-}
-
-function isWhaleBrowser(ua: string) {
-  return /Whale/i.test(ua);
-}
-
-function isSamsungInternet(ua: string) {
-  return /SamsungBrowser/i.test(ua);
-}
-
-function isChromeBrowser(ua: string) {
-  return /Chrome|CriOS/i.test(ua) && !/Edg|OPR|Whale|SamsungBrowser/i.test(ua);
-}
-
-function isAndroidDevice(ua: string) {
-  return /Android/i.test(ua);
-}
-
-function isIOSDevice(ua: string) {
-  return /iPhone|iPad|iPod/i.test(ua);
-}
-
-export default function InstallButton({
-  children,
-  onClick,
-  type = "button",
-  ...buttonProps
-}: InstallButtonProps) {
-  const [deferredPrompt, setDeferredPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-
-  const ua = useMemo(() => getUserAgent(), []);
-  const isWhale = useMemo(() => isWhaleBrowser(ua), [ua]);
-  const isSamsung = useMemo(() => isSamsungInternet(ua), [ua]);
-  const isChrome = useMemo(() => isChromeBrowser(ua), [ua]);
-  const isAndroid = useMemo(() => isAndroidDevice(ua), [ua]);
-  const isIOS = useMemo(() => isIOSDevice(ua), [ua]);
-
-  useEffect(() => {
-    setIsInstalled(isStandaloneMode());
-
-    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    const handleAppInstalled = () => {
-      setIsInstalled(true);
-      setDeferredPrompt(null);
-    };
-
-    const mediaQuery = window.matchMedia("(display-mode: standalone)");
-    const handleDisplayModeChange = () => {
-      setIsInstalled(isStandaloneMode());
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    window.addEventListener("appinstalled", handleAppInstalled);
-    mediaQuery.addEventListener?.("change", handleDisplayModeChange);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", handleAppInstalled);
-      mediaQuery.removeEventListener?.("change", handleDisplayModeChange);
-    };
+  const { isInApp, isIOS, isAndroid } = useMemo(() => {
+    if (typeof navigator === "undefined") return { isInApp: false, isIOS: false, isAndroid: false, isKakao: false };
+    return detectEnv(navigator.userAgent || "");
   }, []);
 
-  const showManualInstallGuide = () => {
-    if (isIOS) {
-      window.alert(
-        "iPhone/iPad에서는 Safari의 공유 버튼을 누른 뒤\n'홈 화면에 추가'를 선택해 설치해 주세요."
-      );
+  // 이미 PWA로 실행 중이면 숨김
+  const isStandalone = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const mql = window.matchMedia?.("(display-mode: standalone)")?.matches;
+    const iosStandalone = (window as any)?.navigator?.standalone === true;
+    return Boolean(mql || iosStandalone);
+  }, []);
+
+  useEffect(() => {
+    if (isStandalone) {
+      setShow(false);
       return;
     }
 
-    if (isWhale) {
-      window.alert(
-        isAndroid
-          ? "웨일 브라우저에서는 우측 상단 메뉴(⋮)를 연 뒤\n'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
-          : "웨일 브라우저에서는 주소창 오른쪽 설치 아이콘 또는 우측 상단 메뉴에서\n설치 관련 항목을 선택해 주세요."
-      );
-      return;
-    }
+    const onBeforeInstall = (e: Event) => {
+      // Android/Chrome 등: 설치 가능할 때 발생
+      e.preventDefault();
+      const bip = e as BeforeInstallPromptEvent;
+      setDeferred(bip);
+      setShow(true);
+    };
 
-    if (isSamsung) {
-      window.alert(
-        "삼성 인터넷에서는 하단 또는 우측 상단 메뉴에서\n'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
-      );
-      return;
-    }
+    const onInstalled = () => {
+      setDeferred(null);
+      setShow(false);
+    };
 
-    if (isChrome) {
-      window.alert(
-        isAndroid
-          ? "크롬에서는 우측 상단 메뉴(⋮)를 연 뒤\n'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
-          : "크롬에서는 주소창 오른쪽 설치 아이콘 또는 우측 상단 메뉴에서\n'설치'를 선택해 주세요."
-      );
-      return;
-    }
+    window.addEventListener("beforeinstallprompt", onBeforeInstall as EventListener);
+    window.addEventListener("appinstalled", onInstalled);
 
-    window.alert(
-      "이 브라우저에서는 자동 설치 창을 바로 띄울 수 없습니다.\n\n브라우저 메뉴에서 '홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
-    );
-  };
+    // iOS 사파리/인앱, 또는 인앱(WebView)들에선 beforeinstallprompt가 안 뜸 → 버튼은 보여주되 동작을 안내/유도
+    if (isIOS || isInApp) setShow(true);
 
-  const handleInstall = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  ) => {
-    if (isInstalled) return;
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall as EventListener);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, [isIOS, isInApp, isStandalone]);
 
-    if (onClick) {
-      onClick(e);
-    }
-
-    if (e.defaultPrevented) return;
-
-    if (deferredPrompt) {
-      try {
-        await deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-      } catch {
-      } finally {
-        setDeferredPrompt(null);
+  const handleClick = async () => {
+    // 1) 인앱 브라우저: 외부 브라우저로 열기 유도
+    if (isInApp) {
+      if (isAndroid) {
+        try {
+          const intentUrl = buildChromeIntentUrl(window.location.href);
+          window.location.href = intentUrl;
+        } catch {
+          alert('우측 상단 메뉴에서 "외부 브라우저로 열기"를 눌러 Chrome으로 열어주세요.');
+        }
+      } else if (isIOS) {
+        alert(
+          'iOS 설치 안내:\n\n1) 우측 하단 ···(더보기)\n2) "Safari로 열기" 선택\n3) Safari에서 하단 공유(□↑) → "홈 화면에 추가"\n'
+        );
+      } else {
+        alert('우측 상단 메뉴에서 "외부 브라우저로 열기"를 선택해 주세요.');
       }
       return;
     }
 
-    showManualInstallGuide();
+    // 2) iOS 사파리: beforeinstallprompt 미지원 → 설치 방법 안내
+    if (isIOS) {
+      alert(
+        'iOS 설치 안내:\n\n1) Safari에서 이 페이지 열기\n2) 하단 공유 아이콘(□↑)\n3) "홈 화면에 추가"'
+      );
+      return;
+    }
+
+    // 3) 일반 브라우저: PWA 설치 흐름
+    if (!deferred) return;
+    try {
+      await deferred.prompt();
+      await deferred.userChoice;
+      setDeferred(null);
+    } catch {
+      // 무시
+    }
   };
 
-  if (isInstalled) return null;
+  if (!show) return null;
 
-  const canShowManualInstallButton = isIOS || isWhale || isSamsung || isChrome;
-  const shouldShow = Boolean(deferredPrompt) || canShowManualInstallButton;
-
-  if (!shouldShow) return null;
+  // 인앱 환경에선 라벨을 살짝 바꿔 사용자 혼란을 줄임 (children 우선, 없으면 기본 문구)
+  const label =
+    isInApp ? (typeof children === "string" ? `${children} (외부 브라우저에서)` : children) : children;
 
   return (
-    <button
-      {...buttonProps}
-      type={type}
-      onClick={handleInstall}
-      aria-label={buttonProps["aria-label"] ?? "앱 설치"}
-    >
-      {children ?? "앱 설치"}
+    <button type="button" onClick={handleClick} {...btnProps}>
+      {label}
     </button>
   );
 }
