@@ -1,4 +1,4 @@
-const CACHE = "egose-v1";
+const CACHE = "egose-v2";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
