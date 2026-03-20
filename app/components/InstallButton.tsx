@@ -19,8 +19,7 @@ declare global {
   }
 }
 
-interface InstallButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface InstallButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
 }
 
@@ -47,8 +46,20 @@ function isWhaleBrowser(ua: string) {
   return /Whale/i.test(ua);
 }
 
+function isSamsungInternet(ua: string) {
+  return /SamsungBrowser/i.test(ua);
+}
+
+function isChromeBrowser(ua: string) {
+  return /Chrome|CriOS/i.test(ua) && !/Edg|OPR|Whale|SamsungBrowser/i.test(ua);
+}
+
 function isAndroidDevice(ua: string) {
   return /Android/i.test(ua);
+}
+
+function isIOSDevice(ua: string) {
+  return /iPhone|iPad|iPod/i.test(ua);
 }
 
 export default function InstallButton({
@@ -63,7 +74,10 @@ export default function InstallButton({
 
   const ua = useMemo(() => getUserAgent(), []);
   const isWhale = useMemo(() => isWhaleBrowser(ua), [ua]);
+  const isSamsung = useMemo(() => isSamsungInternet(ua), [ua]);
+  const isChrome = useMemo(() => isChromeBrowser(ua), [ua]);
   const isAndroid = useMemo(() => isAndroidDevice(ua), [ua]);
+  const isIOS = useMemo(() => isIOSDevice(ua), [ua]);
 
   useEffect(() => {
     setIsInstalled(isStandaloneMode());
@@ -94,20 +108,41 @@ export default function InstallButton({
     };
   }, []);
 
-  const handleWhaleGuide = () => {
-    if (isAndroid) {
+  const showManualInstallGuide = () => {
+    if (isIOS) {
       window.alert(
-        "웨일 브라우저에서는 브라우저 메뉴에서 설치해야 할 수 있습니다.\n\n" +
-          "우측 상단 메뉴(⋮)를 연 뒤\n" +
-          "'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
+        "iPhone/iPad에서는 Safari의 공유 버튼을 누른 뒤\n'홈 화면에 추가'를 선택해 설치해 주세요."
+      );
+      return;
+    }
+
+    if (isWhale) {
+      window.alert(
+        isAndroid
+          ? "웨일 브라우저에서는 우측 상단 메뉴(⋮)를 연 뒤\n'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
+          : "웨일 브라우저에서는 주소창 오른쪽 설치 아이콘 또는 우측 상단 메뉴에서\n설치 관련 항목을 선택해 주세요."
+      );
+      return;
+    }
+
+    if (isSamsung) {
+      window.alert(
+        "삼성 인터넷에서는 하단 또는 우측 상단 메뉴에서\n'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
+      );
+      return;
+    }
+
+    if (isChrome) {
+      window.alert(
+        isAndroid
+          ? "크롬에서는 우측 상단 메뉴(⋮)를 연 뒤\n'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
+          : "크롬에서는 주소창 오른쪽 설치 아이콘 또는 우측 상단 메뉴에서\n'설치'를 선택해 주세요."
       );
       return;
     }
 
     window.alert(
-      "웨일 브라우저에서는 주소창 오른쪽의 설치 아이콘 또는 브라우저 메뉴에서 설치해야 할 수 있습니다.\n\n" +
-        "주소창의 설치 아이콘이 보이면 눌러 설치하고,\n" +
-        "보이지 않으면 우측 상단 메뉴에서 설치 관련 항목을 확인해 주세요."
+      "이 브라우저에서는 자동 설치 창을 바로 띄울 수 없습니다.\n\n브라우저 메뉴에서 '홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
     );
   };
 
@@ -127,27 +162,20 @@ export default function InstallButton({
         await deferredPrompt.prompt();
         await deferredPrompt.userChoice;
       } catch {
-        // 사용자가 닫았거나 브라우저에서 막힌 경우
       } finally {
         setDeferredPrompt(null);
       }
       return;
     }
 
-    if (isWhale) {
-      handleWhaleGuide();
-      return;
-    }
-
-    window.alert(
-      "이 브라우저에서는 자동 설치 창을 바로 띄울 수 없습니다.\n\n" +
-        "브라우저 메뉴에서 '홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
-    );
+    showManualInstallGuide();
   };
 
   if (isInstalled) return null;
 
-  const shouldShow = Boolean(deferredPrompt) || isWhale;
+  const canShowManualInstallButton = isIOS || isWhale || isSamsung || isChrome;
+  const shouldShow = Boolean(deferredPrompt) || canShowManualInstallButton;
+
   if (!shouldShow) return null;
 
   return (
