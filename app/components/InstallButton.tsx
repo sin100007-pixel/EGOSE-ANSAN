@@ -16,12 +16,13 @@ function detectEnv(ua: string) {
   const isNaver = /NAVER\(inapp|NAVERAPP/i.test(ua);
   const isFBIG = /FBAN|FBAV|FB_IAB|Instagram/i.test(ua);
   const isDaum = /DaumApps/i.test(ua);
+  const isWhale = /Whale/i.test(ua);
   const isInApp = isKakao || isNaver || isFBIG || isDaum;
 
   const isIOS = /iPad|iPhone|iPod/i.test(ua);
   const isAndroid = /Android/i.test(ua);
 
-  return { isInApp, isIOS, isAndroid };
+  return { isInApp, isIOS, isAndroid, isKakao, isWhale };
 }
 
 function buildChromeIntentUrl(href: string) {
@@ -33,14 +34,22 @@ function buildChromeIntentUrl(href: string) {
 
 export default function InstallButton({
   children = "앱 설치",
+  onClick,
+  type = "button",
   ...btnProps
 }: Props) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
 
-  const { isInApp, isIOS } = useMemo(() => {
+  const { isInApp, isIOS, isAndroid, isWhale } = useMemo(() => {
     if (typeof navigator === "undefined") {
-      return { isInApp: false, isIOS: false, isAndroid: false };
+      return {
+        isInApp: false,
+        isIOS: false,
+        isAndroid: false,
+        isKakao: false,
+        isWhale: false,
+      };
     }
     return detectEnv(navigator.userAgent || "");
   }, []);
@@ -70,57 +79,86 @@ export default function InstallButton({
       setShow(false);
     };
 
-    window.addEventListener(
-      "beforeinstallprompt",
-      onBeforeInstall as EventListener
-    );
+    window.addEventListener("beforeinstallprompt", onBeforeInstall as EventListener);
     window.addEventListener("appinstalled", onInstalled);
 
-    // 인앱 / iOS 만 버튼 표시
-    // 크롬은 beforeinstallprompt가 실제로 왔을 때만 표시
-    if (isIOS || isInApp) {
+    // iOS / 인앱 / 웨일은 beforeinstallprompt가 없어도 버튼 표시
+    if (isIOS || isInApp || isWhale) {
       setShow(true);
-    } else {
-      setShow(false);
     }
 
     return () => {
-      window.removeEventListener(
-        "beforeinstallprompt",
-        onBeforeInstall as EventListener
-      );
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall as EventListener);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, [isIOS, isInApp, isStandalone]);
+  }, [isIOS, isInApp, isWhale, isStandalone]);
 
-  const handleClick = async () => {
-    // 인앱 브라우저면 크롬으로 보내기
+  const handleWhaleGuide = () => {
+    if (isAndroid) {
+      alert(
+        "웨일 브라우저에서는 브라우저 메뉴에서 설치해야 할 수 있습니다.\n\n" +
+          "우측 상단 메뉴(⋮)를 연 뒤\n" +
+          "'홈 화면에 추가' 또는 '앱 설치'를 선택해 주세요."
+      );
+      return;
+    }
+
+    alert(
+      "웨일 브라우저에서는 주소창 오른쪽의 설치 아이콘 또는 브라우저 메뉴에서 설치해야 할 수 있습니다.\n\n" +
+        "주소창의 설치 아이콘이 보이면 눌러 설치하고,\n" +
+        "보이지 않으면 우측 상단 메뉴에서 설치 관련 항목을 확인해 주세요."
+    );
+  };
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (onClick) onClick(e);
+    if (e.defaultPrevented) return;
+
+    // 인앱 브라우저
     if (isInApp) {
-      try {
-        const intentUrl = buildChromeIntentUrl(window.location.href);
-        window.location.href = intentUrl;
-      } catch {
-        // 아무 메시지도 띄우지 않음
+      if (isAndroid) {
+        try {
+          const intentUrl = buildChromeIntentUrl(window.location.href);
+          window.location.href = intentUrl;
+        } catch {
+          alert('우측 상단 메뉴에서 "외부 브라우저로 열기"를 눌러 Chrome으로 열어주세요.');
+        }
+      } else if (isIOS) {
+        alert(
+          'iOS 설치 안내:\n\n1) 우측 하단 ···(더보기)\n2) "Safari로 열기" 선택\n3) Safari에서 하단 공유(□↑) → "홈 화면에 추가"\n'
+        );
+      } else {
+        alert('우측 상단 메뉴에서 "외부 브라우저로 열기"를 선택해 주세요.');
       }
       return;
     }
 
-    // iOS는 설치 팝업 자체가 없어서 안내만 필요
+    // 웨일
+    if (isWhale && !deferred) {
+      handleWhaleGuide();
+      return;
+    }
+
+    // iOS Safari
     if (isIOS) {
       alert(
-        'iPhone 설치 방법:\n\nSafari에서 열기 → 공유 버튼 → "홈 화면에 추가"'
+        'iOS 설치 안내:\n\n1) Safari에서 이 페이지 열기\n2) 하단 공유 아이콘(□↑)\n3) "홈 화면에 추가"'
       );
       return;
     }
 
-    // 크롬/안드로이드: 설치 가능할 때만 바로 실행
-    if (!deferred) return;
+    // 일반 PWA 설치
+    if (!deferred) {
+      alert(
+        '이 브라우저에서는 자동 설치 창을 바로 띄울 수 없습니다.\n\n브라우저 메뉴에서 "홈 화면에 추가" 또는 "앱 설치"를 선택해 주세요.'
+      );
+      return;
+    }
 
     try {
       await deferred.prompt();
       await deferred.userChoice;
       setDeferred(null);
-      setShow(false);
     } catch {
       // 무시
     }
@@ -129,14 +167,12 @@ export default function InstallButton({
   if (!show) return null;
 
   const label =
-    isInApp
-      ? typeof children === "string"
-        ? `${children}`
-        : children
+    isInApp && typeof children === "string"
+      ? `${children} (외부 브라우저에서)`
       : children;
 
   return (
-    <button type="button" onClick={handleClick} {...btnProps}>
+    <button {...btnProps} type={type} onClick={handleClick}>
       {label}
     </button>
   );
