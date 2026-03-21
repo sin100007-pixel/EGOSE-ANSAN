@@ -279,6 +279,7 @@ export default function LedgerPage() {
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
   const [latestUploadedDate, setLatestUploadedDate] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -404,6 +405,22 @@ export default function LedgerPage() {
     });
   }, [rows, productQuery, normalizedRange]);
 
+  const hasActiveFilters = !!(productQuery.trim() || dateStart || dateEnd);
+
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    const keyword = productQuery.trim();
+    if (keyword) parts.push(`검색: ${keyword}`);
+    if (normalizedRange.start && normalizedRange.end) {
+      parts.push(
+        normalizedRange.start === normalizedRange.end
+          ? `${normalizedRange.start}`
+          : `${normalizedRange.start} ~ ${normalizedRange.end}`
+      );
+    }
+    return parts.join(" · ");
+  }, [productQuery, normalizedRange]);
+
   const openDatePicker = (ref: React.RefObject<HTMLInputElement | null>) => {
     const input = ref.current;
     if (!input) return;
@@ -494,107 +511,131 @@ export default function LedgerPage() {
           </ul>
         </div>
 
-        <div className="filter-box">
+        <div className={`filter-box ${isFilterOpen ? "is-open" : "is-collapsed"}`}>
           {latestUploadedDate ? (
             <div className="update-banner">{toKoreanDate(latestUploadedDate)} 까지 업데이트 완료!</div>
           ) : null}
 
-          <div className="filter-grid">
-            <label className="filter-field filter-field-search">
-              <span className="filter-label">제품명 검색</span>
-              <input
-                type="text"
-                value={productQuery}
-                onChange={(e) => setProductQuery(e.target.value)}
-                placeholder="제품명 입력"
-                className="filter-input"
-              />
-            </label>
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setIsFilterOpen((prev) => !prev)}
+            aria-expanded={isFilterOpen}
+            aria-controls="ledger-filter-panel"
+          >
+            <span className="filter-toggle-copy">
+              <span className="filter-toggle-title">검색 / 기간 필터</span>
+              <span className={`filter-toggle-summary ${hasActiveFilters ? "is-active" : ""}`}>
+                {hasActiveFilters ? filterSummary : "눌러서 펼치기"}
+              </span>
+            </span>
+            <span className={`filter-toggle-icon ${isFilterOpen ? "is-open" : ""}`} aria-hidden="true">⌄</span>
+          </button>
 
-            <div className="filter-field filter-field-date">
-              <div className="filter-label-row">
-                <span className="filter-label">기간 지정</span>
-                <span className="filter-help">누르면 달력이 열립니다</span>
+          {isFilterOpen ? (
+            <div id="ledger-filter-panel" className="filter-panel">
+              <div className="filter-grid">
+                <label className="filter-field filter-field-search">
+                  <span className="filter-label">제품명 검색</span>
+                  <input
+                    type="text"
+                    value={productQuery}
+                    onChange={(e) => setProductQuery(e.target.value)}
+                    placeholder="제품명 입력"
+                    className="filter-input"
+                  />
+                </label>
+
+                <div className="filter-field filter-field-date">
+                  <div className="filter-label-row">
+                    <span className="filter-label">기간 지정</span>
+                    <span className="filter-help">누르면 달력이 열립니다</span>
+                  </div>
+
+                  <div className="date-range-grid">
+                    <div className="date-picker-card">
+                      <span className="date-chip-label">시작일</span>
+                      <button
+                        type="button"
+                        className="date-picker-btn"
+                        onClick={() => openDatePicker(startDateInputRef)}
+                        aria-label="시작일 선택"
+                      >
+                        <span>{dateStart || "시작일 선택"}</span>
+                        <span className="date-picker-icon" aria-hidden="true">📅</span>
+                      </button>
+                      <input
+                        ref={startDateInputRef}
+                        type="date"
+                        value={dateStart}
+                        min={ymd(date_from)}
+                        max={ymd(date_to)}
+                        onChange={(e) => setDateStart(e.target.value)}
+                        className="sr-only-date-input"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      />
+                    </div>
+
+                    <div className="date-picker-card">
+                      <span className="date-chip-label">종료일</span>
+                      <button
+                        type="button"
+                        className="date-picker-btn"
+                        onClick={() => openDatePicker(endDateInputRef)}
+                        aria-label="종료일 선택"
+                      >
+                        <span>{dateEnd || "종료일 선택"}</span>
+                        <span className="date-picker-icon" aria-hidden="true">📅</span>
+                      </button>
+                      <input
+                        ref={endDateInputRef}
+                        type="date"
+                        value={dateEnd}
+                        min={ymd(date_from)}
+                        max={ymd(date_to)}
+                        onChange={(e) => setDateEnd(e.target.value)}
+                        className="sr-only-date-input"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="preset-row" aria-label="빠른 기간 선택">
+                    <button type="button" className="preset-btn" onClick={() => setDatePreset("7d")}>최근 7일</button>
+                    <button type="button" className="preset-btn" onClick={() => setDatePreset("30d")}>최근 30일</button>
+                    <button type="button" className="preset-btn" onClick={() => setDatePreset("month")}>이번달</button>
+                    <button type="button" className="preset-btn" onClick={() => setDatePreset("all")}>전체</button>
+                  </div>
+                </div>
               </div>
 
-              <div className="date-range-grid">
-                <div className="date-picker-card">
-                  <span className="date-chip-label">시작일</span>
-                  <button
-                    type="button"
-                    className="date-picker-btn"
-                    onClick={() => openDatePicker(startDateInputRef)}
-                    aria-label="시작일 선택"
-                  >
-                    <span>{dateStart || "시작일 선택"}</span>
-                    <span className="date-picker-icon" aria-hidden="true">📅</span>
-                  </button>
-                  <input
-                    ref={startDateInputRef}
-                    type="date"
-                    value={dateStart}
-                    min={ymd(date_from)}
-                    max={ymd(date_to)}
-                    onChange={(e) => setDateStart(e.target.value)}
-                    className="sr-only-date-input"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                  />
-                </div>
-
-                <div className="date-picker-card">
-                  <span className="date-chip-label">종료일</span>
-                  <button
-                    type="button"
-                    className="date-picker-btn"
-                    onClick={() => openDatePicker(endDateInputRef)}
-                    aria-label="종료일 선택"
-                  >
-                    <span>{dateEnd || "종료일 선택"}</span>
-                    <span className="date-picker-icon" aria-hidden="true">📅</span>
-                  </button>
-                  <input
-                    ref={endDateInputRef}
-                    type="date"
-                    value={dateEnd}
-                    min={ymd(date_from)}
-                    max={ymd(date_to)}
-                    onChange={(e) => setDateEnd(e.target.value)}
-                    className="sr-only-date-input"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                  />
-                </div>
-              </div>
-
-              <div className="preset-row" aria-label="빠른 기간 선택">
-                <button type="button" className="preset-btn" onClick={() => setDatePreset("7d")}>최근 7일</button>
-                <button type="button" className="preset-btn" onClick={() => setDatePreset("30d")}>최근 30일</button>
-                <button type="button" className="preset-btn" onClick={() => setDatePreset("month")}>이번달</button>
-                <button type="button" className="preset-btn" onClick={() => setDatePreset("all")}>전체</button>
+              <div className="filter-actions">
+                <button
+                  type="button"
+                  className="filter-reset"
+                  onClick={() => {
+                    setProductQuery("");
+                    setDateStart("");
+                    setDateEnd("");
+                  }}
+                >
+                  필터 초기화
+                </button>
+                <span className="filter-result">표시 건수: {filteredRows.length}건</span>
               </div>
             </div>
-          </div>
-
-          <div className="filter-actions">
-            <button
-              type="button"
-              className="filter-reset"
-              onClick={() => {
-                setProductQuery("");
-                setDateStart("");
-                setDateEnd("");
-              }}
-            >
-              필터 초기화
-            </button>
-            <span className="filter-result">표시 건수: {filteredRows.length}건</span>
-          </div>
+          ) : (
+            <div className="filter-collapsed-bar">
+              <span className="filter-result">표시 건수: {filteredRows.length}건</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* 내부 스크롤 뷰포트 */}
-      <div className="scroll-viewport">
+      <div className={`scroll-viewport ${isFilterOpen ? "filters-open" : "filters-closed"}`}>
         <div className="scroll-frame">
           <table className="ledger">
             <thead className="sticky-head">
@@ -755,6 +796,61 @@ export default function LedgerPage() {
           background: rgba(255, 255, 255, 0.05);
           backdrop-filter: blur(6px);
         }
+        .filter-toggle {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(10, 14, 42, 0.72);
+          color: #fff;
+          text-align: left;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .filter-toggle-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .filter-toggle-title {
+          font-size: 13px;
+          font-weight: 800;
+          color: #fff;
+        }
+        .filter-toggle-summary {
+          font-size: 11px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.66);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .filter-toggle-summary.is-active {
+          color: #dbeafe;
+        }
+        .filter-toggle-icon {
+          flex: 0 0 auto;
+          font-size: 20px;
+          line-height: 1;
+          opacity: 0.88;
+          transform: rotate(0deg);
+          transition: transform 0.18s ease;
+        }
+        .filter-toggle-icon.is-open {
+          transform: rotate(180deg);
+        }
+        .filter-panel {
+          margin-top: 12px;
+        }
+        .filter-collapsed-bar {
+          margin-top: 10px;
+          display: flex;
+          justify-content: flex-end;
+        }
         .update-banner {
           margin-bottom: 10px;
           padding: 10px 12px;
@@ -882,9 +978,10 @@ export default function LedgerPage() {
         }
         .filter-input {
           width: 100%;
+          max-width: 100%;
           min-height: 46px;
-          display: flex;
-          align-items: center;
+          display: block;
+          box-sizing: border-box;
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.28);
           background: rgba(11, 13, 33, 0.92);
@@ -927,11 +1024,16 @@ export default function LedgerPage() {
 
         /* 내부 스크롤 */
         .scroll-viewport {
-          height: calc(100vh - 345px);
           min-height: 320px;
           overflow: auto;
           -webkit-overflow-scrolling: touch;
           background: rgba(255, 255, 255, 0.02);
+        }
+        .scroll-viewport.filters-open {
+          height: calc(100vh - 345px);
+        }
+        .scroll-viewport.filters-closed {
+          height: calc(100vh - 235px);
         }
 
         .scroll-frame {
@@ -1064,6 +1166,15 @@ export default function LedgerPage() {
           .filter-box {
             padding: 9px;
           }
+          .filter-toggle {
+            padding: 9px 10px;
+          }
+          .filter-toggle-title {
+            font-size: 12px;
+          }
+          .filter-toggle-summary {
+            font-size: 10px;
+          }
           .update-banner {
             padding: 9px 10px;
             font-size: 12px;
@@ -1091,7 +1202,8 @@ export default function LedgerPage() {
           .col-name { min-width: 160px; }
           .col-qty  { min-width: 54px; }
           .name-text { max-width: 16ch; }
-          .scroll-viewport { height: calc(100vh - 445px); }
+          .scroll-viewport.filters-open { height: calc(100vh - 445px); }
+          .scroll-viewport.filters-closed { height: calc(100vh - 305px); }
         }
       `}</style>
     </div>
