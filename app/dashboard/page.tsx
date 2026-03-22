@@ -102,11 +102,13 @@ export default async function DashboardPage() {
 
       {/* 실제 내용 */}
       <div style={{ position: "relative", zIndex: 2 }}>
-        <header style={{ 
-         width: "100%",
-         marginBottom: 16,
-         transform: "translateX(-50px)",
-        }}>
+        <header
+          style={{
+            width: "100%",
+            marginBottom: 16,
+            transform: "translateX(-50px)",
+          }}
+        >
           <LondonMarketBanner />
         </header>
 
@@ -118,32 +120,17 @@ export default async function DashboardPage() {
 
         <div
           style={{
-            display: "flex",
-            gap: 24,
-            alignItems: "flex-start",
-            flexWrap: "wrap",
+            width: 220,
+            borderRadius: 12,
+            overflow: "hidden",
+            background: "#111",
           }}
         >
-          <div
-            style={{
-              width: 260,
-              borderRadius: 12,
-              overflow: "hidden",
-              background: "#111",
-            }}
-          >
-            <img
-              src={user.qrUrl}
-              alt="QR"
-              style={{ display: "block", width: "100%", height: "auto" }}
-            />
-          </div>
-
-          <div style={{ alignSelf: "center" }}>
-            <p style={{ opacity: 0.9, marginTop: 8 }}>
-              전화번호 뒷자리: {user.phoneLast4}
-            </p>
-          </div>
+          <img
+            src={user.qrUrl}
+            alt="QR"
+            style={{ display: "block", width: "100%", height: "auto" }}
+          />
         </div>
 
         <section style={{ marginTop: 24 }}>
