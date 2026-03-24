@@ -541,6 +541,13 @@ export default function LedgerPage() {
                     type="text"
                     value={productQuery}
                     onChange={(e) => setProductQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLInputElement).blur();
+                      }
+                    }}
+                    enterKeyHint="go"
                     placeholder="제품명 입력"
                     className="filter-input"
                   />
