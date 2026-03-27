@@ -92,6 +92,31 @@ type Row = {
 };
 type ApiResp = { ok: boolean; rows?: Row[]; message?: string };
 
+const cleanText = (value?: string | null) => (value || "").trim();
+
+const getBubbleTitle = (row: Row) => {
+  const directOriginal =
+    cleanText((row as any).full_item_name) ||
+    cleanText((row as any).item_name_full) ||
+    cleanText((row as any).original_item_name) ||
+    cleanText((row as any).raw_item_name);
+
+  if (directOriginal) return directOriginal;
+
+  const item = cleanText(row.item_name);
+  return item || "상세";
+};
+
+const getBubbleContent = (row: Row) => cleanText(row.memo);
+
+const shouldShowInfoButton = (row: Row) => {
+  const item = cleanText(row.item_name);
+  const title = getBubbleTitle(row);
+  const memo = getBubbleContent(row);
+
+  return !!memo || (!!title && title !== item) || trimDisplayName(item) !== item;
+};
+
 /* ---------- 말풍선 ---------- */
 const Bubble: React.FC<{
   anchorEl: HTMLButtonElement | null;
@@ -693,10 +718,13 @@ export default function LedgerPage() {
                       : "";
                   const isDateBreak = i === 0 || curYMD !== prevYMD;
 
-                  const displayName = getDisplayItemName(r.item_name || "");
-                  const shortName = trimDisplayName(r.item_name || "");
-                  const needInfo = !!(r.memo && r.memo.trim().length > 0);
-                  const rowId = `${curYMD}-${r.item_name}-${i}`;
+                  const rawItemName = (r.item_name || "").trim();
+                  const displayName = getDisplayItemName(rawItemName);
+                  const shortName = trimDisplayName(rawItemName);
+                  const bubbleTitle = getBubbleTitle(r);
+                  const bubbleContent = getBubbleContent(r);
+                  const needInfo = shouldShowInfoButton(r);
+                  const rowId = `${curYMD}-${rawItemName}-${i}`;
 
                   return (
                     <tr key={rowId} className={isDateBreak ? "dateBreak" : ""}>
@@ -723,8 +751,8 @@ export default function LedgerPage() {
                                 }
                                 setBubble({
                                   open: true,
-                                  title: (r.item_name && r.item_name.trim()) || displayName || "상세",
-                                  content: (r.memo && r.memo.trim()) || displayName || "",
+                                  title: bubbleTitle || displayName || "상세",
+                                  content: bubbleContent || "",
                                   anchorEl: e.currentTarget,
                                   rowId,
                                 });
