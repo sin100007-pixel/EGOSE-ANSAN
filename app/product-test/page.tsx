@@ -5,13 +5,14 @@ import { useState } from "react";
 type Product = {
   id: number;
   manufacturer: string;
-  product_code: string;
+  product_code_1: string | null;
+  product_code_2: string | null;
   product_name: string;
-  full_name: string;
-  unit_price: number | null;
+  full_name: string | null;
+  consumer_price: number | null;
+  installer_price: number | null;
+  dealer_price: number | null;
   color_family: string | null;
-  color_name: string | null;
-  tone: string | null;
   image_url: string | null;
 };
 
@@ -82,7 +83,7 @@ export default function ProductTestPage() {
       </div>
 
       <div style={{ marginBottom: 12, color: "#666", fontSize: 14 }}>
-        예: HPW24 / 던오크 / 화이트
+        예: NG2051 / HG2051 / 브릭
       </div>
 
       {loading && <p>검색 중...</p>}
@@ -108,7 +109,7 @@ export default function ProductTestPage() {
             {item.image_url ? (
               <img
                 src={item.image_url}
-                alt={item.full_name}
+                alt={item.full_name || item.product_name}
                 style={{
                   width: 96,
                   height: 96,
@@ -139,18 +140,30 @@ export default function ProductTestPage() {
 
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>
-                {item.full_name}
+                {item.product_name}
               </div>
               <div>회사: {item.manufacturer}</div>
+              <div>코드1: {item.product_code_1 || "-"}</div>
+              <div>코드2: {item.product_code_2 || "-"}</div>
               <div>
-                단가:{" "}
-                {typeof item.unit_price === "number"
-                  ? `${item.unit_price.toLocaleString()}원`
+                소비자단가:{" "}
+                {typeof item.consumer_price === "number"
+                  ? `${item.consumer_price.toLocaleString()}원`
+                  : "-"}
+              </div>
+              <div>
+                시공자단가:{" "}
+                {typeof item.installer_price === "number"
+                  ? `${item.installer_price.toLocaleString()}원`
+                  : "-"}
+              </div>
+              <div>
+                대리점단가:{" "}
+                {typeof item.dealer_price === "number"
+                  ? `${item.dealer_price.toLocaleString()}원`
                   : "-"}
               </div>
               <div>색상계열: {item.color_family || "-"}</div>
-              <div>상세색상: {item.color_name || "-"}</div>
-              <div>톤: {item.tone || "-"}</div>
             </div>
           </div>
         ))}

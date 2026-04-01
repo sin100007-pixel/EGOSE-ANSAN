@@ -20,11 +20,23 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from("products")
       .select(
-        "id, manufacturer, product_code, product_name, full_name, unit_price, color_family, color_name, tone, image_path"
+        `
+        id,
+        manufacturer,
+        product_code_1,
+        product_code_2,
+        product_name,
+        full_name,
+        consumer_price,
+        installer_price,
+        dealer_price,
+        color_family,
+        image_path
+        `
       )
       .eq("is_active", true)
       .or(
-        `product_code.ilike.${pattern},product_name.ilike.${pattern},full_name.ilike.${pattern}`
+        `product_code_1.ilike.${pattern},product_code_2.ilike.${pattern},product_name.ilike.${pattern},full_name.ilike.${pattern}`
       )
       .limit(10);
 
@@ -35,11 +47,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
     const items =
       data?.map((item) => {
-        const image_url = item.image_path
-          ? supabase.storage.from("product-samples").getPublicUrl(item.image_path)
-              .data.publicUrl
+        const normalizedPath = item.image_path
+          ? item.image_path.replace(/^\/+/, "").replace(/^product-samples\//, "")
+          : null;
+
+        const image_url = normalizedPath
+          ? `${baseUrl}/storage/v1/object/public/product-samples/${normalizedPath}`
           : null;
 
         return {
