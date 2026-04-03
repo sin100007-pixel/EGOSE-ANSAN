@@ -6,6 +6,100 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+type ProductRow = {
+  id: number;
+  manufacturer: string | null;
+  product_code_1: string | null;
+  product_code_2: string | null;
+  color_name: string | null;
+  full_name: string | null;
+  category_main: string | null;
+  category_sub: string | null;
+  image_path: string | null;
+  non_fire_consumer_price: number | null;
+  fire_consumer_price: number | null;
+  non_fire_installer_price: number | null;
+  fire_installer_price: number | null;
+  non_fire_dealer_price: number | null;
+  fire_dealer_price: number | null;
+};
+
+function normalizeForSearch(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/번/g, "")
+    .replace(/[^0-9A-Z가-힣]/g, "");
+}
+
+function buildCodeTokens(code: string | null | undefined) {
+  if (!code) return [];
+
+  const tokens = new Set<string>();
+  const normalized = normalizeForSearch(code);
+
+  if (normalized) {
+    tokens.add(normalized);
+  }
+
+  const parts = (code.toUpperCase().match(/[A-Z가-힣]+|\d+/g) || []).map((part) =>
+    normalizeForSearch(part)
+  );
+
+  const letterParts = parts.filter((part) => /[A-Z가-힣]/.test(part));
+  const numberParts = parts.filter((part) => /\d/.test(part));
+
+  for (const numberPart of numberParts) {
+    tokens.add(numberPart);
+
+    for (const letterPart of letterParts) {
+      tokens.add(`${letterPart}${numberPart}`);
+    }
+
+    if (letterParts.length > 1) {
+      tokens.add(`${letterParts.join("")}${numberPart}`);
+    }
+  }
+
+  return Array.from(tokens).filter(Boolean);
+}
+
+function getSearchScore(item: ProductRow, query: string) {
+  const queryNorm = normalizeForSearch(query);
+  if (!queryNorm) return 0;
+
+  const codeTokens = [
+    ...buildCodeTokens(item.product_code_1),
+    ...buildCodeTokens(item.product_code_2),
+  ];
+
+  const uniqueCodeTokens = Array.from(new Set(codeTokens));
+
+  const fieldNorms = [
+    normalizeForSearch(item.product_code_1 || ""),
+    normalizeForSearch(item.product_code_2 || ""),
+    normalizeForSearch(item.full_name || ""),
+    normalizeForSearch(item.color_name || ""),
+    normalizeForSearch(item.category_main || ""),
+    normalizeForSearch(item.category_sub || ""),
+  ].filter(Boolean);
+
+  let score = 0;
+
+  for (const token of uniqueCodeTokens) {
+    if (token === queryNorm) score = Math.max(score, 100);
+    else if (token.startsWith(queryNorm)) score = Math.max(score, 90);
+    else if (token.includes(queryNorm)) score = Math.max(score, 80);
+  }
+
+  for (const field of fieldNorms) {
+    if (field === queryNorm) score = Math.max(score, 70);
+    else if (field.startsWith(queryNorm)) score = Math.max(score, 60);
+    else if (field.includes(queryNorm)) score = Math.max(score, 50);
+  }
+
+  return score;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
@@ -13,9 +107,6 @@ export async function GET(req: NextRequest) {
     if (!q) {
       return NextResponse.json({ items: [] });
     }
-
-    const safeQ = q.replace(/[%_]/g, "");
-    const pattern = `%${safeQ}%`;
 
     const { data, error } = await supabase
       .from("products")
@@ -38,15 +129,7 @@ export async function GET(req: NextRequest) {
         fire_dealer_price
         `
       )
-      .or(
-        [
-          `product_code_1.ilike.${pattern}`,
-          `product_code_2.ilike.${pattern}`,
-          `color_name.ilike.${pattern}`,
-          `full_name.ilike.${pattern}`,
-        ].join(",")
-      )
-      .limit(20);
+      .limit(1000);
 
     if (error) {
       return NextResponse.json(
@@ -57,8 +140,18 @@ export async function GET(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-    const items =
-      data?.map((item) => {
+    const items = (data || [])
+      .map((item) => ({ item, score: getSearchScore(item as ProductRow, q) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+
+        const aName = a.item.full_name || a.item.product_code_1 || "";
+        const bName = b.item.full_name || b.item.product_code_1 || "";
+        return aName.localeCompare(bName, "ko");
+      })
+      .slice(0, 20)
+      .map(({ item }) => {
         const normalizedPath = item.image_path
           ? item.image_path.replace(/^\/+/, "").replace(/^product-samples\//, "")
           : null;
@@ -71,10 +164,10 @@ export async function GET(req: NextRequest) {
           ...item,
           image_url,
         };
-      }) ?? [];
+      });
 
     return NextResponse.json({ items });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: "server error", items: [] },
       { status: 500 }
