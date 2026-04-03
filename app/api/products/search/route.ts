@@ -25,20 +25,28 @@ export async function GET(req: NextRequest) {
         manufacturer,
         product_code_1,
         product_code_2,
-        product_name,
+        color_name,
         full_name,
-        consumer_price,
-        installer_price,
-        dealer_price,
-        color_family,
-        image_path
+        category_main,
+        category_sub,
+        image_path,
+        non_fire_consumer_price,
+        fire_consumer_price,
+        non_fire_installer_price,
+        fire_installer_price,
+        non_fire_dealer_price,
+        fire_dealer_price
         `
       )
-      .eq("is_active", true)
       .or(
-        `product_code_1.ilike.${pattern},product_code_2.ilike.${pattern},product_name.ilike.${pattern},full_name.ilike.${pattern}`
+        [
+          `product_code_1.ilike.${pattern}`,
+          `product_code_2.ilike.${pattern}`,
+          `color_name.ilike.${pattern}`,
+          `full_name.ilike.${pattern}`,
+        ].join(",")
       )
-      .limit(10);
+      .limit(20);
 
     if (error) {
       return NextResponse.json(
