@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +24,8 @@ type ProductRow = {
   non_fire_dealer_price: number | null;
   fire_dealer_price: number | null;
 };
+
+type MemberType = "INSTALLER" | "DEALER";
 
 function normalizeForSearch(value: string) {
   return value
@@ -100,6 +103,38 @@ function getSearchScore(item: ProductRow, query: string) {
   return score;
 }
 
+function normalizeMemberType(value: string | null | undefined): MemberType {
+  const upper = (value || "").toUpperCase();
+
+  if (upper === "DEALER") {
+    return "DEALER";
+  }
+
+  return "INSTALLER";
+}
+
+function applyVisiblePrices(item: ProductRow, memberType: MemberType) {
+  return {
+    ...item,
+
+    // 소비자가는 둘 다 보임
+    non_fire_consumer_price: item.non_fire_consumer_price,
+    fire_consumer_price: item.fire_consumer_price,
+
+    // 시공자만 시공자가 보임
+    non_fire_installer_price:
+      memberType === "INSTALLER" ? item.non_fire_installer_price : null,
+    fire_installer_price:
+      memberType === "INSTALLER" ? item.fire_installer_price : null,
+
+    // 대리점만 대리점가 보임
+    non_fire_dealer_price:
+      memberType === "DEALER" ? item.non_fire_dealer_price : null,
+    fire_dealer_price:
+      memberType === "DEALER" ? item.fire_dealer_price : null,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
@@ -107,6 +142,32 @@ export async function GET(req: NextRequest) {
     if (!q) {
       return NextResponse.json({ items: [] });
     }
+
+    const rawSessionUser = req.cookies.get("session_user")?.value || "";
+    const sessionUserName = rawSessionUser
+      ? decodeURIComponent(rawSessionUser).trim()
+      : "";
+
+    if (!sessionUserName) {
+      return NextResponse.json(
+        { error: "로그인이 필요합니다.", items: [] },
+        { status: 401 }
+      );
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { name: sessionUserName },
+      select: { memberType: true },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "회원 정보를 찾을 수 없습니다.", items: [] },
+        { status: 401 }
+      );
+    }
+
+    const memberType = normalizeMemberType(user.memberType);
 
     const { data, error } = await supabase
       .from("products")
@@ -141,7 +202,10 @@ export async function GET(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
     const items = (data || [])
-      .map((item) => ({ item, score: getSearchScore(item as ProductRow, q) }))
+      .map((item) => ({
+        item: applyVisiblePrices(item as ProductRow, memberType),
+        score: getSearchScore(item as ProductRow, q),
+      }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -167,7 +231,9 @@ export async function GET(req: NextRequest) {
       });
 
     return NextResponse.json({ items });
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
+
     return NextResponse.json(
       { error: "server error", items: [] },
       { status: 500 }
