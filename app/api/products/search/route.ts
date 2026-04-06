@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -117,17 +119,14 @@ function applyVisiblePrices(item: ProductRow, memberType: MemberType) {
   return {
     ...item,
 
-    // 소비자가는 둘 다 보임
     non_fire_consumer_price: item.non_fire_consumer_price,
     fire_consumer_price: item.fire_consumer_price,
 
-    // 시공자만 시공자가 보임
     non_fire_installer_price:
       memberType === "INSTALLER" ? item.non_fire_installer_price : null,
     fire_installer_price:
       memberType === "INSTALLER" ? item.fire_installer_price : null,
 
-    // 대리점만 대리점가 보임
     non_fire_dealer_price:
       memberType === "DEALER" ? item.non_fire_dealer_price : null,
     fire_dealer_price:
