@@ -176,6 +176,26 @@ export default async function DashboardPage() {
             </button>
           </p>
         </form>
+
+        <a
+          href="/product-test"
+          style={{
+            textDecoration: "none",
+            display: "block",
+            marginTop: 14,
+          }}
+        >
+          <button
+            type="button"
+            style={{
+              ...btnStyle,
+              maxWidth: 220,
+              margin: "0 auto",
+            }}
+          >
+            필름봇(임시)
+          </button>
+        </a>
       </div>
     </main>
   );
