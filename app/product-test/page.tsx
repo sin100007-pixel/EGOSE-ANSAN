@@ -422,8 +422,10 @@ export default function ProductTestPage() {
               flex: 1,
               overflowY: "auto",
               padding: 16,
-              display: "grid",
+              display: "flex",
+              flexDirection: "column",
               gap: 12,
+              alignItems: "stretch",
             }}
           >
             {basketItems.length === 0 ? (
@@ -460,11 +462,23 @@ export default function ProductTestPage() {
                 const title =
                   item.full_name || item.product_code_1 || item.color_name || "이름 없음";
 
-                const basketPrices = getVisiblePrices(
-                  item,
-                  hideConsumerPrice,
-                  hideInstallerPrice
-                );
+                const basketMetaBadges = [
+                  hasText(item.manufacturer)
+                    ? { label: "제조사", value: item.manufacturer.trim() }
+                    : null,
+                  hasText(item.product_code_1)
+                    ? { label: "코드1", value: item.product_code_1!.trim() }
+                    : null,
+                  hasText(item.product_code_2)
+                    ? { label: "코드2", value: item.product_code_2!.trim() }
+                    : null,
+                  hasText(item.category_main)
+                    ? { label: "대분류", value: item.category_main!.trim() }
+                    : null,
+                  hasText(item.category_sub)
+                    ? { label: "소분류", value: item.category_sub!.trim() }
+                    : null,
+                ].filter(Boolean) as Array<{ label: string; value: string }>;
 
                 return (
                   <article
@@ -556,97 +570,58 @@ export default function ProductTestPage() {
                           </button>
                         </div>
 
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 8,
-                          }}
-                        >
-                          {hasText(item.manufacturer) && (
-                            <div
-                              style={{
-                                borderRadius: 999,
-                                padding: "7px 10px",
-                                background: "rgba(255,255,255,0.05)",
-                                border: "1px solid rgba(255,255,255,0.08)",
-                                color: "#fff",
-                                fontSize: 12,
-                              }}
-                            >
-                              제조사 {item.manufacturer.trim()}
-                            </div>
-                          )}
-
-                          {hasText(item.product_code_1) && (
-                            <div
-                              style={{
-                                borderRadius: 999,
-                                padding: "7px 10px",
-                                background: "rgba(255,255,255,0.05)",
-                                border: "1px solid rgba(255,255,255,0.08)",
-                                color: "#fff",
-                                fontSize: 12,
-                              }}
-                            >
-                              코드 {item.product_code_1!.trim()}
-                            </div>
-                          )}
-
-                          {hasText(item.color_name) && (
-                            <div
-                              style={{
-                                borderRadius: 999,
-                                padding: "7px 10px",
-                                background: "rgba(238,224,197,0.08)",
-                                border: "1px solid rgba(238,224,197,0.12)",
-                                color: THEME_COLOR,
-                                fontSize: 12,
-                              }}
-                            >
-                              색상 {item.color_name!.trim()}
-                            </div>
-                          )}
-                        </div>
-
-                        {basketPrices.length > 0 && (
+                        {basketMetaBadges.length > 0 && (
                           <div
                             style={{
-                              display: "grid",
-                              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                              gap: 8,
-                              marginTop: 12,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 5,
+                              marginTop: 2,
+                              alignItems: "flex-start",
                             }}
                           >
-                            {basketPrices.map((price) => (
+                            {basketMetaBadges.map((meta) => (
                               <div
-                                key={price.label}
+                                key={`${meta.label}-${meta.value}`}
                                 style={{
-                                  borderRadius: 14,
-                                  padding: "10px 12px",
-                                  background: "rgba(238,224,197,0.08)",
-                                  border: "1px solid rgba(238,224,197,0.14)",
+                                  display: "inline-flex",
+                                  width: "auto",
+                                  flex: "0 0 auto",
+                                  alignItems: "center",
+                                  justifyContent: "flex-start",
+                                  gap: 3,
+                                  alignSelf: "flex-start",
+                                  borderRadius: 999,
+                                  padding: "3px 8px",
+                                  background: "rgba(255,255,255,0.04)",
+                                  border: "1px solid rgba(255,255,255,0.07)",
+                                  lineHeight: 1.1,
+                                  maxWidth: "fit-content",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                <div
+                                <span
                                   style={{
                                     color: THEME_COLOR,
-                                    fontSize: 11,
-                                    marginBottom: 4,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    flexShrink: 0,
+                                    whiteSpace: "nowrap",
                                   }}
                                 >
-                                  {price.label}
-                                </div>
-                                <div
+                                  {meta.label}
+                                </span>
+                                <span
                                   style={{
                                     color: "#fff",
+                                    fontSize: 10.5,
                                     fontWeight: 800,
-                                    fontSize: 15,
-                                    lineHeight: 1.3,
+                                    flexShrink: 0,
+                                    whiteSpace: "nowrap",
                                   }}
                                 >
-                                  {price.value}
-                                </div>
+                                  {meta.value}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -1571,9 +1546,6 @@ export default function ProductTestPage() {
                 hasText(item.product_code_2)
                   ? { label: "코드2", value: item.product_code_2!.trim() }
                   : null,
-                hasText(item.color_name)
-                  ? { label: "색상명", value: item.color_name!.trim() }
-                  : null,
                 hasText(item.category_main)
                   ? { label: "대분류", value: item.category_main!.trim() }
                   : null,
@@ -1649,8 +1621,9 @@ export default function ProductTestPage() {
                         style={{
                           display: "flex",
                           flexWrap: "wrap",
-                          gap: 8,
+                          gap: 6,
                           marginBottom: exportPrices.length > 0 ? 14 : 0,
+                          alignItems: "flex-start",
                         }}
                       >
                         {exportMetaBadges.map((meta) => (
@@ -1658,23 +1631,28 @@ export default function ProductTestPage() {
                             key={`${meta.label}-${meta.value}`}
                             style={{
                               display: "inline-flex",
+                              width: "auto",
+                              flex: "0 0 auto",
                               alignItems: "center",
-                              gap: 6,
+                              justifyContent: "flex-start",
+                              gap: 4,
+                              alignSelf: "flex-start",
                               borderRadius: 999,
-                              padding: "8px 12px",
-                              background: "rgba(255,255,255,0.05)",
-                              border: "1px solid rgba(255,255,255,0.08)",
-                              color: "#fff",
-                              fontSize: 13,
-                              lineHeight: 1.3,
-                              maxWidth: "100%",
+                              padding: "5px 9px",
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.07)",
+                              lineHeight: 1.15,
+                              maxWidth: "fit-content",
+                              whiteSpace: "nowrap",
                             }}
                           >
                             <span
                               style={{
                                 color: THEME_COLOR,
+                                fontSize: 11,
                                 fontWeight: 700,
                                 flexShrink: 0,
+                                whiteSpace: "nowrap",
                               }}
                             >
                               {meta.label}
@@ -1682,8 +1660,10 @@ export default function ProductTestPage() {
                             <span
                               style={{
                                 color: "#fff",
-                                opacity: 0.92,
-                                wordBreak: "break-word",
+                                fontSize: 11.5,
+                                fontWeight: 800,
+                                flexShrink: 0,
+                                whiteSpace: "nowrap",
                               }}
                             >
                               {meta.value}
