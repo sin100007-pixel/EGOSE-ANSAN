@@ -1530,11 +1530,7 @@ export default function ProductTestPage() {
               const title =
                 item.full_name || item.product_code_1 || item.color_name || "이름 없음";
 
-              const exportPrices = getVisiblePrices(
-                item,
-                hideConsumerPrice,
-                hideInstallerPrice
-              );
+              const exportPrices: PriceItem[] = [];
 
               const exportMetaBadges = [
                 hasText(item.manufacturer)
