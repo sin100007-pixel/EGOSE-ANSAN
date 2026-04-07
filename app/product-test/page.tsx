@@ -79,8 +79,8 @@ export default function ProductTestPage() {
   const [openedImage, setOpenedImage] = useState<{ src: string; alt: string } | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [hideConsumerPrice, setHideConsumerPrice] = useState(false);
-  const [hideInstallerPrice, setHideInstallerPrice] = useState(false);
+  const [hideConsumerPrice, setHideConsumerPrice] = useState(true);
+  const [hideInstallerPrice, setHideInstallerPrice] = useState(true);
 
   const [basketItems, setBasketItems] = useState<Product[]>([]);
   const [isBasketOpen, setIsBasketOpen] = useState(false);
@@ -860,7 +860,7 @@ export default function ProductTestPage() {
                       marginBottom: 12,
                     }}
                   >
-                    검색 결과에 표시할 가격 항목을 선택할 수 있어요.
+                    검색 결과에서 보고 싶은 가격 항목을 선택할 수 있어요.
                   </div>
 
                   <div
@@ -876,22 +876,22 @@ export default function ProductTestPage() {
                       onClick={() => setHideConsumerPrice((prev) => !prev)}
                       style={{
                         border: `1px solid ${
-                          hideConsumerPrice
+                          !hideConsumerPrice
                             ? "rgba(238,224,197,0.42)"
                             : "rgba(238,224,197,0.18)"
                         }`,
                         borderRadius: 999,
                         padding: "10px 14px",
-                        background: hideConsumerPrice
+                        background: !hideConsumerPrice
                           ? "rgba(238,224,197,0.18)"
                           : "rgba(255,255,255,0.04)",
-                        color: hideConsumerPrice ? THEME_COLOR : "#fff",
+                        color: !hideConsumerPrice ? THEME_COLOR : "#fff",
                         fontSize: 14,
                         fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
-                      {hideConsumerPrice ? "소비자가 다시 보기" : "소비자가 없애기"}
+                      {hideConsumerPrice ? "소비자가 보기" : "소비자가 숨기기"}
                     </button>
 
                     <button
@@ -900,22 +900,22 @@ export default function ProductTestPage() {
                       onClick={() => setHideInstallerPrice((prev) => !prev)}
                       style={{
                         border: `1px solid ${
-                          hideInstallerPrice
+                          !hideInstallerPrice
                             ? "rgba(238,224,197,0.42)"
                             : "rgba(238,224,197,0.18)"
                         }`,
                         borderRadius: 999,
                         padding: "10px 14px",
-                        background: hideInstallerPrice
+                        background: !hideInstallerPrice
                           ? "rgba(238,224,197,0.18)"
                           : "rgba(255,255,255,0.04)",
-                        color: hideInstallerPrice ? THEME_COLOR : "#fff",
+                        color: !hideInstallerPrice ? THEME_COLOR : "#fff",
                         fontSize: 14,
                         fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
-                      {hideInstallerPrice ? "시공자가 다시 보기" : "시공자가 없애기"}
+                      {hideInstallerPrice ? "시공자가 보기" : "시공자가 숨기기"}
                     </button>
                   </div>
                 </div>
@@ -1051,7 +1051,7 @@ export default function ProductTestPage() {
                   marginBottom: 8,
                 }}
               >
-                시공자가와 소비자가를 표시하지 않을 수도 있어요.
+                시공자가와 소비자가를 기본으로 숨겨두었어요.
               </div>
 
               <div
@@ -1063,7 +1063,7 @@ export default function ProductTestPage() {
                   wordBreak: "keep-all",
                 }}
               >
-                검색 설정을 눌러 펼친 뒤 원하는 항목을 설정해보세요.
+                검색 설정을 눌러 펼친 뒤 보고 싶은 가격만 표시해보세요.
               </div>
 
               <div
