@@ -35,6 +35,7 @@ const TEXT_SUB = "rgba(255,255,255,0.72)";
 
 const RECENT_SEARCH_KEY = "filmbot_recent_searches";
 const MAX_RECENT_SEARCHES = 6;
+const TUTORIAL_STORAGE_KEY = "filmbot_tutorial_seen_v1";
 
 const formatPrice = (price: number | null) => {
   return typeof price === "number" ? `${price.toLocaleString()}원` : "";
@@ -83,6 +84,8 @@ export default function ProductTestPage() {
   const [hideInstallerPrice, setHideInstallerPrice] = useState(true);
 
   const [basketItems, setBasketItems] = useState<Product[]>([]);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
   const [isBasketOpen, setIsBasketOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -119,6 +122,82 @@ export default function ProductTestPage() {
       // 무시
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const tutorialSeen = localStorage.getItem(TUTORIAL_STORAGE_KEY);
+      if (!tutorialSeen) {
+        setIsTutorialOpen(true);
+      }
+    } catch {
+      setIsTutorialOpen(true);
+    }
+  }, []);
+
+  const tutorialSteps = [
+    {
+      icon: "🔎",
+      title: "1. 원하는 필름을 빠르게 검색해보세요",
+      description:
+        "숫자만 입력하거나, 코드 또는 색상명으로도 검색할 수 있어요. 예: 122 / SG122 / SF122 / 도브화이트",
+      tip: "검색창에 입력 후 검색 버튼을 누르거나 Enter를 누르면 바로 결과를 볼 수 있어요.",
+      actionLabel: "예시 검색어 넣기",
+      onAction: () => setQ("122"),
+    },
+    {
+      icon: "🖼️",
+      title: "2. 제품 이미지는 눌러서 크게 볼 수 있어요",
+      description:
+        "검색 결과 카드의 이미지를 누르면 큰 사진으로 열립니다. 실제 시공 전 색감과 결을 더 편하게 확인할 수 있어요.",
+      tip: "전체 화면으로 열린 뒤 바깥 영역이나 × 버튼을 누르면 닫을 수 있어요.",
+      actionLabel: null,
+      onAction: null,
+    },
+    {
+      icon: "⚙️",
+      title: "3. 가격은 필요할 때만 표시할 수 있어요",
+      description:
+        "지금은 소비자가와 시공자가가 기본으로 숨겨져 있어요. 검색 설정을 열어 보고 싶은 가격만 표시해보세요.",
+      tip: "불필요한 가격 노출을 줄이기 위해 기본값은 숨김으로 맞춰져 있어요.",
+      actionLabel: "검색 설정 열기",
+      onAction: () => setIsSettingsOpen(true),
+    },
+    {
+      icon: "➕",
+      title: "4. 마음에 드는 필름은 + 버튼으로 담아두세요",
+      description:
+        "검색 결과 카드 오른쪽 위의 + 버튼을 누르면 필름바구니에 담깁니다. 다시 누르면 바로 뺄 수 있어요.",
+      tip: "여러 제품을 한 번에 비교하고 싶을 때 가장 유용한 기능이에요.",
+      actionLabel: null,
+      onAction: null,
+    },
+    {
+      icon: "🧺",
+      title: "5. 필름바구니에서 모아보고 이미지로 저장하세요",
+      description:
+        "오른쪽 위 필름바구니 버튼을 누르면 담아둔 필름을 한 번에 볼 수 있어요. 바구니 안에서 이미지 저장도 가능합니다.",
+      tip: "고객과 공유할 때는 바구니에 담은 뒤 이미지 저장을 누르면 편해요.",
+      actionLabel: "필름바구니 열기",
+      onAction: () => setIsBasketOpen(true),
+    },
+  ] as const;
+
+  const currentTutorial = tutorialSteps[tutorialStep];
+
+  const openTutorial = (step = 0) => {
+    setTutorialStep(step);
+    setIsTutorialOpen(true);
+  };
+
+  const closeTutorial = () => {
+    setIsTutorialOpen(false);
+
+    try {
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, "seen");
+    } catch {
+      // 무시
+    }
+  };
 
   const saveRecentSearch = (term: string) => {
     const normalized = term.trim();
@@ -698,10 +777,57 @@ export default function ProductTestPage() {
                 color: TEXT_SUB,
                 fontSize: 15,
                 lineHeight: 1.6,
-                marginBottom: 18,
+                marginBottom: 12,
               }}
             >
               필름 코드나 색상명으로 원하는 제품을 빠르게 찾아보세요.
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 18,
+              }}
+            >
+              <button
+                type="button"
+                className="tutorialLinkButton"
+                onClick={() => openTutorial(0)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  border: "1px solid rgba(238,224,197,0.18)",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  background: "rgba(238,224,197,0.10)",
+                  color: THEME_COLOR,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                <span>✨</span>
+                <span>처음이신가요? 30초 사용법 보기</span>
+              </button>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  background: "rgba(255,255,255,0.04)",
+                  color: TEXT_SUB,
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                <span>검색 → 확대 → 담기 → 저장</span>
+              </div>
             </div>
 
             <div
@@ -1402,6 +1528,245 @@ export default function ProductTestPage() {
         </div>
       </div>
 
+      {isTutorialOpen && currentTutorial && (
+        <div
+          onClick={closeTutorial}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+            zIndex: 9800,
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(560px, 100%)",
+              borderRadius: 28,
+              padding: "22px 20px 18px",
+              background:
+                "linear-gradient(180deg, rgba(12,10,72,0.98) 0%, rgba(5,2,59,0.99) 100%)",
+              border: "1px solid rgba(238,224,197,0.16)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.38)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 14,
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 999,
+                    padding: "7px 11px",
+                    background: "rgba(238,224,197,0.10)",
+                    color: THEME_COLOR,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    marginBottom: 12,
+                  }}
+                >
+                  <span>{currentTutorial.icon}</span>
+                  <span>필름봇 튜토리얼</span>
+                </div>
+
+                <div
+                  style={{
+                    color: "#fff",
+                    fontSize: 26,
+                    fontWeight: 900,
+                    lineHeight: 1.3,
+                    wordBreak: "keep-all",
+                    marginBottom: 10,
+                  }}
+                >
+                  {currentTutorial.title}
+                </div>
+
+                <div
+                  style={{
+                    color: TEXT_SUB,
+                    fontSize: 15,
+                    lineHeight: 1.75,
+                    wordBreak: "keep-all",
+                  }}
+                >
+                  {currentTutorial.description}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeTutorial}
+                aria-label="튜토리얼 닫기"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                  border: "1px solid rgba(238,224,197,0.16)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#fff",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                borderRadius: 22,
+                padding: "16px 16px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(238,224,197,0.10)",
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  color: THEME_COLOR,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  marginBottom: 8,
+                }}
+              >
+                이렇게 사용하면 편해요
+              </div>
+              <div
+                style={{
+                  color: "#fff",
+                  fontSize: 14,
+                  lineHeight: 1.75,
+                  wordBreak: "keep-all",
+                }}
+              >
+                {currentTutorial.tip}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 18,
+                flexWrap: "wrap",
+              }}
+            >
+              {tutorialSteps.map((step, index) => (
+                <button
+                  key={step.title}
+                  type="button"
+                  onClick={() => setTutorialStep(index)}
+                  aria-label={`${index + 1}단계로 이동`}
+                  style={{
+                    width: index === tutorialStep ? 34 : 10,
+                    height: 10,
+                    borderRadius: 999,
+                    border: "none",
+                    background:
+                      index === tutorialStep ? THEME_COLOR : "rgba(255,255,255,0.18)",
+                    cursor: "pointer",
+                    transition: "all 0.18s ease",
+                    padding: 0,
+                  }}
+                />
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  color: TEXT_SUB,
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                {tutorialStep + 1} / {tutorialSteps.length}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                }}
+              >
+                {currentTutorial.actionLabel && currentTutorial.onAction && (
+                  <button
+                    type="button"
+                    className="tutorialLinkButton"
+                    onClick={() => currentTutorial.onAction()}
+                    style={{
+                      border: "1px solid rgba(238,224,197,0.18)",
+                      borderRadius: 999,
+                      padding: "10px 14px",
+                      background: "rgba(255,255,255,0.05)",
+                      color: THEME_COLOR,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {currentTutorial.actionLabel}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="tutorialLinkButton"
+                  onClick={() => {
+                    if (tutorialStep === tutorialSteps.length - 1) {
+                      closeTutorial();
+                      return;
+                    }
+
+                    setTutorialStep((prev) => Math.min(prev + 1, tutorialSteps.length - 1));
+                  }}
+                  style={{
+                    border: "1px solid rgba(238,224,197,0.18)",
+                    borderRadius: 999,
+                    padding: "10px 16px",
+                    background: THEME_COLOR,
+                    color: BROWN,
+                    fontSize: 14,
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  {tutorialStep === tutorialSteps.length - 1 ? "튜토리얼 끝내기" : "다음"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {openedImage && (
         <div
           onClick={() => setOpenedImage(null)}
@@ -1726,7 +2091,8 @@ export default function ProductTestPage() {
         .settingsOptionButton,
         .addCircleButton,
         .basketFloatingButton,
-        .saveBasketButton {
+        .saveBasketButton,
+        .tutorialLinkButton {
           transition:
             transform 0.18s ease,
             box-shadow 0.18s ease,
@@ -1744,7 +2110,8 @@ export default function ProductTestPage() {
         .settingsOptionButton:hover,
         .addCircleButton:hover,
         .basketFloatingButton:hover,
-        .saveBasketButton:hover {
+        .saveBasketButton:hover,
+        .tutorialLinkButton:hover {
           transform: translateY(-1px);
         }
 
@@ -1771,7 +2138,8 @@ export default function ProductTestPage() {
         .settingsToggleButton:hover,
         .settingsOptionButton:hover,
         .addCircleButton:hover,
-        .saveBasketButton:hover {
+        .saveBasketButton:hover,
+        .tutorialLinkButton:hover {
           border-color: rgba(238, 224, 197, 0.3);
           background: rgba(238, 224, 197, 0.08) !important;
         }
