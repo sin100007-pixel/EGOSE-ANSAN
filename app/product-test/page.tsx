@@ -2116,6 +2116,7 @@ export default function ProductTestPage() {
             <img
               src={WATERMARK_SRC}
               alt=""
+              draggable={false}
               style={{
                 display: "block",
                 width: 300,
@@ -2124,7 +2125,7 @@ export default function ProductTestPage() {
                 opacity: 0.3,
                 filter: "drop-shadow(0 8px 22px rgba(0,0,0,0.16))",
                 userSelect: "none",
-                WebkitUserDrag: "none",
+                pointerEvents: "none",
               }}
             />
           </div>
