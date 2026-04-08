@@ -32,6 +32,7 @@ const PAGE_BG = "#05023B";
 const CARD_BG = "rgba(12, 10, 72, 0.72)";
 const CARD_BORDER = "rgba(238, 224, 197, 0.18)";
 const TEXT_SUB = "rgba(255,255,255,0.72)";
+const WATERMARK_SRC = "/filmbot-watermark.png";
 
 const RECENT_SEARCH_KEY = "filmbot_recent_searches";
 const MAX_RECENT_SEARCHES = 6;
@@ -44,6 +45,24 @@ const formatPrice = (price: number | null) => {
 const hasText = (value: string | null | undefined) => {
   return typeof value === "string" && value.trim() !== "";
 };
+
+const waitForImageLoad = (src: string) =>
+  new Promise<void>((resolve) => {
+    if (typeof window === "undefined") {
+      resolve();
+      return;
+    }
+
+    const image = new window.Image();
+    image.decoding = "async";
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+
+    if (image.complete) {
+      resolve();
+    }
+  });
 
 const getVisiblePrices = (
   item: Product,
@@ -301,6 +320,8 @@ export default function ProductTestPage() {
     setIsExporting(true);
 
     try {
+      await waitForImageLoad(WATERMARK_SRC);
+
       const dataUrl = await toPng(basketExportRef.current, {
         cacheBust: true,
         pixelRatio: 2,
@@ -1847,11 +1868,13 @@ export default function ProductTestPage() {
         <div
           ref={basketExportRef}
           style={{
+            position: "relative",
             width: 900,
             background: PAGE_BG,
             color: "#fff",
             padding: 28,
             boxSizing: "border-box",
+            overflow: "hidden",
           }}
         >
           <div
@@ -2078,6 +2101,32 @@ export default function ProductTestPage() {
                 </article>
               );
             })}
+          </div>
+
+          <div
+            aria-hidden="true"
+            style={{
+              marginTop: 28,
+              paddingTop: 18,
+              borderTop: "1px solid rgba(238,224,197,0.10)",
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <img
+              src={WATERMARK_SRC}
+              alt=""
+              style={{
+                display: "block",
+                width: 300,
+                maxWidth: "58%",
+                height: "auto",
+                opacity: 0.3,
+                filter: "drop-shadow(0 8px 22px rgba(0,0,0,0.16))",
+                userSelect: "none",
+                WebkitUserDrag: "none",
+              }}
+            />
           </div>
         </div>
       </div>
