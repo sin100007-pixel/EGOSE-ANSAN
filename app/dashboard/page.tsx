@@ -17,7 +17,6 @@ export default async function DashboardPage() {
 
   const user = await prisma.user.findFirst({ where: { name } });
 
-  // DB에 회원이 없으면 세션 쿠키 삭제 후 이동
   if (!user) redirect("/api/logout");
 
   const btnStyle: React.CSSProperties = {
@@ -65,7 +64,6 @@ export default async function DashboardPage() {
         minHeight: "100vh",
       }}
     >
-      {/* 오른쪽 벚꽃 배경 장식 */}
       <div
         style={{
           position: "absolute",
@@ -97,10 +95,8 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* 벚꽃잎 흩날림 */}
       <CherryBlossomPetals />
 
-      {/* 실제 내용 */}
       <div style={{ position: "relative", zIndex: 2 }}>
         <header
           style={{
@@ -118,19 +114,90 @@ export default async function DashboardPage() {
           {name}님의 QR
         </h1>
 
+        {/* QR + 필름봇 버튼 */}
         <div
           style={{
-            width: 220,
-            borderRadius: 12,
-            overflow: "hidden",
-            background: "#111",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) 124px",
+            gap: 14,
+            alignItems: "center",
+            width: "100%",
+            maxWidth: 390,
           }}
         >
-          <img
-            src={user.qrUrl}
-            alt="QR"
-            style={{ display: "block", width: "100%", height: "auto" }}
-          />
+          <div
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              overflow: "hidden",
+              background: "#111",
+            }}
+          >
+            <img
+              src={user.qrUrl}
+              alt="QR"
+              style={{ display: "block", width: "100%", height: "auto" }}
+            />
+          </div>
+
+          <a
+            href="/product-test"
+            aria-label="필름봇 페이지로 이동"
+            style={{
+              display: "block",
+              width: "100%",
+              textDecoration: "none",
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                aspectRatio: "1 / 1",
+                background: "#f7b6c8",
+                borderRadius: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxSizing: "border-box",
+                padding: 10,
+                boxShadow: "0 8px 20px rgba(0,0,0,0.18)",
+                overflow: "visible",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  top: -8,
+                  right: -8,
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: "#ff5f7a",
+                  color: "#ffffff",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  letterSpacing: "0.04em",
+                  boxShadow: "0 6px 14px rgba(0,0,0,0.22)",
+                  border: "2px solid #ffffff",
+                }}
+              >
+                NEW
+              </div>
+
+              <img
+                src="/filmbot-button.png"
+                alt="필름봇"
+                style={{
+                  display: "block",
+                  width: "240%",
+                  maxWidth: 180,
+                  height: "auto",
+                  objectFit: "contain",
+                }}
+              />
+            </div>
+          </a>
         </div>
 
         <section style={{ marginTop: 24 }}>
@@ -176,26 +243,6 @@ export default async function DashboardPage() {
             </button>
           </p>
         </form>
-
-        <a
-          href="/product-test"
-          style={{
-            textDecoration: "none",
-            display: "block",
-            marginTop: 14,
-          }}
-        >
-          <button
-            type="button"
-            style={{
-              ...btnStyle,
-              maxWidth: 220,
-              margin: "0 auto",
-            }}
-          >
-            필름봇(임시)
-          </button>
-        </a>
       </div>
     </main>
   );
