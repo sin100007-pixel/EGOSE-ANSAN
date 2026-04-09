@@ -189,7 +189,7 @@ export async function GET(req: NextRequest) {
         fire_dealer_price
         `
       )
-      .limit(1000);
+      .limit(5000);
 
     if (error) {
       return NextResponse.json(
