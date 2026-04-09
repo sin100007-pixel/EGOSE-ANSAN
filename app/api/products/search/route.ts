@@ -9,6 +9,24 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const PRODUCT_SELECT = `
+  id,
+  manufacturer,
+  product_code_1,
+  product_code_2,
+  color_name,
+  full_name,
+  category_main,
+  category_sub,
+  image_path,
+  non_fire_consumer_price,
+  fire_consumer_price,
+  non_fire_installer_price,
+  fire_installer_price,
+  non_fire_dealer_price,
+  fire_dealer_price
+`;
+
 type ProductRow = {
   id: number;
   manufacturer: string | null;
@@ -66,6 +84,72 @@ function buildCodeTokens(code: string | null | undefined) {
   }
 
   return Array.from(tokens).filter(Boolean);
+}
+
+function buildQueryTokens(query: string) {
+  const tokens = new Set<string>();
+  const normalized = normalizeForSearch(query);
+
+  if (normalized) {
+    tokens.add(normalized);
+  }
+
+  const parts = (query.toUpperCase().match(/[A-Z가-힣]+|\d+/g) || [])
+    .map((part) => normalizeForSearch(part))
+    .filter(Boolean);
+
+  for (const part of parts) {
+    tokens.add(part);
+  }
+
+  const letterParts = parts.filter((part) => /[A-Z가-힣]/.test(part));
+  const numberParts = parts.filter((part) => /\d/.test(part));
+
+  for (const numberPart of numberParts) {
+    tokens.add(numberPart);
+
+    for (const letterPart of letterParts) {
+      tokens.add(`${letterPart}${numberPart}`);
+    }
+
+    if (letterParts.length > 1) {
+      tokens.add(`${letterParts.join("")}${numberPart}`);
+    }
+  }
+
+  if (parts.length > 1) {
+    tokens.add(parts.join(""));
+  }
+
+  return Array.from(tokens)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 12);
+}
+
+function buildDbOrFilter(query: string) {
+  const tokens = buildQueryTokens(query);
+  const searchableFields = [
+    "product_code_1",
+    "product_code_2",
+    "full_name",
+    "color_name",
+    "category_main",
+    "category_sub",
+  ];
+
+  const conditions: string[] = [];
+
+  for (const token of tokens) {
+    const safeToken = token.replace(/[%_,()]/g, "").trim();
+    if (!safeToken) continue;
+
+    for (const field of searchableFields) {
+      conditions.push(`${field}.ilike.%${safeToken}%`);
+    }
+  }
+
+  return conditions.join(",");
 }
 
 function getSearchScore(item: ProductRow, query: string) {
@@ -167,29 +251,17 @@ export async function GET(req: NextRequest) {
     }
 
     const memberType = normalizeMemberType(user.memberType);
+    const orFilter = buildDbOrFilter(q);
+
+    if (!orFilter) {
+      return NextResponse.json({ items: [] });
+    }
 
     const { data, error } = await supabase
       .from("products")
-      .select(
-        `
-        id,
-        manufacturer,
-        product_code_1,
-        product_code_2,
-        color_name,
-        full_name,
-        category_main,
-        category_sub,
-        image_path,
-        non_fire_consumer_price,
-        fire_consumer_price,
-        non_fire_installer_price,
-        fire_installer_price,
-        non_fire_dealer_price,
-        fire_dealer_price
-        `
-      )
-      .limit(5000);
+      .select(PRODUCT_SELECT)
+      .or(orFilter)
+      .limit(1000);
 
     if (error) {
       return NextResponse.json(
