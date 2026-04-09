@@ -54,6 +54,10 @@ function normalizeForSearch(value: string) {
     .replace(/[^0-9A-Z가-힣]/g, "");
 }
 
+function isNumericOnlyQuery(query: string) {
+  return /^\d+$/.test(normalizeForSearch(query));
+}
+
 function buildCodeTokens(code: string | null | undefined) {
   if (!code) return [];
 
@@ -129,6 +133,7 @@ function buildQueryTokens(query: string) {
 
 function buildDbOrFilter(query: string) {
   const tokens = buildQueryTokens(query);
+
   const searchableFields = [
     "product_code_1",
     "product_code_2",
@@ -150,6 +155,97 @@ function buildDbOrFilter(query: string) {
   }
 
   return conditions.join(",");
+}
+
+function hasExactCodeMatch(item: ProductRow, query: string) {
+  const queryNorm = normalizeForSearch(query);
+  if (!queryNorm) return false;
+
+  const codeTokens = [
+    ...buildCodeTokens(item.product_code_1),
+    ...buildCodeTokens(item.product_code_2),
+  ];
+
+  return Array.from(new Set(codeTokens)).some((token) => token === queryNorm);
+}
+
+function getManufacturerPriority(manufacturer: string | null | undefined) {
+  const value = (manufacturer || "").toUpperCase();
+
+  if (value.includes("삼성") || value.includes("SAMSUNG")) return 0;
+  if (value.includes("영림") || value.includes("YOUNGLIM")) return 1;
+  if (value.includes("예림") || value.includes("YERIM")) return 2;
+
+  return 9;
+}
+
+function getPreferredBrandBonus(manufacturer: string | null | undefined) {
+  const priority = getManufacturerPriority(manufacturer);
+
+  if (priority === 0) return 3; // 삼성
+  if (priority === 1) return 2; // 영림
+  if (priority === 2) return 1; // 예림
+
+  return 0;
+}
+
+function getFieldMatchLevel(item: ProductRow, query: string) {
+  const queryNorm = normalizeForSearch(query);
+  if (!queryNorm) return 0;
+
+  const fields = [
+    normalizeForSearch(item.color_name || ""),
+    normalizeForSearch(item.full_name || ""),
+    normalizeForSearch(item.category_main || ""),
+    normalizeForSearch(item.category_sub || ""),
+  ].filter(Boolean);
+
+  let level = 0;
+
+  for (const field of fields) {
+    if (field === queryNorm) level = Math.max(level, 3);
+    else if (field.startsWith(queryNorm)) level = Math.max(level, 2);
+    else if (field.includes(queryNorm)) level = Math.max(level, 1);
+  }
+
+  return level;
+}
+
+function getPreferredBrandBoost(item: ProductRow, query: string) {
+  const brandBonus = getPreferredBrandBonus(item.manufacturer);
+  if (!brandBonus) return 0;
+
+  const exactCodeMatch = hasExactCodeMatch(item, query);
+  const fieldMatchLevel = getFieldMatchLevel(item, query);
+
+  // 숫자 코드 exact match는 가장 강하게 우대
+  if (isNumericOnlyQuery(query) && exactCodeMatch) {
+    if (brandBonus === 3) return 15; // 삼성
+    if (brandBonus === 2) return 14; // 영림
+    if (brandBonus === 1) return 13; // 예림
+  }
+
+  // 색상명 / full_name / 카테고리 검색 우대
+  if (fieldMatchLevel === 3) {
+    if (brandBonus === 3) return 9;
+    if (brandBonus === 2) return 8;
+    if (brandBonus === 1) return 7;
+  }
+
+  if (fieldMatchLevel === 2) {
+    if (brandBonus === 3) return 7;
+    if (brandBonus === 2) return 6;
+    if (brandBonus === 1) return 5;
+  }
+
+  if (fieldMatchLevel === 1) {
+    if (brandBonus === 3) return 5;
+    if (brandBonus === 2) return 4;
+    if (brandBonus === 1) return 3;
+  }
+
+  // 그 외에는 아주 약하게만 브랜드 우선
+  return brandBonus;
 }
 
 function getSearchScore(item: ProductRow, query: string) {
@@ -186,6 +282,8 @@ function getSearchScore(item: ProductRow, query: string) {
     else if (field.includes(queryNorm)) score = Math.max(score, 50);
   }
 
+  score += getPreferredBrandBoost(item, query);
+
   return score;
 }
 
@@ -202,7 +300,6 @@ function normalizeMemberType(value: string | null | undefined): MemberType {
 function applyVisiblePrices(item: ProductRow, memberType: MemberType) {
   return {
     ...item,
-
     non_fire_consumer_price: item.non_fire_consumer_price,
     fire_consumer_price: item.fire_consumer_price,
 
@@ -276,10 +373,27 @@ export async function GET(req: NextRequest) {
       .map((item) => ({
         item: applyVisiblePrices(item as ProductRow, memberType),
         score: getSearchScore(item as ProductRow, q),
+        exactCodeMatch: hasExactCodeMatch(item as ProductRow, q),
+        fieldMatchLevel: getFieldMatchLevel(item as ProductRow, q),
+        manufacturerPriority: getManufacturerPriority(
+          (item as ProductRow).manufacturer
+        ),
       }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
+
+        if (a.exactCodeMatch !== b.exactCodeMatch) {
+          return a.exactCodeMatch ? -1 : 1;
+        }
+
+        if (b.fieldMatchLevel !== a.fieldMatchLevel) {
+          return b.fieldMatchLevel - a.fieldMatchLevel;
+        }
+
+        if (a.manufacturerPriority !== b.manufacturerPriority) {
+          return a.manufacturerPriority - b.manufacturerPriority;
+        }
 
         const aName = a.item.full_name || a.item.product_code_1 || "";
         const bName = b.item.full_name || b.item.product_code_1 || "";
