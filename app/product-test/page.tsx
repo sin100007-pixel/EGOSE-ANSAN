@@ -801,7 +801,8 @@ export default function ProductTestPage() {
                 marginBottom: 12,
               }}
             >
-              필름 코드나 색상명으로 원하는 제품을 빠르게 찾아보세요.
+              ✔️삼성,✔️영림,✔️예림,✔️현대L&C,✔️LX Z:IN,✔️한솔,✔️우딘,✔️현대INFEEL,✔️KCC
+              10개의 제조사 3279개의 샘플을 이고세.
             </div>
 
             <div
@@ -847,7 +848,6 @@ export default function ProductTestPage() {
                   fontWeight: 600,
                 }}
               >
-                <span>검색 → 확대 → 담기 → 저장</span>
               </div>
             </div>
 
