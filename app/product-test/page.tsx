@@ -37,6 +37,7 @@ const WATERMARK_SRC = "/filmbot-watermark.png";
 const RECENT_SEARCH_KEY = "filmbot_recent_searches";
 const MAX_RECENT_SEARCHES = 6;
 const TUTORIAL_STORAGE_KEY = "filmbot_tutorial_seen_v1";
+const BASKET_STORAGE_KEY = "filmbot_basket_items_v1";
 
 const formatPrice = (price: number | null) => {
   return typeof price === "number" ? `${price.toLocaleString()}원` : "";
@@ -103,6 +104,7 @@ export default function ProductTestPage() {
   const [hideInstallerPrice, setHideInstallerPrice] = useState(true);
 
   const [basketItems, setBasketItems] = useState<Product[]>([]);
+  const [isBasketReady, setIsBasketReady] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [isBasketOpen, setIsBasketOpen] = useState(false);
@@ -152,6 +154,47 @@ export default function ProductTestPage() {
       setIsTutorialOpen(true);
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const savedBasket = localStorage.getItem(BASKET_STORAGE_KEY);
+
+      if (!savedBasket) {
+        setIsBasketReady(true);
+        return;
+      }
+
+      const parsed = JSON.parse(savedBasket);
+
+      if (Array.isArray(parsed)) {
+        const validItems = parsed.filter(
+          (item): item is Product =>
+            !!item && typeof item === "object" && typeof item.id === "number"
+        );
+
+        setBasketItems(validItems);
+      }
+    } catch {
+      // 무시
+    } finally {
+      setIsBasketReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isBasketReady) return;
+
+    try {
+      if (basketItems.length === 0) {
+        localStorage.removeItem(BASKET_STORAGE_KEY);
+        return;
+      }
+
+      localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basketItems));
+    } catch {
+      // 무시
+    }
+  }, [basketItems, isBasketReady]);
 
   const tutorialSteps = [
     {
@@ -297,6 +340,18 @@ export default function ProductTestPage() {
     setBasketItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const clearBasketItems = () => {
+    if (basketItems.length === 0) {
+      window.alert("필름바구니에 담긴 필름이 없습니다.");
+      return;
+    }
+
+    const confirmed = window.confirm("필름바구니를 모두 비울까요?");
+    if (!confirmed) return;
+
+    setBasketItems([]);
+  };
+
   const downloadDataUrl = (dataUrl: string, filename: string) => {
     const link = document.createElement("a");
     link.href = dataUrl;
@@ -427,7 +482,8 @@ export default function ProductTestPage() {
             right: 0,
             width: "min(420px, 92vw)",
             height: "100%",
-            background: "linear-gradient(180deg, rgba(12,10,72,0.98) 0%, rgba(5,2,59,0.99) 100%)",
+            background:
+              "linear-gradient(180deg, rgba(12,10,72,0.98) 0%, rgba(5,2,59,0.99) 100%)",
             borderLeft: "1px solid rgba(238,224,197,0.16)",
             boxShadow: "-18px 0 42px rgba(0,0,0,0.34)",
             transform: isBasketOpen ? "translateX(0)" : "translateX(104%)",
@@ -492,29 +548,63 @@ export default function ProductTestPage() {
               선택한 필름과 색상을 한 번에 모아볼 수 있어요.
             </div>
 
-            <button
-              type="button"
-              className="saveBasketButton"
-              onClick={() => void saveBasketAsImage()}
-              disabled={isExporting}
+            <div
               style={{
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
-                gap: 8,
-                border: "1px solid rgba(238,224,197,0.20)",
-                borderRadius: 999,
-                padding: "10px 14px",
-                background: "rgba(238,224,197,0.10)",
-                color: THEME_COLOR,
-                fontSize: 14,
-                fontWeight: 800,
-                cursor: isExporting ? "default" : "pointer",
-                opacity: isExporting ? 0.7 : 1,
+                gap: 10,
+                flexWrap: "wrap",
               }}
             >
-              <span>🖼️</span>
-              <span>{isExporting ? "이미지 생성 중..." : "이미지 저장"}</span>
-            </button>
+              <button
+                type="button"
+                className="saveBasketButton"
+                onClick={() => void saveBasketAsImage()}
+                disabled={isExporting}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  border: "1px solid rgba(238,224,197,0.20)",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  background: "rgba(238,224,197,0.10)",
+                  color: THEME_COLOR,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: isExporting ? "default" : "pointer",
+                  opacity: isExporting ? 0.7 : 1,
+                }}
+              >
+                <span>🖼️</span>
+                <span>{isExporting ? "이미지 생성 중..." : "이미지 저장"}</span>
+              </button>
+
+              <button
+                type="button"
+                className="clearBasketButton"
+                onClick={clearBasketItems}
+                disabled={basketItems.length === 0 || isExporting}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor:
+                    basketItems.length === 0 || isExporting ? "default" : "pointer",
+                  opacity: basketItems.length === 0 || isExporting ? 0.45 : 1,
+                }}
+              >
+                <span>🗑️</span>
+                <span>비우기</span>
+              </button>
+            </div>
           </div>
 
           <div
@@ -794,33 +884,32 @@ export default function ProductTestPage() {
             />
 
             <div
-            style={{
-              marginBottom: 12,
-                }}
-              >
-            <div
               style={{
-                color: TEXT_SUB,
-                fontSize: 15,
-                fontWeight: 700,
-                lineHeight: 1.7,
+                marginBottom: 12,
               }}
             >
-              ✔️삼성,✔️영림,✔️예림,✔️현대L&C,✔️LX Z:IN,✔️한솔,✔️우딘,✔️현대INFEEL,✔️KCC
-              
+              <div
+                style={{
+                  color: TEXT_SUB,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  lineHeight: 1.7,
+                }}
+              >
+                ✔️삼성,✔️영림,✔️예림,✔️현대L&C,✔️LX Z:IN,✔️한솔,✔️우딘,✔️현대INFEEL,✔️KCC
+              </div>
+              <div
+                style={{
+                  color: "rgba(255,255,255,0.62)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  lineHeight: 1.5,
+                  marginTop: 4,
+                }}
+              >
+                9개 제조사 · 3,279개 샘플 제공
+              </div>
             </div>
-             <div
-              style={{
-              color: "rgba(255,255,255,0.62)",
-              fontSize: 13,
-              fontWeight: 500,
-              lineHeight: 1.5,
-              marginTop: 4,
-             }}
-            >
-              9개 제조사 · 3,279개 샘플 제공
-            </div>
-          </div>
 
             <div
               style={{
@@ -2145,6 +2234,7 @@ export default function ProductTestPage() {
         .addCircleButton,
         .basketFloatingButton,
         .saveBasketButton,
+        .clearBasketButton,
         .tutorialLinkButton {
           transition:
             transform 0.18s ease,
@@ -2164,6 +2254,7 @@ export default function ProductTestPage() {
         .addCircleButton:hover,
         .basketFloatingButton:hover,
         .saveBasketButton:hover,
+        .clearBasketButton:hover,
         .tutorialLinkButton:hover {
           transform: translateY(-1px);
         }
@@ -2192,6 +2283,7 @@ export default function ProductTestPage() {
         .settingsOptionButton:hover,
         .addCircleButton:hover,
         .saveBasketButton:hover,
+        .clearBasketButton:hover,
         .tutorialLinkButton:hover {
           border-color: rgba(238, 224, 197, 0.3);
           background: rgba(238, 224, 197, 0.08) !important;
