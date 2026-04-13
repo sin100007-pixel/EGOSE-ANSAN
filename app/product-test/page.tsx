@@ -794,16 +794,33 @@ export default function ProductTestPage() {
             />
 
             <div
+            style={{
+              marginBottom: 12,
+                }}
+              >
+            <div
               style={{
                 color: TEXT_SUB,
                 fontSize: 15,
-                lineHeight: 1.6,
-                marginBottom: 12,
+                fontWeight: 700,
+                lineHeight: 1.7,
               }}
             >
               ✔️삼성,✔️영림,✔️예림,✔️현대L&C,✔️LX Z:IN,✔️한솔,✔️우딘,✔️현대INFEEL,✔️KCC
-              10개의 제조사 3279개의 샘플을 이고세.
+              
             </div>
+             <div
+              style={{
+              color: "rgba(255,255,255,0.62)",
+              fontSize: 13,
+              fontWeight: 500,
+              lineHeight: 1.5,
+              marginTop: 4,
+             }}
+            >
+              9개 제조사 · 3,279개 샘플 제공
+            </div>
+          </div>
 
             <div
               style={{
@@ -834,21 +851,6 @@ export default function ProductTestPage() {
                 <span>✨</span>
                 <span>처음이신가요? 30초 사용법 보기</span>
               </button>
-
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  background: "rgba(255,255,255,0.04)",
-                  color: TEXT_SUB,
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-              </div>
             </div>
 
             <div
@@ -975,14 +977,15 @@ export default function ProductTestPage() {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
-                  border: "1px solid rgba(238,224,197,0.18)",
+                  border: "1px solid rgba(238,224,197,0.55)",
                   borderRadius: 14,
-                  padding: "10px 14px",
+                  padding: "12px 16px",
                   background: "rgba(255,255,255,0.05)",
                   color: THEME_COLOR,
-                  fontSize: 14,
-                  fontWeight: 700,
+                  fontSize: 15,
+                  fontWeight: 900,
                   cursor: "pointer",
+                  boxShadow: "0 10px 24px rgba(0,0,0,0.28)",
                 }}
               >
                 <span>{isSettingsOpen ? "▾" : "▸"}</span>
