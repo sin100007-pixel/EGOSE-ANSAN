@@ -111,7 +111,6 @@ export default function ProductTestPage() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const [isBasketOpen, setIsBasketOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isLeavingDashboard, setIsLeavingDashboard] = useState(false);
 
   const basketExportRef = useRef<HTMLDivElement | null>(null);
 
@@ -360,19 +359,7 @@ export default function ProductTestPage() {
   };
 
   const goToDashboard = () => {
-    if (isLeavingDashboard) return;
-
-    setOpenedImage(null);
-    setIsBasketOpen(false);
-    setIsLeavingDashboard(true);
-
-    requestAnimationFrame(() => {
-      router.push("/dashboard");
-    });
-
-    window.setTimeout(() => {
-      setIsLeavingDashboard(false);
-    }, 4500);
+    router.push("/dashboard");
   };
 
   const downloadDataUrl = (dataUrl: string, filename: string) => {
@@ -445,7 +432,6 @@ export default function ProductTestPage() {
         className="dashboardFloatingButton"
         onClick={goToDashboard}
         aria-label="대시보드로 이동"
-        disabled={isLeavingDashboard}
         style={{
           position: "fixed",
           top: 18,
@@ -461,14 +447,11 @@ export default function ProductTestPage() {
           color: THEME_COLOR,
           boxShadow: "0 14px 34px rgba(0,0,0,0.28)",
           backdropFilter: "blur(10px)",
-          cursor: isLeavingDashboard ? "default" : "pointer",
-          opacity: isLeavingDashboard ? 0.78 : 1,
+          cursor: "pointer",
         }}
       >
         <span style={{ fontSize: 18 }}>←</span>
-        <span style={{ fontSize: 14, fontWeight: 800 }}>
-          {isLeavingDashboard ? "이동 중..." : "대시보드"}
-        </span>
+        <span style={{ fontSize: 14, fontWeight: 800 }}>대시보드</span>
       </button>
 
       <button
@@ -1695,66 +1678,6 @@ export default function ProductTestPage() {
         </div>
       </div>
 
-      {isLeavingDashboard && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10000,
-            background: "rgba(0, 0, 0, 0.45)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              minWidth: 240,
-              borderRadius: 24,
-              padding: "20px 22px",
-              background:
-                "linear-gradient(180deg, rgba(12,10,72,0.98) 0%, rgba(5,2,59,0.99) 100%)",
-              border: "1px solid rgba(238,224,197,0.16)",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.38)",
-              textAlign: "center",
-            }}
-          >
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                margin: "0 auto 12px",
-                borderRadius: "50%",
-                border: "3px solid rgba(238,224,197,0.22)",
-                borderTopColor: THEME_COLOR,
-                animation: "filmbotSpin 0.8s linear infinite",
-              }}
-            />
-            <div
-              style={{
-                color: "#fff",
-                fontSize: 18,
-                fontWeight: 800,
-                marginBottom: 6,
-              }}
-            >
-              대시보드로 이동 중...
-            </div>
-            <div
-              style={{
-                color: TEXT_SUB,
-                fontSize: 14,
-                lineHeight: 1.6,
-              }}
-            >
-              잠시만 기다려주세요.
-            </div>
-          </div>
-        </div>
-      )}
-
       {isTutorialOpen && currentTutorial && (
         <div
           onClick={closeTutorial}
@@ -2339,11 +2262,6 @@ export default function ProductTestPage() {
       </div>
 
       <style jsx>{`
-        @keyframes filmbotSpin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
 
         .searchButton,
         .exampleChip,
