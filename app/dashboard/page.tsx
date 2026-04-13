@@ -15,7 +15,10 @@ export default async function DashboardPage() {
   if (!sessionCookie) redirect("/");
   const name = decodeURIComponent(sessionCookie.value || "");
 
-  const user = await prisma.user.findFirst({ where: { name } });
+  const user = await prisma.user.findFirst({
+    where: { name },
+    select: { qrUrl: true },
+  });
 
   if (!user) redirect("/api/logout");
 

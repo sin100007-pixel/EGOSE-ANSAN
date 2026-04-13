@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
 
 type Product = {
@@ -93,6 +94,7 @@ const getVisiblePrices = (
 };
 
 export default function ProductTestPage() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -109,6 +111,7 @@ export default function ProductTestPage() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const [isBasketOpen, setIsBasketOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isLeavingDashboard, setIsLeavingDashboard] = useState(false);
 
   const basketExportRef = useRef<HTMLDivElement | null>(null);
 
@@ -195,6 +198,10 @@ export default function ProductTestPage() {
       // 무시
     }
   }, [basketItems, isBasketReady]);
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+  }, [router]);
 
   const tutorialSteps = [
     {
@@ -352,6 +359,22 @@ export default function ProductTestPage() {
     setBasketItems([]);
   };
 
+  const goToDashboard = () => {
+    if (isLeavingDashboard) return;
+
+    setOpenedImage(null);
+    setIsBasketOpen(false);
+    setIsLeavingDashboard(true);
+
+    requestAnimationFrame(() => {
+      router.push("/dashboard");
+    });
+
+    window.setTimeout(() => {
+      setIsLeavingDashboard(false);
+    }, 4500);
+  };
+
   const downloadDataUrl = (dataUrl: string, filename: string) => {
     const link = document.createElement("a");
     link.href = dataUrl;
@@ -417,6 +440,37 @@ export default function ProductTestPage() {
 
   return (
     <>
+      <button
+        type="button"
+        className="dashboardFloatingButton"
+        onClick={goToDashboard}
+        aria-label="대시보드로 이동"
+        disabled={isLeavingDashboard}
+        style={{
+          position: "fixed",
+          top: 18,
+          left: 18,
+          zIndex: 5000,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
+          border: "1px solid rgba(238,224,197,0.22)",
+          borderRadius: 999,
+          padding: "12px 16px",
+          background: "rgba(10, 8, 72, 0.92)",
+          color: THEME_COLOR,
+          boxShadow: "0 14px 34px rgba(0,0,0,0.28)",
+          backdropFilter: "blur(10px)",
+          cursor: isLeavingDashboard ? "default" : "pointer",
+          opacity: isLeavingDashboard ? 0.78 : 1,
+        }}
+      >
+        <span style={{ fontSize: 18 }}>←</span>
+        <span style={{ fontSize: 14, fontWeight: 800 }}>
+          {isLeavingDashboard ? "이동 중..." : "대시보드"}
+        </span>
+      </button>
+
       <button
         type="button"
         className="basketFloatingButton"
@@ -1641,6 +1695,66 @@ export default function ProductTestPage() {
         </div>
       </div>
 
+      {isLeavingDashboard && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              minWidth: 240,
+              borderRadius: 24,
+              padding: "20px 22px",
+              background:
+                "linear-gradient(180deg, rgba(12,10,72,0.98) 0%, rgba(5,2,59,0.99) 100%)",
+              border: "1px solid rgba(238,224,197,0.16)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.38)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                margin: "0 auto 12px",
+                borderRadius: "50%",
+                border: "3px solid rgba(238,224,197,0.22)",
+                borderTopColor: THEME_COLOR,
+                animation: "filmbotSpin 0.8s linear infinite",
+              }}
+            />
+            <div
+              style={{
+                color: "#fff",
+                fontSize: 18,
+                fontWeight: 800,
+                marginBottom: 6,
+              }}
+            >
+              대시보드로 이동 중...
+            </div>
+            <div
+              style={{
+                color: TEXT_SUB,
+                fontSize: 14,
+                lineHeight: 1.6,
+              }}
+            >
+              잠시만 기다려주세요.
+            </div>
+          </div>
+        </div>
+      )}
+
       {isTutorialOpen && currentTutorial && (
         <div
           onClick={closeTutorial}
@@ -2225,6 +2339,12 @@ export default function ProductTestPage() {
       </div>
 
       <style jsx>{`
+        @keyframes filmbotSpin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
         .searchButton,
         .exampleChip,
         .productCard,
@@ -2232,6 +2352,7 @@ export default function ProductTestPage() {
         .settingsToggleButton,
         .settingsOptionButton,
         .addCircleButton,
+        .dashboardFloatingButton,
         .basketFloatingButton,
         .saveBasketButton,
         .clearBasketButton,
@@ -2252,6 +2373,7 @@ export default function ProductTestPage() {
         .settingsToggleButton:hover,
         .settingsOptionButton:hover,
         .addCircleButton:hover,
+        .dashboardFloatingButton:hover,
         .basketFloatingButton:hover,
         .saveBasketButton:hover,
         .clearBasketButton:hover,
@@ -2289,6 +2411,7 @@ export default function ProductTestPage() {
           background: rgba(238, 224, 197, 0.08) !important;
         }
 
+        .dashboardFloatingButton:hover,
         .basketFloatingButton:hover {
           border-color: rgba(238, 224, 197, 0.3);
           box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
@@ -2301,6 +2424,12 @@ export default function ProductTestPage() {
 
           .productCard {
             grid-template-columns: 1fr !important;
+          }
+
+          .dashboardFloatingButton {
+            top: 12px;
+            left: 12px;
+            padding: 10px 12px !important;
           }
 
           .basketFloatingButton {
