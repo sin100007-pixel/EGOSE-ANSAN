@@ -14,8 +14,8 @@ export default function ProductToggle() {
     padding: 12,
     margin: "0 0 12px 0",
     borderRadius: 12,
-    border: "1px solid transparent",
-    background: "#f7b6c8", // ✅ 로그인/다른 버튼들과 동일한 파란색
+    border: "1px solid #D8CCB5",
+    background: "#F3EBD9",
     color: "#111111",
     fontWeight: 700,
     fontSize: 13, // ✅ 글자 크기 통일
@@ -31,10 +31,10 @@ export default function ProductToggle() {
         style={buttonStyle}
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "#f7b6c8"; // hover
+          (e.currentTarget as HTMLButtonElement).style.background = "#F3EBD9";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "#f7b6c8";
+          (e.currentTarget as HTMLButtonElement).style.background = "#F3EBD9";
         }}
       >
         {open ? "상품 사진 닫기(확대해서 보세요.)" : "판매중인 상품 보기"}
