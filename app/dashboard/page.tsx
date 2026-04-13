@@ -28,8 +28,8 @@ export default async function DashboardPage() {
     padding: 12,
     margin: "0 0 12px 0",
     borderRadius: 12,
-    border: "1px solid #D8CCB5",
-    background: "#F3EBD9",
+    border: "1px solid #E6D7BD",
+    background: "#EEDFC6",
     color: "#111111",
     fontWeight: 700,
     textAlign: "center",
@@ -124,7 +124,7 @@ export default async function DashboardPage() {
                 position: "relative",
                 width: "100%",
                 aspectRatio: "1 / 1",
-                background: "#F3EBD9",
+                background: "#EEDFC6",
                 borderRadius: 24,
                 display: "flex",
                 alignItems: "center",
@@ -133,6 +133,7 @@ export default async function DashboardPage() {
                 padding: 10,
                 boxShadow: "0 8px 20px rgba(0,0,0,0.18)",
                 overflow: "visible",
+                border: "1px solid #E6D7BD",
               }}
             >
               <div
