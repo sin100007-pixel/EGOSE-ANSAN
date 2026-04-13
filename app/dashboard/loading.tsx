@@ -26,15 +26,19 @@ export default function DashboardLoading() {
       >
         <div
           style={{
-            width: 46,
-            height: 46,
+            width: 56,
+            height: 56,
             margin: "0 auto 14px",
+            display: "grid",
+            placeItems: "center",
             borderRadius: "50%",
-            border: "3px solid rgba(255,255,255,0.18)",
-            borderTopColor: "#f7b6c8",
-            animation: "dashboardSpin 0.8s linear infinite",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            fontSize: 28,
           }}
-        />
+        >
+          ⏳
+        </div>
 
         <div
           style={{
@@ -56,14 +60,6 @@ export default function DashboardLoading() {
           잠시만 기다려주세요.
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes dashboardSpin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </main>
   );
 }
