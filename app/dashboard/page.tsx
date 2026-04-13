@@ -71,7 +71,8 @@ export default async function DashboardPage() {
           style={{
             width: "100%",
             marginBottom: 16,
-            transform: "translateX(-50px)",
+            display: "flex",
+            justifyContent: "center",
           }}
         >
           <LondonMarketBanner />
