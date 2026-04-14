@@ -265,20 +265,20 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
             <div
               style={{
                 position: "absolute",
-                top: -2,
-                right: -2,
-                padding: "4px 8px",
+                top: -4,
+                right: -25,
+                padding: "6px 12px",
                 borderRadius: 999,
                 background: COLORS.badge,
                 color: "#fff",
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 900,
                 lineHeight: 1,
-                letterSpacing: "0.04em",
+                letterSpacing: "0.01em",
                 border: "2px solid #fff",
               }}
             >
-              NEW
+              새롭다!
             </div>
 
             <img
