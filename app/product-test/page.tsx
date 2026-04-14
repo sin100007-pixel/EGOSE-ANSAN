@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
+import BottomQuickNav from "@/app/components/BottomQuickNav";
 
 type Product = {
   id: number;
@@ -878,7 +879,7 @@ export default function ProductTestPage() {
           style={{
             maxWidth: 1120,
             margin: "0 auto",
-            padding: "28px 16px 48px",
+            padding: "28px 16px 180px",
           }}
         >
           <section
@@ -2357,6 +2358,7 @@ export default function ProductTestPage() {
           }
         }
       `}</style>
+      <BottomQuickNav current="filmbot" />
     </>
   );
 }
