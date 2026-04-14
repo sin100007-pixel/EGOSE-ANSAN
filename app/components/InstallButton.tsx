@@ -7,14 +7,16 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-type InstallButtonProps = {
+type InstallButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   children?: React.ReactNode;
-  style?: React.CSSProperties;
 };
 
 export default function InstallButton({
   children = "앱 설치",
   style,
+  onClick,
+  type = "button",
+  ...rest
 }: InstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -33,8 +35,7 @@ export default function InstallButton({
 
     const isStandalone =
       window.matchMedia?.("(display-mode: standalone)")?.matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone ===
-        true;
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
     if (isStandalone) {
       setIsInstalled(true);
@@ -44,22 +45,22 @@ export default function InstallButton({
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
-      window.removeEventListener(
-        "beforeinstallprompt",
-        handleBeforeInstallPrompt
-      );
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
 
-  const handleInstall = async () => {
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    onClick?.(e);
+
+    if (e.defaultPrevented) return;
     if (!deferredPrompt) return;
 
     try {
       await deferredPrompt.prompt();
       await deferredPrompt.userChoice;
     } catch {
-      // 별도 메시지 표시 없음
+      // 무시
     } finally {
       setDeferredPrompt(null);
     }
@@ -68,7 +69,12 @@ export default function InstallButton({
   if (isInstalled) return null;
 
   return (
-    <button type="button" onClick={handleInstall} style={style}>
+    <button
+      type={type}
+      style={style}
+      onClick={handleClick}
+      {...rest}
+    >
       {children}
     </button>
   );
