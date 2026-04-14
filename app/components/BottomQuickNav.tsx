@@ -286,7 +286,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               alt="필름봇"
               style={{
                 display: "block",
-                width: 58,
+                width: 130,
                 height: "auto",
                 objectFit: "contain",
               }}
