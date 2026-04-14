@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type Props = {
   /** 자동 넘김 간격(ms). 기본 5000 */
   intervalMs?: number;
-  /** 배너 이미지 src 목록. 기본: /egose-banner.jpg, /egose-banner2.jpg */
+  /** 배너 이미지 src 목록. 기본: /egose-banner.png, /egose-banner2.png */
   images?: { src: string; alt: string }[];
 };
 
@@ -18,16 +18,14 @@ export default function EgoseBannerCarousel({
   const slides = useMemo(
     () =>
       images ?? [
-        { src: "/egose-banner.jpg", alt: "이고세 배너 1" },
-        // 프로젝트에 기존 파일명이 egose-banner-2.jpg 인 경우도 같이 대응
-        { src: "/egose-banner2.jpg", alt: "이고세 배너 2" },
+        { src: "/egose-banner.png", alt: "이고세 배너 1" },
+        { src: "/egose-banner2.png", alt: "이고세 배너 2" },
       ],
     [images]
   );
 
   const [index, setIndex] = useState(0);
 
-  // --- swipe state ---
   const isPointerDownRef = useRef(false);
   const startXRef = useRef(0);
   const deltaXRef = useRef(0);
@@ -45,7 +43,6 @@ export default function EgoseBannerCarousel({
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
   const prev = useCallback(() => goTo(index - 1), [goTo, index]);
 
-  // auto-advance
   useEffect(() => {
     if (slides.length <= 1) return;
 
@@ -57,7 +54,6 @@ export default function EgoseBannerCarousel({
   }, [intervalMs, slides.length]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    // only primary button / touch
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     isPointerDownRef.current = true;
@@ -65,7 +61,6 @@ export default function EgoseBannerCarousel({
     deltaXRef.current = 0;
     dragOffsetRef.current = 0;
 
-    // capture pointer so we keep receiving move/up
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
@@ -76,11 +71,6 @@ export default function EgoseBannerCarousel({
     const dx = e.clientX - startXRef.current;
     deltaXRef.current = dx;
     dragOffsetRef.current = dx;
-    // force re-render using state-like trick? we use CSS variable via style on track below
-    // We'll trigger repaint by setting a dummy state via requestAnimationFrame
-    // but keep it light: just set a ref and rely on CSS transform computed in render.
-    // (React will re-render on pointer move because this handler runs; it's OK for 2 slides.)
-    // no-op
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -91,7 +81,7 @@ export default function EgoseBannerCarousel({
     deltaXRef.current = 0;
     dragOffsetRef.current = 0;
 
-    const threshold = 60; // px
+    const threshold = 60;
     if (dx > threshold) prev();
     else if (dx < -threshold) next();
 
@@ -117,8 +107,7 @@ export default function EgoseBannerCarousel({
           overflow: "hidden",
           marginBottom: 10,
           background: "rgba(255,255,255,0.04)",
-
-          touchAction: "pan-y", // 세로 스크롤은 살리고, 좌우 스와이프만 사용
+          touchAction: "pan-y",
           userSelect: "none",
           WebkitTapHighlightColor: "transparent",
         }}
@@ -150,7 +139,6 @@ export default function EgoseBannerCarousel({
         </div>
       </div>
 
-      {/* dots */}
       {slides.length > 1 && (
         <div
           style={{
