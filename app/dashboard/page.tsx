@@ -136,7 +136,6 @@ export default async function DashboardPage() {
     lineStrong: "rgba(255,255,255,0.14)",
     cream: "#F5F1E8",
     creamStrong: "#EEDFC6",
-    creamBorder: "#E6D7BD",
     textSoft: "rgba(255,255,255,0.58)",
     white: "#FFFFFF",
     badge: "#FF6E86",
@@ -236,18 +235,15 @@ export default async function DashboardPage() {
           <LondonMarketBanner />
         </header>
 
+        {/* 배너 버블 제거 */}
         <div
           style={{
-            ...panelStyle,
-            padding: 4,
             marginBottom: 8,
           }}
         >
           <div
             style={{
-              borderRadius: 16,
               overflow: "hidden",
-              background: "rgba(255,255,255,0.03)",
             }}
           >
             <EgoseBannerCarousel />
@@ -258,7 +254,7 @@ export default async function DashboardPage() {
           style={{
             ...panelStyle,
             padding: 12,
-            marginBottom: 18,
+            marginBottom: 22,
           }}
         >
           <div style={{ marginBottom: 8 }}>
@@ -309,11 +305,11 @@ export default async function DashboardPage() {
           </div>
         </section>
 
+        {/* 푸터 버블 제거 */}
         <footer
           style={{
-            ...panelStyle,
-            padding: "16px 14px",
-            background: "rgba(255,255,255,0.03)",
+            marginTop: 8,
+            padding: "4px 10px 0",
           }}
         >
           <div style={footerTextStyle}>
