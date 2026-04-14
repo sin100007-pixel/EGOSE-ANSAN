@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
 
@@ -66,41 +67,44 @@ function InstallIcon() {
   );
 }
 
-function BottomItem({
-  href,
+function BottomItemButton({
   label,
   icon,
+  active = false,
+  onClick,
   target,
   rel,
-  active = false,
+  href,
 }: {
-  href: string;
   label: string;
   icon: React.ReactNode;
+  active?: boolean;
+  onClick?: () => void;
   target?: string;
   rel?: string;
-  active?: boolean;
+  href?: string;
 }) {
-  return (
-    <a
-      href={href}
-      target={target}
-      rel={rel}
-      style={{
-        textDecoration: "none",
-        color: active ? "#111111" : "#1B1B1B",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        minHeight: 74,
-        borderRadius: 18,
-        padding: "10px 6px",
-        boxSizing: "border-box",
-        background: active ? "rgba(255,255,255,0.34)" : "transparent",
-      }}
-    >
+  const commonStyle: React.CSSProperties = {
+    textDecoration: "none",
+    color: active ? "#111111" : "#1B1B1B",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    minHeight: 74,
+    borderRadius: 18,
+    padding: "10px 6px",
+    boxSizing: "border-box",
+    background: active ? "rgba(255,255,255,0.34)" : "transparent",
+    border: "none",
+    cursor: "pointer",
+    width: "100%",
+    font: "inherit",
+  };
+
+  const inner = (
+    <>
       <div
         style={{
           width: 28,
@@ -125,11 +129,27 @@ function BottomItem({
       >
         {label}
       </div>
-    </a>
+    </>
+  );
+
+  if (href) {
+    return (
+      <a href={href} target={target} rel={rel} style={commonStyle}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} style={commonStyle}>
+      {inner}
+    </button>
   );
 }
 
 export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNavProps) {
+  const router = useRouter();
+
   const COLORS = {
     cream: "#F5F1E8",
     creamStrong: "#EEDFC6",
@@ -151,11 +171,41 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
     };
 
     checkInstalled();
+
+    // 내부 페이지 미리 불러오기
+    router.prefetch("/dashboard");
+    router.prefetch("/ledger");
+    router.prefetch("/product-test");
+
     window.addEventListener("appinstalled", handleAppInstalled);
     return () => {
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, []);
+  }, [router]);
+
+  const goDashboard = () => {
+    if (current === "dashboard") {
+      const el = document.getElementById("user-qr-card");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        window.location.hash = "user-qr-card";
+      }
+      return;
+    }
+
+    router.push("/dashboard#user-qr-card");
+  };
+
+  const goLedger = () => {
+    if (current === "ledger") return;
+    router.push("/ledger");
+  };
+
+  const goFilmbot = () => {
+    if (current === "filmbot") return;
+    router.push("/product-test");
+  };
 
   return (
     <div
@@ -189,8 +239,9 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
             overflow: "visible",
           }}
         >
-          <a
-            href="/product-test"
+          <button
+            type="button"
+            onClick={goFilmbot}
             aria-label="필름봇 페이지로 이동"
             style={{
               position: "absolute",
@@ -208,6 +259,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               justifyContent: "center",
               textDecoration: "none",
               zIndex: 3,
+              cursor: "pointer",
             }}
           >
             <div
@@ -234,12 +286,12 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               alt="필름봇"
               style={{
                 display: "block",
-                width: 140,
+                width: 58,
                 height: "auto",
                 objectFit: "contain",
               }}
             />
-          </a>
+          </button>
 
           <div
             style={{
@@ -249,14 +301,19 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               alignItems: "end",
             }}
           >
-            <BottomItem href="/ledger" label="거래내역" icon={<LedgerIcon />} active={current === "ledger"} />
+            <BottomItemButton
+              label="거래내역"
+              icon={<LedgerIcon />}
+              active={current === "ledger"}
+              onClick={goLedger}
+            />
 
-            <BottomItem
+            <BottomItemButton
+              label="문의"
+              icon={<KakaoTalkLikeIcon />}
               href="http://pf.kakao.com/_IxgdJj/chat"
               target="_blank"
               rel="noreferrer"
-              label="문의"
-              icon={<KakaoTalkLikeIcon />}
             />
 
             {isInstalled ? (
@@ -303,11 +360,11 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
 
             <ProductToggle bottomNav />
 
-            <BottomItem
-              href={current === "dashboard" ? "#user-qr-card" : "/dashboard#user-qr-card"}
+            <BottomItemButton
               label="QR코드"
               icon={<QrCodeIcon />}
               active={current === "dashboard"}
+              onClick={goDashboard}
             />
           </div>
         </div>
