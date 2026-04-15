@@ -161,7 +161,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
     badge: "#FF6E86",
   };
 
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
   const [isNavigatingDashboard, setIsNavigatingDashboard] = useState(false);
 
   useEffect(() => {
@@ -230,6 +230,8 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
     router.push("/product-test");
   };
 
+  const showInstallButton = isInstalled === false;
+
   return (
     <>
       {isNavigatingDashboard ? (
@@ -290,9 +292,9 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               borderRadius: "28px 28px 0 0",
               border: "1px solid rgba(0,0,0,0.06)",
               boxShadow: "0 -10px 28px rgba(0,0,0,0.24)",
-              padding: isInstalled
-                ? "14px 8px calc(12px + env(safe-area-inset-bottom))"
-                : "20px 8px calc(16px + env(safe-area-inset-bottom))",
+              padding: showInstallButton
+                ? "30px 8px calc(16px + env(safe-area-inset-bottom))"
+                : "14px 8px calc(12px + env(safe-area-inset-bottom))",
               overflow: "visible",
             }}
           >
@@ -377,9 +379,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
                 disabled={isNavigatingDashboard}
               />
 
-              {isInstalled ? (
-                <div aria-hidden="true" style={{ height: 1 }} />
-              ) : (
+              {showInstallButton ? (
                 <InstallButton
                   aria-label="앱 설치"
                   style={{
@@ -417,6 +417,8 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
                   </span>
                   앱 설치
                 </InstallButton>
+              ) : (
+                <div aria-hidden="true" style={{ height: 1 }} />
               )}
 
               <ProductToggle bottomNav active={current === "products"} />
