@@ -9,6 +9,17 @@ type SearchBarProps = {
 };
 
 export default function SearchBar({ q, setQ, onSearch }: SearchBarProps) {
+  const closeKeyboard = () => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement as HTMLElement | null;
+    active?.blur();
+  };
+
+  const handleSearch = () => {
+    onSearch();
+    closeKeyboard();
+  };
+
   return (
     <div
       className="searchRow"
@@ -24,11 +35,15 @@ export default function SearchBar({ q, setQ, onSearch }: SearchBarProps) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+
           if (e.key === "Enter") {
-            onSearch();
+            e.preventDefault();
+            handleSearch();
           }
         }}
         placeholder="제품번호, 코드, 색상명으로 검색"
+        enterKeyHint="search"
         style={{
           width: "100%",
           height: 48,
@@ -47,7 +62,7 @@ export default function SearchBar({ q, setQ, onSearch }: SearchBarProps) {
       <button
         className="searchButton"
         type="button"
-        onClick={onSearch}
+        onClick={handleSearch}
         style={{
           height: 48,
           width: "100%",
