@@ -72,6 +72,7 @@ function BottomItemButton({
   icon,
   active = false,
   onClick,
+  disabled = false,
   target,
   rel,
   href,
@@ -80,6 +81,7 @@ function BottomItemButton({
   icon: React.ReactNode;
   active?: boolean;
   onClick?: () => void;
+  disabled?: boolean;
   target?: string;
   rel?: string;
   href?: string;
@@ -98,9 +100,11 @@ function BottomItemButton({
     boxSizing: "border-box",
     background: active ? "rgba(255,255,255,0.34)" : "transparent",
     border: "none",
-    cursor: "pointer",
+    cursor: disabled ? "default" : "pointer",
     width: "100%",
     font: "inherit",
+    opacity: disabled ? 0.55 : 1,
+    pointerEvents: disabled ? "none" : "auto",
   };
 
   const inner = (
@@ -141,7 +145,7 @@ function BottomItemButton({
   }
 
   return (
-    <button type="button" onClick={onClick} style={commonStyle}>
+    <button type="button" onClick={onClick} style={commonStyle} disabled={disabled}>
       {inner}
     </button>
   );
@@ -157,6 +161,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
   };
 
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isNavigatingDashboard, setIsNavigatingDashboard] = useState(false);
 
   useEffect(() => {
     const checkInstalled = () => {
@@ -172,19 +177,33 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
 
     checkInstalled();
 
-    // 내부 페이지 미리 불러오기
     router.prefetch("/dashboard");
     router.prefetch("/ledger");
     router.prefetch("/product-test");
     router.prefetch("/products");
 
+    const idle = window.setTimeout(() => {
+      router.prefetch("/dashboard");
+    }, 250);
+
     window.addEventListener("appinstalled", handleAppInstalled);
     return () => {
+      window.clearTimeout(idle);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, [router]);
 
+  const paintThenNavigate = (to: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        router.push(to);
+      });
+    });
+  };
+
   const goDashboard = () => {
+    if (isNavigatingDashboard) return;
+
     if (current === "dashboard") {
       const el = document.getElementById("user-qr-card");
       if (el) {
@@ -195,181 +214,223 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
       return;
     }
 
-    router.push("/dashboard#user-qr-card");
+    setIsNavigatingDashboard(true);
+    router.prefetch("/dashboard");
+    paintThenNavigate("/dashboard#user-qr-card");
   };
 
   const goLedger = () => {
-    if (current === "ledger") return;
+    if (current === "ledger" || isNavigatingDashboard) return;
     router.push("/ledger");
   };
 
   const goFilmbot = () => {
-    if (current === "filmbot") return;
+    if (current === "filmbot" || isNavigatingDashboard) return;
     router.push("/product-test");
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 40,
-        pointerEvents: "none",
-      }}
-    >
+    <>
+      {isNavigatingDashboard ? (
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(7, 6, 27, 0.30)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              padding: "14px 18px",
+              borderRadius: 999,
+              background: "rgba(10, 8, 72, 0.94)",
+              color: "#FFFFFF",
+              border: "1px solid rgba(255,255,255,0.18)",
+              boxShadow: "0 14px 34px rgba(0,0,0,0.28)",
+              fontSize: 14,
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            대시보드로 이동 중...
+          </div>
+        </div>
+      ) : null}
+
       <div
         style={{
-          maxWidth: 460,
-          margin: "0 auto",
-          padding: "0 10px calc(0px + env(safe-area-inset-bottom))",
-          pointerEvents: "auto",
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 40,
+          pointerEvents: "none",
         }}
       >
         <div
           style={{
-            position: "relative",
-            background: COLORS.cream,
-            borderRadius: "28px 28px 0 0",
-            border: "1px solid rgba(0,0,0,0.06)",
-            boxShadow: "0 -10px 28px rgba(0,0,0,0.24)",
-            padding: isInstalled
-              ? "14px 8px calc(12px + env(safe-area-inset-bottom))"
-              : "16px 8px calc(16px + env(safe-area-inset-bottom))",
-            overflow: "visible",
+            maxWidth: 460,
+            margin: "0 auto",
+            padding: "0 10px calc(0px + env(safe-area-inset-bottom))",
+            pointerEvents: "auto",
           }}
         >
-          <button
-            type="button"
-            onClick={goFilmbot}
-            aria-label="필름봇 페이지로 이동"
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: -40,
-              transform: "translateX(-50%)",
-              width: 96,
-              height: 96,
-              borderRadius: "50%",
-              background: COLORS.creamStrong,
-              border: "4px solid #FFFFFF",
-              boxShadow: "0 12px 24px rgba(0,0,0,0.20)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textDecoration: "none",
-              zIndex: 3,
-              cursor: "pointer",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: -4,
-                right: -25,
-                padding: "6px 12px",
-                borderRadius: 999,
-                background: COLORS.badge,
-                color: "#fff",
-                fontSize: 12,
-                fontWeight: 900,
-                lineHeight: 1,
-                letterSpacing: "0.01em",
-                border: "2px solid #fff",
-              }}
-            >
-              새롭다!
-            </div>
-
-            <img
-              src="/filmbot-button.png"
-              alt="필름봇"
-              style={{
-                display: "block",
-                width: 130,
-                height: "auto",
-                objectFit: "contain",
-              }}
-            />
-          </button>
-
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 100px 1fr 1fr",
-              gap: 2,
-              alignItems: "end",
+              position: "relative",
+              background: COLORS.cream,
+              borderRadius: "28px 28px 0 0",
+              border: "1px solid rgba(0,0,0,0.06)",
+              boxShadow: "0 -10px 28px rgba(0,0,0,0.24)",
+              padding: isInstalled
+                ? "14px 8px calc(12px + env(safe-area-inset-bottom))"
+                : "16px 8px calc(16px + env(safe-area-inset-bottom))",
+              overflow: "visible",
             }}
           >
-            <BottomItemButton
-              label="거래내역"
-              icon={<LedgerIcon />}
-              active={current === "ledger"}
-              onClick={goLedger}
-            />
-
-            <BottomItemButton
-              label="문의"
-              icon={<KakaoTalkLikeIcon />}
-              href="http://pf.kakao.com/_IxgdJj/chat"
-              target="_blank"
-              rel="noreferrer"
-            />
-
-            {isInstalled ? (
-              <div aria-hidden="true" style={{ height: 1 }} />
-            ) : (
-              <InstallButton
-                aria-label="앱 설치"
+            <button
+              type="button"
+              onClick={goFilmbot}
+              aria-label="필름봇 페이지로 이동"
+              disabled={isNavigatingDashboard}
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: -40,
+                transform: "translateX(-50%)",
+                width: 96,
+                height: 96,
+                borderRadius: "50%",
+                background: COLORS.creamStrong,
+                border: "4px solid #FFFFFF",
+                boxShadow: "0 12px 24px rgba(0,0,0,0.20)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textDecoration: "none",
+                zIndex: 3,
+                cursor: isNavigatingDashboard ? "default" : "pointer",
+                opacity: isNavigatingDashboard ? 0.7 : 1,
+              }}
+            >
+              <div
                 style={{
-                  width: "100%",
-                  minHeight: 96,
-                  border: "none",
-                  background: "transparent",
-                  color: "#4A4030",
-                  boxShadow: "none",
-                  padding: "42px 4px 6px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  gap: 4,
-                  fontWeight: 900,
+                  position: "absolute",
+                  top: -4,
+                  right: -25,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  background: COLORS.badge,
+                  color: "#fff",
                   fontSize: 12,
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.02em",
-                  textAlign: "center",
-                  cursor: "pointer",
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  letterSpacing: "0.01em",
+                  border: "2px solid #fff",
                 }}
               >
-                <span
+                새롭다!
+              </div>
+
+              <img
+                src="/filmbot-button.png"
+                alt="필름봇"
+                style={{
+                  display: "block",
+                  width: 130,
+                  height: "auto",
+                  objectFit: "contain",
+                }}
+              />
+            </button>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 100px 1fr 1fr",
+                gap: 2,
+                alignItems: "end",
+              }}
+            >
+              <BottomItemButton
+                label="거래내역"
+                icon={<LedgerIcon />}
+                active={current === "ledger"}
+                onClick={goLedger}
+                disabled={isNavigatingDashboard}
+              />
+
+              <BottomItemButton
+                label="문의"
+                icon={<KakaoTalkLikeIcon />}
+                href="http://pf.kakao.com/_IxgdJj/chat"
+                target="_blank"
+                rel="noreferrer"
+                disabled={isNavigatingDashboard}
+              />
+
+              {isInstalled ? (
+                <div aria-hidden="true" style={{ height: 1 }} />
+              ) : (
+                <InstallButton
+                  aria-label="앱 설치"
                   style={{
-                    width: 20,
-                    height: 20,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    width: "100%",
+                    minHeight: 96,
+                    border: "none",
+                    background: "transparent",
                     color: "#4A4030",
+                    boxShadow: "none",
+                    padding: "42px 4px 6px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: 4,
+                    fontWeight: 900,
+                    fontSize: 12,
+                    lineHeight: 1.05,
+                    letterSpacing: "-0.02em",
+                    textAlign: "center",
+                    cursor: "pointer",
                   }}
                 >
-                  <InstallIcon />
-                </span>
-                앱 설치
-              </InstallButton>
-            )}
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#4A4030",
+                    }}
+                  >
+                    <InstallIcon />
+                  </span>
+                  앱 설치
+                </InstallButton>
+              )}
 
-            <ProductToggle bottomNav active={current === "products"} />
+              <ProductToggle bottomNav active={current === "products"} />
 
-            <BottomItemButton
-              label="QR코드"
-              icon={<QrCodeIcon />}
-              active={current === "dashboard"}
-              onClick={goDashboard}
-            />
+              <BottomItemButton
+                label="QR코드"
+                icon={<QrCodeIcon />}
+                active={current === "dashboard"}
+                onClick={goDashboard}
+                disabled={isNavigatingDashboard}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -21,8 +21,8 @@ function getTableMetrics(catalog: ProductCatalog, dense = false) {
     width: catalog.cols * cellWidth,
     height: headerHeight + visibleRowCount * (codeHeight + priceHeight),
     cellWidth,
-    codeFont: dense ? 11 : 13,
-    priceFont: dense ? 12 : 14,
+    codeFont: dense ? 18 : 20,
+    priceFont: dense ? 18 : 20,
     headerFont: dense ? 15 : 17,
     headerPadding: dense ? "12px 8px" : "14px 10px",
     codeHeight,
@@ -119,7 +119,9 @@ function CatalogTableMarkup({
                         borderRight:
                           index === row.length - 1 ? "1px solid #DB1F2A" : "1px solid #D1D1D1",
                         borderBottom:
-                          rowIndex === catalog.rows.length - 1 ? "1px solid #DB1F2A" : "1px solid #D1D1D1",
+                          rowIndex === catalog.rows.length - 1
+                            ? "1px solid #DB1F2A"
+                            : "1px solid #D1D1D1",
                         borderTop: "none",
                         background: isEmpty ? "#F8F8F8" : "#FFFFFF",
                         color: "#111111",
@@ -145,38 +147,15 @@ function CatalogTableMarkup({
   );
 }
 
-function ScrollableCatalogTable({
-  catalog,
-  dense = false,
-}: {
-  catalog: ProductCatalog;
-  dense?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        overflow: "auto",
-        WebkitOverflowScrolling: "touch",
-        borderRadius: 18,
-        border: "1px solid rgba(255,255,255,0.12)",
-        background: "#FFFFFF",
-        touchAction: "pan-x pan-y pinch-zoom",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4)",
-      }}
-    >
-      <CatalogTableMarkup catalog={catalog} dense={dense} />
-    </div>
-  );
-}
-
 function ScaledCatalogPreview({
   catalog,
-  onOpen,
 }: {
   catalog: ProductCatalog;
-  onOpen: () => void;
 }) {
+  const PREVIEW_BOTTOM_BUFFER = 0;
+
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [scale, setScale] = useState(1);
   const [scaledHeight, setScaledHeight] = useState<number | null>(null);
   const metrics = useMemo(() => getTableMetrics(catalog, false), [catalog]);
@@ -184,13 +163,15 @@ function ScaledCatalogPreview({
   useEffect(() => {
     const updateScale = () => {
       const frame = frameRef.current;
-      if (!frame) return;
+      const content = contentRef.current;
+      if (!frame || !content) return;
 
       const frameWidth = Math.max(frame.clientWidth, 1);
       const nextScale = frameWidth / metrics.width;
+      const actualHeight = Math.max(content.scrollHeight, metrics.height);
 
       setScale(nextScale);
-      setScaledHeight(metrics.height * nextScale);
+      setScaledHeight(Math.ceil(actualHeight * nextScale) + PREVIEW_BOTTOM_BUFFER);
     };
 
     updateScale();
@@ -200,6 +181,7 @@ function ScaledCatalogPreview({
     });
 
     if (frameRef.current) observer.observe(frameRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
 
     window.addEventListener("resize", updateScale);
     return () => {
@@ -209,17 +191,10 @@ function ScaledCatalogPreview({
   }, [metrics.height, metrics.width]);
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`${catalog.title} 위치표 크게 보기`}
+    <div
       style={{
         display: "block",
         width: "100%",
-        padding: 0,
-        border: "none",
-        background: "transparent",
-        cursor: "zoom-in",
         textAlign: "left",
       }}
     >
@@ -236,17 +211,17 @@ function ScaledCatalogPreview({
         <div
           style={{
             height: scaledHeight ?? undefined,
-            minHeight: 180,
+            minHeight: 90,
             position: "relative",
           }}
         >
           <div
+            ref={contentRef}
             style={{
               position: "absolute",
               left: 0,
               top: 0,
               width: metrics.width,
-              height: metrics.height,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
             }}
@@ -255,7 +230,90 @@ function ScaledCatalogPreview({
           </div>
         </div>
       </div>
-    </button>
+    </div>
+  );
+}
+
+function FullscreenHeightFitCatalogTable({
+  catalog,
+}: {
+  catalog: ProductCatalog;
+}) {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const metrics = useMemo(() => getTableMetrics(catalog, false), [catalog]);
+
+  const [scale, setScale] = useState(1);
+  const [scaledWidth, setScaledWidth] = useState(metrics.width);
+  const [scaledHeight, setScaledHeight] = useState(metrics.height);
+
+  useEffect(() => {
+    const updateScale = () => {
+      const frame = frameRef.current;
+      const content = contentRef.current;
+      if (!frame || !content) return;
+
+      const availableHeight = Math.max(frame.clientHeight, 1);
+      const actualHeight = Math.max(content.scrollHeight, metrics.height);
+      const actualWidth = metrics.width;
+
+      // 크게 보기에서는 높이에 맞춰 축소해서 모든 행이 처음부터 보이게 함
+      const nextScale = Math.min(1, availableHeight / actualHeight);
+
+      setScale(nextScale);
+      setScaledWidth(Math.ceil(actualWidth * nextScale));
+      setScaledHeight(Math.ceil(actualHeight * nextScale));
+    };
+
+    updateScale();
+
+    const observer = new ResizeObserver(() => {
+      updateScale();
+    });
+
+    if (frameRef.current) observer.observe(frameRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
+
+    window.addEventListener("resize", updateScale);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateScale);
+    };
+  }, [metrics.height, metrics.width]);
+
+  return (
+    <div
+      ref={frameRef}
+      style={{
+        height: "100%",
+        overflow: "auto",
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-x pan-y pinch-zoom",
+      }}
+    >
+      <div
+        style={{
+          width: scaledWidth,
+          height: scaledHeight,
+          minWidth: scaledWidth,
+          position: "relative",
+        }}
+      >
+        <div
+          ref={contentRef}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: metrics.width,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          <CatalogTableMarkup catalog={catalog} dense={false} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -337,10 +395,10 @@ function CatalogSection({
           marginBottom: 10,
         }}
       >
-        기본 화면에서는 표 전체가 한눈에 보이게 꽉 차게 축소했습니다. 표를 누르거나 크게 보기를 누르면 그때 좌우로 이동하며 자세히 볼 수 있습니다.
+        크게 보기를 눌러 더 크게 보실 수 있고. 일반적인 휴대폰 확대 제스처(두손가락을 벌리는 제스처)로도 확대하실 수 있습니다.
       </div>
 
-      <ScaledCatalogPreview catalog={catalog} onOpen={onOpen} />
+      <ScaledCatalogPreview catalog={catalog} />
     </section>
   );
 }
@@ -416,7 +474,7 @@ function FullscreenViewer({
                 fontWeight: 700,
               }}
             >
-              {catalog.meta} · 크게 보고 좌우로 이동할 수 있습니다.
+              {catalog.meta}
             </div>
           </div>
 
@@ -448,7 +506,7 @@ function FullscreenViewer({
             lineHeight: 1.45,
           }}
         >
-          좌우·상하로 밀어서 보고, 휴대폰 확대 제스처로 더 자세히 볼 수 있습니다.
+        
         </div>
 
         <div
@@ -463,7 +521,7 @@ function FullscreenViewer({
           }}
         >
           <div style={{ height: "100%" }}>
-            <ScrollableCatalogTable catalog={catalog} />
+            <FullscreenHeightFitCatalogTable catalog={catalog} />
           </div>
         </div>
       </div>
@@ -531,7 +589,7 @@ export default function ProductCatalogClient() {
             marginBottom: 8,
           }}
         >
-          판매중인 상품 위치표
+          런던마켓 진열 제품 일람
         </div>
         <div
           style={{
@@ -541,8 +599,7 @@ export default function ProductCatalogClient() {
             marginBottom: 14,
           }}
         >
-          실제 물건이 쌓여 있는 순서가 중요해서 표 모양은 그대로 유지했습니다. 기본 화면에서는 전체 위치를 한눈에 보고,
-          표를 누르거나 크게 보기로 들어가면 좌우로 이동하면서 자세히 확인할 수 있게 바꿨습니다.
+          무인 마켓인 런던마켓에 진열되있는 제품의 일람입니다. 표에 기재된 순서로 런던마켓에 진열되어있습니다. 
         </div>
 
         <div
