@@ -292,7 +292,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               boxShadow: "0 -10px 28px rgba(0,0,0,0.24)",
               padding: isInstalled
                 ? "14px 8px calc(12px + env(safe-area-inset-bottom))"
-                : "16px 8px calc(16px + env(safe-area-inset-bottom))",
+                : "20px 8px calc(16px + env(safe-area-inset-bottom))",
               overflow: "visible",
             }}
           >
@@ -304,7 +304,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               style={{
                 position: "absolute",
                 left: "50%",
-                top: -40,
+                top: -20,
                 transform: "translateX(-50%)",
                 width: 96,
                 height: 96,
@@ -384,12 +384,12 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
                   aria-label="앱 설치"
                   style={{
                     width: "100%",
-                    minHeight: 96,
+                    minHeight: 100,
                     border: "none",
                     background: "transparent",
                     color: "#4A4030",
                     boxShadow: "none",
-                    padding: "42px 4px 6px",
+                    padding: "46px 4px 8px",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
