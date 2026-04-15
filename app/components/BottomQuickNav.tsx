@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
 
@@ -193,7 +194,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
     };
   }, [router]);
 
-  const paintThenNavigate = (to: string) => {
+  const paintThenNavigate = (to: Route) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         router.push(to);
@@ -216,7 +217,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
 
     setIsNavigatingDashboard(true);
     router.prefetch("/dashboard");
-    paintThenNavigate("/dashboard#user-qr-card");
+    paintThenNavigate("/dashboard#user-qr-card" as Route);
   };
 
   const goLedger = () => {
