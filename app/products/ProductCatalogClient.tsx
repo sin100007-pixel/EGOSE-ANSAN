@@ -21,7 +21,7 @@ function getTableMetrics(catalog: ProductCatalog, dense = false) {
     width: catalog.cols * cellWidth,
     height: headerHeight + visibleRowCount * (codeHeight + priceHeight),
     cellWidth,
-    codeFont: dense ? 18 : 20,
+    codeFont: dense ? 19: 21,
     priceFont: dense ? 18 : 20,
     headerFont: dense ? 15 : 17,
     headerPadding: dense ? "12px 8px" : "14px 10px",
