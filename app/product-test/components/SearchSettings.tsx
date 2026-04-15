@@ -101,7 +101,7 @@ export default function SearchSettings({
                 cursor: "pointer",
               }}
             >
-              {hideConsumerPrice ? "소비자가 보기" : "소비자가 숨기기"}
+              {hideConsumerPrice ? "사업자가 보기" : "사업자가 숨기기"}
             </button>
 
             <button

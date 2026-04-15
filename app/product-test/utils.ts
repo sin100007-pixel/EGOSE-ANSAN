@@ -33,10 +33,10 @@ export const getVisiblePrices = (
 ): PriceItem[] => {
   return [
     !hideConsumerPrice && item.non_fire_consumer_price !== null
-      ? { label: "비방염 소비자가", value: formatPrice(item.non_fire_consumer_price) }
+      ? { label: "비방염 사업자가", value: formatPrice(item.non_fire_consumer_price) }
       : null,
     !hideConsumerPrice && item.fire_consumer_price !== null
-      ? { label: "방염 소비자가", value: formatPrice(item.fire_consumer_price) }
+      ? { label: "방염 사업자가", value: formatPrice(item.fire_consumer_price) }
       : null,
     !hideInstallerPrice && item.non_fire_installer_price !== null
       ? { label: "비방염 시공자가", value: formatPrice(item.non_fire_installer_price) }

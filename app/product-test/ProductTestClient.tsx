@@ -158,7 +158,7 @@ export default function ProductTestClient() {
       icon: "⚙️",
       title: "3. 가격은 필요할 때만 표시할 수 있어요",
       description:
-        "지금은 소비자가와 시공자가가 기본으로 숨겨져 있어요. 검색 설정을 열어 보고 싶은 가격만 표시해보세요.",
+        "지금은 사업자가와 시공자가가 기본으로 숨겨져 있어요. 검색 설정을 열어 보고 싶은 가격만 표시해보세요.",
       tip: "불필요한 가격 노출을 줄이기 위해 기본값은 숨김으로 맞춰져 있어요.",
       actionLabel: "검색 설정 열기",
       onAction: () => setIsSettingsOpen(true),
@@ -698,7 +698,7 @@ export default function ProductTestClient() {
                   marginBottom: 8,
                 }}
               >
-                시공자가와 소비자가를 기본으로 숨겨두었어요.
+                시공자가와 사업자가를 기본으로 숨겨두었어요.
               </div>
 
               <div
