@@ -6,7 +6,7 @@ import ProductToggle from "@/app/components/ProductToggle";
 import InstallButton from "@/app/components/InstallButton";
 
 type BottomQuickNavProps = {
-  current?: "dashboard" | "ledger" | "filmbot";
+  current?: "dashboard" | "ledger" | "filmbot" | "products";
 };
 
 function LedgerIcon() {
@@ -176,6 +176,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
     router.prefetch("/dashboard");
     router.prefetch("/ledger");
     router.prefetch("/product-test");
+    router.prefetch("/products");
 
     window.addEventListener("appinstalled", handleAppInstalled);
     return () => {
@@ -358,7 +359,7 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
               </InstallButton>
             )}
 
-            <ProductToggle bottomNav />
+            <ProductToggle bottomNav active={current === "products"} />
 
             <BottomItemButton
               label="QR코드"
