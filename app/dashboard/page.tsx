@@ -46,7 +46,7 @@ export default async function DashboardPage() {
     textAlign: "center",
   };
 
-  const logoutLinkStyle: React.CSSProperties = {
+  const footerButtonStyle: React.CSSProperties = {
     ...footerTextStyle,
     textDecoration: "underline",
     background: "none",
@@ -210,8 +210,16 @@ export default async function DashboardPage() {
 
           <form action="/api/logout" method="POST" style={{ marginTop: 2 }}>
             <p style={{ textAlign: "center", margin: 0 }}>
-              <button type="submit" style={logoutLinkStyle}>
+              <button type="submit" style={footerButtonStyle}>
                 로그아웃
+              </button>
+            </p>
+          </form>
+
+          <form action="/simulator" method="GET" style={{ marginTop: 0 }}>
+            <p style={{ textAlign: "center", margin: 0 }}>
+              <button type="submit" style={footerButtonStyle}>
+                필름시뮬레이터(임시)
               </button>
             </p>
           </form>
