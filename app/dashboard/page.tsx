@@ -216,13 +216,7 @@ export default async function DashboardPage() {
             </p>
           </form>
 
-          <form action="/simulator" method="GET" style={{ marginTop: 0 }}>
-            <p style={{ textAlign: "center", margin: 0 }}>
-              <button type="submit" style={footerButtonStyle}>
-                필름시뮬레이터(임시)
-              </button>
-            </p>
-          </form>
+          
         </footer>
       </div>
 
