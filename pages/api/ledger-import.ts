@@ -16,6 +16,7 @@ type Ok = {
   ok: true;
   used_baseDate: boolean;
   baseDate: string;
+  uploadedAt: string;
   inserted: number;
   skipped: number;
   preview: any[];
@@ -187,6 +188,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const today = toYMD(new Date());
     const baseDate = toYMD(baseDateRaw) || today;
     const used_baseDate = Boolean(toYMD(baseDateRaw));
+    // 이 엑셀 파일이 실제로 업로드된 시각(UTC 저장 → 화면에서는 한국시간으로 표시)
+    const uploadedAt = new Date().toISOString();
 
     // 파일
     const fileObj: any = pickFirstFile(files);
@@ -276,6 +279,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         erp_row_key,
         tx_date,            // YYYY-MM-DD
         row_no: rowNo,      // 업로드 순번 (정렬에 사용)
+        uploaded_at: uploadedAt,
         erp_customer_code,
         name: name || null, // customer_name
         item_name,
@@ -333,6 +337,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       ok: true,
       used_baseDate,
       baseDate,
+      uploadedAt,
       inserted,
       skipped,
       preview,

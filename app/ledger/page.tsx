@@ -34,6 +34,22 @@ function toKoreanDate(ymdValue: string): string {
   const [year, month, day] = safe.split("-");
   return `${year}년 ${month}월 ${day}일`;
 }
+function toKoreanDateTime(input?: any): string {
+  if (input === null || input === undefined || input === "") return "";
+  const d = input instanceof Date ? input : new Date(String(input));
+  if (isNaN(d.getTime())) return "";
+
+  // Supabase timestamptz(UTC)를 한국시간 기준 YYYY-MM-DD HH:mm 형태로 표시
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
 
 /* ---------- 유틸 ---------- */
 const fmt = (n: number | string | null | undefined) => {
@@ -90,6 +106,8 @@ type Row = {
   deposit: number | null;
   curr_balance: number | null;
   memo?: string | null;
+  uploaded_at?: string | null;
+  created_at?: string | null;
 };
 type ApiResp = { ok: boolean; rows?: Row[]; message?: string };
 
@@ -305,6 +323,7 @@ export default function LedgerPage() {
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
   const [latestUploadedDate, setLatestUploadedDate] = useState("");
+  const [latestUploadedAt, setLatestUploadedAt] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -357,9 +376,21 @@ export default function LedgerPage() {
           toYMD((latestRow as any)?.["일자"]) ||
           toYMD((latestRow as any)?.["날짜"]);
 
+        // 엑셀 업로드 시점입니다. ledger-import.ts에서 uploaded_at으로 저장합니다.
+        // 기존 DB에 created_at 컬럼이 있었다면 보조값으로도 표시합니다.
+        const latestUploadedAtRaw =
+          latestRow?.uploaded_at ||
+          (latestRow as any)?.uploadedAt ||
+          latestRow?.created_at ||
+          (latestRow as any)?.createdAt ||
+          (latestRow as any)?.inserted_at ||
+          (latestRow as any)?.imported_at;
+
         setLatestUploadedDate(latestDate || "");
+        setLatestUploadedAt(toKoreanDateTime(latestUploadedAtRaw));
       } catch {
         setLatestUploadedDate("");
+        setLatestUploadedAt("");
       }
     };
 
@@ -539,7 +570,12 @@ export default function LedgerPage() {
 
         <div className={`filter-box ${isFilterOpen ? "is-open" : "is-collapsed"}`}>
           {latestUploadedDate ? (
-            <div className="update-banner">{toKoreanDate(latestUploadedDate)} 까지 업데이트 완료!</div>
+            <div className="update-banner">
+              <span className="update-main">{toKoreanDate(latestUploadedDate)} 까지 업데이트 완료!</span>
+              {latestUploadedAt ? (
+                <span className="update-uploaded-at">uploaded at {latestUploadedAt}</span>
+              ) : null}
+            </div>
           ) : null}
 
           <button
@@ -894,10 +930,22 @@ export default function LedgerPage() {
           border: 1px solid rgba(110, 231, 183, 0.32);
           background: rgba(16, 185, 129, 0.12);
           color: #d1fae5;
-          font-size: 13px;
-          font-weight: 800;
           line-height: 1.35;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .update-main {
+          font-size: 13px;
+          font-weight: 800;
+        }
+        .update-uploaded-at {
+          font-size: 10px;
+          font-weight: 600;
+          color: rgba(209, 250, 229, 0.72);
+          letter-spacing: 0.01em;
         }
         .filter-grid {
           display: grid;
@@ -1213,7 +1261,13 @@ export default function LedgerPage() {
           }
           .update-banner {
             padding: 9px 10px;
+            gap: 6px;
+          }
+          .update-main {
             font-size: 12px;
+          }
+          .update-uploaded-at {
+            font-size: 9.5px;
           }
           .filter-input {
             height: 42px;
