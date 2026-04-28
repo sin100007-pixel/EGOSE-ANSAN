@@ -493,26 +493,6 @@ export default function LedgerPage() {
     input.click();
   };
 
-  const setDatePreset = (preset: "7d" | "30d" | "month" | "all") => {
-    if (preset === "all") {
-      setDateStart("");
-      setDateEnd("");
-      return;
-    }
-
-    const end = new Date(date_to);
-    let start = new Date(date_to);
-
-    if (preset === "7d") start.setDate(start.getDate() - 6);
-    if (preset === "30d") start.setDate(start.getDate() - 29);
-    if (preset === "month") start = new Date(end.getFullYear(), end.getMonth(), 1);
-
-    if (start.getTime() < date_from.getTime()) start = new Date(date_from);
-
-    setDateStart(ymd(start));
-    setDateEnd(ymd(end));
-  };
-
   const isDepositRow = (r: Row) => (r.deposit ?? 0) > 0 && (r.amount ?? 0) === 0;
 
   return (
@@ -671,12 +651,6 @@ export default function LedgerPage() {
                     </div>
                   </div>
 
-                  <div className="preset-row" aria-label="빠른 기간 선택">
-                    <button type="button" className="preset-btn" onClick={() => setDatePreset("7d")}>최근 7일</button>
-                    <button type="button" className="preset-btn" onClick={() => setDatePreset("30d")}>최근 30일</button>
-                    <button type="button" className="preset-btn" onClick={() => setDatePreset("month")}>이번달</button>
-                    <button type="button" className="preset-btn" onClick={() => setDatePreset("all")}>전체</button>
-                  </div>
                 </div>
               </div>
 
@@ -916,7 +890,7 @@ export default function LedgerPage() {
           transform: rotate(180deg);
         }
         .filter-panel {
-          margin-top: 12px;
+          margin-top: 8px;
         }
         .filter-collapsed-bar {
           margin-top: 10px;
@@ -924,8 +898,8 @@ export default function LedgerPage() {
           justify-content: flex-end;
         }
         .update-banner {
-          margin-bottom: 10px;
-          padding: 10px 12px;
+          margin-bottom: 8px;
+          padding: 9px 12px;
           border-radius: 12px;
           border: 1px solid rgba(110, 231, 183, 0.32);
           background: rgba(16, 185, 129, 0.12);
@@ -950,7 +924,7 @@ export default function LedgerPage() {
         .filter-grid {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 12px;
+          gap: 8px;
         }
         .filter-field {
           display: flex;
@@ -962,8 +936,8 @@ export default function LedgerPage() {
           max-width: calc(50% - 5px);
         }
         .filter-field-date {
-          gap: 8px;
-          padding-top: 2px;
+          gap: 6px;
+          padding-top: 0;
         }
         .filter-label-row {
           display: flex;
@@ -990,7 +964,7 @@ export default function LedgerPage() {
           position: relative;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 4px;
           min-width: 0;
         }
         .date-chip-label {
@@ -1000,13 +974,13 @@ export default function LedgerPage() {
         }
         .date-picker-btn {
           width: 100%;
-          min-height: 46px;
+          min-height: 40px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          padding: 0 14px;
-          border-radius: 12px;
+          padding: 0 12px;
+          border-radius: 11px;
           border: 1px solid rgba(255, 255, 255, 0.28);
           background: rgba(11, 13, 33, 0.92);
           color: #fff;
@@ -1041,32 +1015,13 @@ export default function LedgerPage() {
           opacity: 0;
           pointer-events: none;
         }
-        .preset-row {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .preset-btn {
-          min-height: 38px;
-          padding: 0 12px;
-          border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.24);
-          background: rgba(255, 255, 255, 0.08);
-          color: #fff;
-          font-size: 12px;
-          font-weight: 700;
-          white-space: nowrap;
-        }
-        .preset-btn:hover {
-          background: rgba(255, 255, 255, 0.16);
-        }
         .filter-input {
           width: 100%;
           max-width: 100%;
-          min-height: 46px;
+          min-height: 40px;
           display: block;
           box-sizing: border-box;
-          border-radius: 12px;
+          border-radius: 11px;
           border: 1px solid rgba(255, 255, 255, 0.28);
           background: rgba(11, 13, 33, 0.92);
           color: #fff;
@@ -1080,7 +1035,7 @@ export default function LedgerPage() {
           box-shadow: 0 0 0 3px rgba(23, 57, 247, 0.18);
         }
         .filter-actions {
-          margin-top: 12px;
+          margin-top: 8px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1088,7 +1043,7 @@ export default function LedgerPage() {
           flex-wrap: wrap;
         }
         .filter-reset {
-          height: 36px;
+          height: 34px;
           padding: 0 12px;
           border-radius: 10px;
           border: 1px solid rgba(255, 255, 255, 0.28);
@@ -1114,7 +1069,7 @@ export default function LedgerPage() {
           background: rgba(255, 255, 255, 0.02);
         }
         .scroll-viewport.filters-open {
-          height: calc(100vh - 345px);
+          height: calc(100vh - 300px);
         }
         .scroll-viewport.filters-closed {
           height: calc(100vh - 235px);
@@ -1237,21 +1192,14 @@ export default function LedgerPage() {
             max-width: 100%;
           }
           .date-range-grid {
-            grid-template-columns: 1fr;
-          }
-          .preset-row {
-            gap: 6px;
-          }
-          .preset-btn {
-            flex: 1 1 calc(50% - 6px);
-            min-height: 40px;
-            padding: 0 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
           }
           .filter-box {
-            padding: 9px;
+            padding: 8px;
           }
           .filter-toggle {
-            padding: 9px 10px;
+            padding: 8px 10px;
           }
           .filter-toggle-title {
             font-size: 12px;
@@ -1270,29 +1218,39 @@ export default function LedgerPage() {
             font-size: 9.5px;
           }
           .filter-input {
-            height: 42px;
-            font-size: 14px;
+            min-height: 38px;
+            height: 38px;
+            font-size: 13px;
           }
           .date-picker-btn {
-            min-height: 44px;
-            font-size: 14px;
-            padding: 0 12px;
+            min-height: 38px;
+            font-size: 12px;
+            padding: 0 8px;
           }
           .filter-actions {
-            align-items: stretch;
+            align-items: center;
+            margin-top: 8px;
           }
           .filter-reset {
-            width: 100%;
-            min-height: 42px;
+            width: auto;
+            min-height: 34px;
+            height: 34px;
+            padding: 0 12px;
           }
           .filter-result {
-            width: 100%;
+            width: auto;
+          }
+          .filter-help {
+            display: none;
+          }
+          .date-chip-label {
+            font-size: 10px;
           }
           .col-date { min-width: 60px; }
           .col-name { min-width: 160px; }
           .col-qty  { min-width: 54px; }
           .name-text { max-width: 16ch; }
-          .scroll-viewport.filters-open { height: calc(100vh - 445px); }
+          .scroll-viewport.filters-open { height: calc(100vh - 350px); }
           .scroll-viewport.filters-closed { height: calc(100vh - 305px); }
         }
       `}</style>
