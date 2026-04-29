@@ -712,31 +712,7 @@ export default function ProductTestClient() {
               >
                 검색 설정을 눌러 펼친 뒤 보고 싶은 가격만 표시해보세요.
               </div>
-
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: THEME_COLOR,
-                  marginTop: 20,
-                  marginBottom: 8,
-                }}
-              >
-                찾는 제품이 없나요?
-              </div>
-
-              <div
-                style={{
-                  color: TEXT_SUB,
-                  fontSize: 16,
-                  lineHeight: 1.7,
-                  fontWeight: 600,
-                  wordBreak: "keep-all",
-                }}
-              >
-                지금 봇🤖에는 삼성, 영림, 예림만 업로드 되어있습니다. 차후 다른 제조사도
-                추가될 예정입니다.
-              </div>
+              
             </section>
           )}
 
