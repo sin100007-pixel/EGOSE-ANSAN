@@ -369,30 +369,33 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "삭제할 링크 ID가 없습니다." },
+        { error: "비활성화할 링크 ID가 없습니다." },
         { status: 400 }
       );
     }
 
     const { data, error } = await supabase
       .from("simulator_links")
-      .delete()
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id)
       .eq("installer_name", sessionName)
-      .select("id")
+      .select("id, is_active")
       .maybeSingle();
 
     if (error) throw error;
 
     if (!data) {
       return NextResponse.json(
-        { error: "삭제할 링크를 찾지 못했습니다." },
+        { error: "비활성화할 링크를 찾지 못했습니다." },
         { status: 404 }
       );
     }
 
     return NextResponse.json(
-      { ok: true },
+      { ok: true, id, is_active: false },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -404,7 +407,7 @@ export async function DELETE(req: NextRequest) {
       {
         error:
           error?.message ||
-          "시뮬레이션 링크를 삭제하지 못했습니다.",
+          "시뮬레이션 링크를 비활성화하지 못했습니다.",
       },
       { status: 500 }
     );

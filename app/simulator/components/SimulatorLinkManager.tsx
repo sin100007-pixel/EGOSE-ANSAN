@@ -58,7 +58,7 @@ function getStatusClass(link: ManagedLink) {
 export default function SimulatorLinkManager() {
   const [items, setItems] = useState<ManagedLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState("");
+  const [deactivatingId, setDeactivatingId] = useState("");
   const [error, setError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
 
@@ -100,14 +100,14 @@ export default function SimulatorLinkManager() {
     }
   };
 
-  const deleteLink = async (link: ManagedLink) => {
+  const deactivateLink = async (link: ManagedLink) => {
     const ok = window.confirm(
-      `${link.customer_name || "고객명 없음"} 링크를 삭제할까요?\n삭제하면 고객이 더 이상 이 링크로 접속할 수 없습니다.`
+      `${link.customer_name || "고객명 없음"} 링크를 비활성화할까요?\n비활성화하면 고객이 더 이상 이 링크로 접속할 수 없습니다.`
     );
 
     if (!ok) return;
 
-    setDeletingId(link.id);
+    setDeactivatingId(link.id);
     setError("");
     setCopyMessage("");
 
@@ -123,15 +123,19 @@ export default function SimulatorLinkManager() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || "링크를 삭제하지 못했습니다.");
+        setError(json.error || "링크를 비활성화하지 못했습니다.");
         return;
       }
 
-      setItems((prev) => prev.filter((item) => item.id !== link.id));
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === link.id ? { ...item, is_active: false } : item
+        )
+      );
     } catch {
-      setError("링크를 삭제하지 못했습니다.");
+      setError("링크를 비활성화하지 못했습니다.");
     } finally {
-      setDeletingId("");
+      setDeactivatingId("");
     }
   };
 
@@ -146,7 +150,7 @@ export default function SimulatorLinkManager() {
           <div className="stepBadge">고객 링크 관리</div>
           <h1>보낸 링크 내역</h1>
           <p>
-            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 확인하고 삭제할 수 있습니다.
+            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 확인하고 비활성화할 수 있습니다.
           </p>
         </section>
 
@@ -226,11 +230,15 @@ export default function SimulatorLinkManager() {
 
                     <button
                       type="button"
-                      onClick={() => deleteLink(link)}
-                      disabled={deletingId === link.id}
+                      onClick={() => deactivateLink(link)}
+                      disabled={deactivatingId === link.id || !link.is_active}
                       className="deleteButton"
                     >
-                      {deletingId === link.id ? "삭제 중" : "삭제"}
+                      {!link.is_active
+                        ? "비활성됨"
+                        : deactivatingId === link.id
+                          ? "처리 중"
+                          : "비활성화"}
                     </button>
                   </div>
                 </article>

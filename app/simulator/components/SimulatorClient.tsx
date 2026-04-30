@@ -27,7 +27,7 @@ type MaskZoneDefinition = {
   patternSize?: number;
 };
 
-type SimulatorStep = "space" | "apply";
+type SimulatorStep = "space" | "apply" | "decision";
 
 const COLORS = {
   bg: "#05023B",
@@ -178,6 +178,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [zoneFilmMap, setZoneFilmMap] = useState<Record<string, SimulatorFilm | null>>({});
   const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
+  const [decisionMessage, setDecisionMessage] = useState("");
 
   const selectedSpace = useMemo(() => {
     return state.spaces.find((space) => space.id === selectedSpaceId) || state.spaces[0] || null;
@@ -383,6 +384,49 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
   };
 
+  const buildDecisionText = () => {
+    const lines = [
+      "필름 시뮬레이션 결정 결과",
+      selectedSpace ? `공간: ${selectedSpace.name}` : "",
+      state.link?.installer_name ? `시공자: ${state.link.installer_name}` : "",
+      state.link?.customer_name ? `고객명: ${state.link.customer_name}` : "",
+      "",
+      ...maskZones.map((zone) => {
+        const film = zoneFilmMap[zone.key];
+        return `${zone.label}: ${film ? getFilmName(film) : "미선택"}`;
+      }),
+    ].filter(Boolean);
+
+    return lines.join("\n");
+  };
+
+  const shareDecisionResult = async () => {
+    const text = buildDecisionText();
+
+    setDecisionMessage("");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "필름 시뮬레이션 결정 결과",
+          text,
+        });
+        setDecisionMessage("결정 결과를 전송했습니다.");
+        return;
+      }
+
+      await navigator.clipboard.writeText(text);
+      setDecisionMessage("결정 결과를 복사했습니다. 시공자에게 붙여넣어 전송해주세요.");
+    } catch {
+      try {
+        await navigator.clipboard.writeText(text);
+        setDecisionMessage("결정 결과를 복사했습니다. 시공자에게 붙여넣어 전송해주세요.");
+      } catch {
+        setDecisionMessage("전송에 실패했습니다. 화면의 결과를 캡쳐해서 시공자에게 보내주세요.");
+      }
+    }
+  };
+
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "필름 시뮬레이터 테스트";
 
   return (
@@ -415,7 +459,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 <p className="heroText">
                   {step === "space"
                     ? "시뮬레이션할 공간을 먼저 선택해주세요."
-                    : "구역 버튼을 누른 뒤 필름을 검색해서 적용해보세요."}
+                    : step === "apply"
+                      ? "구역 버튼을 누른 뒤 필름을 검색해서 적용해보세요."
+                      : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요."}
                 </p>
               </div>
 
@@ -506,7 +552,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 )}
               </div>
             </section>
-          ) : (
+          ) : step === "apply" ? (
             <section className="applyCard">
               <div className="applyTopRow">
                 <div>
@@ -610,6 +656,79 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 ) : null}
               </div>
             </section>
+          ) : (
+            <section className="decisionCard">
+              <div className="applyTopRow">
+                <div>
+                  <div className="sectionLabel">결정 확정</div>
+                  <h2 className="spaceTitle">선택 결과 확인</h2>
+                </div>
+
+                <button type="button" onClick={() => setStep("apply")} className="changeSpaceButton">
+                  색상 다시 선택
+                </button>
+              </div>
+
+              <div className="decisionSummary">
+                <div className="decisionSpaceName">{selectedSpace?.name || "공간 없음"}</div>
+
+                <div className="decisionZoneList">
+                  {maskZones.map((zone) => {
+                    const film = zoneFilmMap[zone.key] || null;
+
+                    return (
+                      <div key={zone.key} className="decisionZoneItem">
+                        <span>{zone.label}</span>
+                        <strong>{film ? getFilmName(film) : "미선택"}</strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="decisionActionGrid">
+                <section className="decisionActionCard">
+                  <div className="decisionActionIcon">1</div>
+                  <h3>결정 결과 전송</h3>
+                  <p>
+                    선택한 구역별 필름 결과를 시공자에게 보낼 수 있습니다. 휴대폰에서는 공유창이 열리고, 지원하지 않는 경우 결과가 복사됩니다.
+                  </p>
+                  <button type="button" onClick={() => void shareDecisionResult()} className="primaryDecisionButton">
+                    시공자에게 결과 전송
+                  </button>
+                  {decisionMessage ? <div className="decisionMessage">{decisionMessage}</div> : null}
+                </section>
+
+                <section className="decisionActionCard">
+                  <div className="decisionActionIcon">2</div>
+                  <h3>매장 샘플 안내</h3>
+                  <p>
+                    현재 샘플택배 서비스는 이용할 수 없지만, 매장으로 오시면 샘플을 받아 보실 수 있습니다.
+                  </p>
+                  <div className="storeInfoBox">
+                    <strong>이고세(주)</strong>
+                    <span>경기도 안산시 상록구 안산천서로 237</span>
+                    <span>Tel. 031-486-6882</span>
+                  </div>
+                </section>
+
+                <section className="decisionActionCard">
+                  <div className="decisionActionIcon">3</div>
+                  <h3>카카오톡 문의</h3>
+                  <p>
+                    필름 선택이나 샘플 확인이 필요하면 카카오톡으로 문의해주세요.
+                  </p>
+                  <a
+                    href="http://pf.kakao.com/_IxgdJj/chat"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="primaryDecisionButton"
+                  >
+                    카카오톡 문의하기
+                  </a>
+                </section>
+              </div>
+            </section>
           )}
         </div>
 
@@ -630,6 +749,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           >
             <span>2</span>
             색상 적용
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStep("decision")}
+            className={step === "decision" ? "bottomStepButtonActive" : ""}
+          >
+            <span>3</span>
+            결정 확정
           </button>
         </nav>
 
@@ -761,7 +889,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         .heroCard,
         .spaceSelectCard,
-        .applyCard {
+        .applyCard,
+        .decisionCard {
           border: 1px solid ${COLORS.line};
           box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
           background: ${COLORS.panel};
@@ -820,7 +949,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .spaceSelectCard,
-        .applyCard {
+        .applyCard,
+        .decisionCard {
           border-radius: 30px;
           padding: 18px;
         }
@@ -1089,6 +1219,138 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           cursor: pointer;
         }
 
+        .decisionSummary {
+          border-radius: 22px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+          margin-top: 12px;
+        }
+
+        .decisionSpaceName {
+          color: ${COLORS.cream};
+          font-size: 18px;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .decisionZoneList {
+          display: grid;
+          gap: 8px;
+        }
+
+        .decisionZoneItem {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border-radius: 15px;
+          padding: 11px 12px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .decisionZoneItem span {
+          color: ${COLORS.soft};
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .decisionZoneItem strong {
+          color: ${COLORS.white};
+          font-size: 13px;
+          line-height: 1.35;
+          text-align: right;
+          word-break: keep-all;
+        }
+
+        .decisionActionGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 12px;
+        }
+
+        .decisionActionCard {
+          border-radius: 22px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .decisionActionIcon {
+          display: inline-grid;
+          place-items: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .decisionActionCard h3 {
+          margin: 0 0 8px;
+          color: ${COLORS.cream};
+          font-size: 17px;
+          letter-spacing: -0.03em;
+        }
+
+        .decisionActionCard p {
+          margin: 0 0 12px;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.65;
+          word-break: keep-all;
+        }
+
+        .primaryDecisionButton {
+          width: 100%;
+          min-height: 44px;
+          border: none;
+          border-radius: 15px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 14px;
+          font-weight: 900;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-sizing: border-box;
+        }
+
+        .decisionMessage {
+          margin-top: 9px;
+          color: ${COLORS.cream};
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .storeInfoBox {
+          display: grid;
+          gap: 4px;
+          border-radius: 15px;
+          padding: 11px;
+          background: rgba(238, 224, 197, 0.09);
+          border: 1px solid rgba(238, 224, 197, 0.18);
+        }
+
+        .storeInfoBox strong {
+          color: ${COLORS.cream};
+          font-size: 13px;
+        }
+
+        .storeInfoBox span {
+          color: ${COLORS.white};
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
         .bottomStepNav {
           position: fixed;
           left: 50%;
@@ -1097,8 +1359,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           z-index: 60;
           width: min(420px, calc(100% - 28px));
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 7px;
           padding: 8px;
           border-radius: 22px;
           background: rgba(7, 5, 58, 0.88);
@@ -1362,7 +1624,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           }
 
           .spaceSelectCard,
-          .applyCard {
+          .applyCard,
+          .decisionCard {
             border-radius: 22px;
             padding: 12px;
           }
@@ -1443,7 +1706,139 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             padding: 8px 10px;
           }
 
-          .bottomStepNav {
+          .decisionSummary {
+          border-radius: 22px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+          margin-top: 12px;
+        }
+
+        .decisionSpaceName {
+          color: ${COLORS.cream};
+          font-size: 18px;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .decisionZoneList {
+          display: grid;
+          gap: 8px;
+        }
+
+        .decisionZoneItem {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border-radius: 15px;
+          padding: 11px 12px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .decisionZoneItem span {
+          color: ${COLORS.soft};
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .decisionZoneItem strong {
+          color: ${COLORS.white};
+          font-size: 13px;
+          line-height: 1.35;
+          text-align: right;
+          word-break: keep-all;
+        }
+
+        .decisionActionGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 12px;
+        }
+
+        .decisionActionCard {
+          border-radius: 22px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .decisionActionIcon {
+          display: inline-grid;
+          place-items: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .decisionActionCard h3 {
+          margin: 0 0 8px;
+          color: ${COLORS.cream};
+          font-size: 17px;
+          letter-spacing: -0.03em;
+        }
+
+        .decisionActionCard p {
+          margin: 0 0 12px;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.65;
+          word-break: keep-all;
+        }
+
+        .primaryDecisionButton {
+          width: 100%;
+          min-height: 44px;
+          border: none;
+          border-radius: 15px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 14px;
+          font-weight: 900;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-sizing: border-box;
+        }
+
+        .decisionMessage {
+          margin-top: 9px;
+          color: ${COLORS.cream};
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .storeInfoBox {
+          display: grid;
+          gap: 4px;
+          border-radius: 15px;
+          padding: 11px;
+          background: rgba(238, 224, 197, 0.09);
+          border: 1px solid rgba(238, 224, 197, 0.18);
+        }
+
+        .storeInfoBox strong {
+          color: ${COLORS.cream};
+          font-size: 13px;
+        }
+
+        .storeInfoBox span {
+          color: ${COLORS.white};
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .bottomStepNav {
             bottom: 10px;
             width: calc(100% - 22px);
             border-radius: 20px;
@@ -1452,8 +1847,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
           .bottomStepNav button {
             border-radius: 15px;
-            padding: 11px 8px;
-            font-size: 13px;
+            padding: 10px 5px;
+            font-size: 12px;
+            gap: 5px;
           }
 
           .sheetOverlay {
