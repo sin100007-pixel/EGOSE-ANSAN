@@ -61,6 +61,54 @@ const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
   },
 ];
 
+const PALETTE_MAIN_OPTIONS = ["솔리드", "우드", "스톤", "메탈", "페브릭레더"];
+
+const PALETTE_COLOR_OPTIONS = [
+  "흰색",
+  "아이보리",
+  "베이지",
+  "옐로/골드",
+  "연브라운",
+  "브라운",
+  "진브라운",
+  "다크브라운",
+  "검정/차콜",
+  "회색/실버",
+  "블루",
+  "그린",
+  "레드/핑크",
+  "퍼플",
+];
+
+const PALETTE_COLOR_SWATCH: Record<string, string> = {
+  흰색: "#F8F6EF",
+  아이보리: "#EFE2C8",
+  베이지: "#CDBA99",
+  "옐로/골드": "#C9A04D",
+  연브라운: "#B98252",
+  브라운: "#8A5A35",
+  진브라운: "#5A3926",
+  다크브라운: "#3E2A20",
+  "회색/실버": "#9A9A94",
+  "검정/차콜": "#222222",
+  그린: "#6F8A5B",
+  블루: "#3D65B8",
+  "레드/핑크": "#C95E6D",
+  퍼플: "#7A5A9A",
+};
+
+function orderPaletteColors(values: string[]) {
+  const orderMap = new Map(PALETTE_COLOR_OPTIONS.map((value, index) => [value, index]));
+
+  return [...values].sort((a, b) => {
+    const ai = orderMap.has(a) ? orderMap.get(a)! : 999;
+    const bi = orderMap.has(b) ? orderMap.get(b)! : 999;
+
+    if (ai !== bi) return ai - bi;
+    return a.localeCompare(b, "ko");
+  });
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -173,6 +221,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [filmQuery, setFilmQuery] = useState("");
   const [filmLoading, setFilmLoading] = useState(false);
   const [filmError, setFilmError] = useState("");
+  const [selectedPaletteMain, setSelectedPaletteMain] = useState("");
+  const [selectedPaletteSub, setSelectedPaletteSub] = useState("");
+  const [selectedPaletteColors, setSelectedPaletteColors] = useState<string[]>([]);
+  const [paletteSubOptions, setPaletteSubOptions] = useState<string[]>([]);
+  const [paletteColorOptions, setPaletteColorOptions] = useState<string[]>(PALETTE_COLOR_OPTIONS);
 
   const [activeZoneKey, setActiveZoneKey] = useState("");
   const [zoneFilmMap, setZoneFilmMap] = useState<Record<string, SimulatorFilm | null>>({});
@@ -330,8 +383,36 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setStep("apply");
   };
 
-  const searchFilms = async (keyword = filmQuery) => {
+  const updatePaletteFacets = (json: any) => {
+    const nextSubs = Array.isArray(json?.facets?.palette_subs)
+      ? json.facets.palette_subs.filter(Boolean)
+      : [];
+    const nextColors = Array.isArray(json?.facets?.palette_colors)
+      ? json.facets.palette_colors.filter(Boolean)
+      : [];
+
+    setPaletteSubOptions(nextSubs);
+    setPaletteColorOptions(
+      nextColors.length > 0 ? orderPaletteColors(nextColors) : PALETTE_COLOR_OPTIONS
+    );
+  };
+
+  const searchFilms = async (
+    keyword = filmQuery,
+    overrides: {
+      paletteMain?: string;
+      paletteSub?: string;
+      paletteColors?: string[];
+    } = {}
+  ) => {
     const q = keyword.trim();
+    const nextPaletteMain =
+      overrides.paletteMain !== undefined ? overrides.paletteMain : selectedPaletteMain;
+    const nextPaletteSub =
+      overrides.paletteSub !== undefined ? overrides.paletteSub : selectedPaletteSub;
+    const nextPaletteColors =
+      overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColors;
+
     setFilmLoading(true);
     setFilmError("");
 
@@ -339,6 +420,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (token) params.set("token", token);
+      if (nextPaletteMain) params.set("palette_main", nextPaletteMain);
+      if (nextPaletteSub) params.set("palette_sub", nextPaletteSub);
+      nextPaletteColors.forEach((color) => params.append("palette_color", color));
 
       const res = await fetch(`/api/simulator/films?${params.toString()}`, {
         cache: "no-store",
@@ -352,12 +436,72 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       const nextFilms = Array.isArray(json.items) ? json.items : [];
+      updatePaletteFacets(json);
       setState((prev) => ({ ...prev, films: nextFilms }));
     } catch {
       setFilmError("필름 검색 중 오류가 발생했습니다.");
     } finally {
       setFilmLoading(false);
     }
+  };
+
+  const handlePaletteMainClick = (value: string) => {
+    const nextMain = selectedPaletteMain === value ? "" : value;
+
+    setSelectedPaletteMain(nextMain);
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+    setFilmQuery("");
+
+    void searchFilms("", {
+      paletteMain: nextMain,
+      paletteSub: "",
+      paletteColors: [],
+    });
+  };
+
+  const handlePaletteSubClick = (value: string) => {
+    const nextSub = selectedPaletteSub === value ? "" : value;
+
+    setSelectedPaletteSub(nextSub);
+    setSelectedPaletteColors([]);
+    setFilmQuery("");
+
+    void searchFilms("", {
+      paletteMain: selectedPaletteMain,
+      paletteSub: nextSub,
+      paletteColors: [],
+    });
+  };
+
+  const handlePaletteColorClick = (value: string) => {
+    const nextColors = selectedPaletteColors.includes(value)
+      ? selectedPaletteColors.filter((color) => color !== value)
+      : [...selectedPaletteColors, value];
+
+    setSelectedPaletteColors(nextColors);
+    setFilmQuery("");
+
+    void searchFilms("", {
+      paletteMain: selectedPaletteMain,
+      paletteSub: selectedPaletteSub,
+      paletteColors: nextColors,
+    });
+  };
+
+  const resetPaletteFilters = () => {
+    setSelectedPaletteMain("");
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+    setFilmQuery("");
+    setPaletteSubOptions([]);
+    setPaletteColorOptions(PALETTE_COLOR_OPTIONS);
+
+    void searchFilms("", {
+      paletteMain: "",
+      paletteSub: "",
+      paletteColors: [],
+    });
   };
 
   const handleFilmClick = async (film: SimulatorFilm) => {
@@ -427,7 +571,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
   };
 
-  const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "필름 시뮬레이터 테스트";
+  const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터 공사중";
 
   return (
     <main
@@ -452,7 +596,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           <section className="heroCard">
             <div className="heroTopRow">
               <div style={{ minWidth: 0 }}>
-                <div className="stepBadge">{step === "space" ? "1단계 공간 선택" : "2단계 색상 적용"}</div>
+                <div className="stepBadge">
+                  {step === "space"
+                    ? "1단계 공간 선택"
+                    : step === "apply"
+                      ? "2단계 색상 적용"
+                      : "3단계 결정 확정"}
+                </div>
 
                 <h1 className="pageTitle">{mainTitle}</h1>
 
@@ -460,7 +610,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   {step === "space"
                     ? "시뮬레이션할 공간을 먼저 선택해주세요."
                     : step === "apply"
-                      ? "구역 버튼을 누른 뒤 필름을 검색해서 적용해보세요."
+                      ? "이미지 아래에 구역 버튼을 눌러 필름을 적용하세요."
                       : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요."}
                 </p>
               </div>
@@ -776,12 +926,97 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 <div>
                   <div className="sectionLabel">필름 선택</div>
                   <h3>{activeZone?.label || "구역"}에 적용할 필름</h3>
-                  <p>검색하거나 아래 목록에서 선택하면 바로 적용됩니다.</p>
+                  <p>팔레트로 고르거나 제품번호/색상명으로 검색할 수 있습니다.</p>
                 </div>
 
                 <button type="button" onClick={closeFilmSheet} className="sheetCloseButton">
                   닫기
                 </button>
+              </div>
+
+              <div className="palettePanel">
+                <div className="paletteGroup">
+                  <div className="paletteHeaderRow">
+                    <span>1차 분류</span>
+                    {(selectedPaletteMain || selectedPaletteSub || selectedPaletteColors.length > 0) ? (
+                      <button type="button" onClick={resetPaletteFilters} className="paletteResetButton">
+                        초기화
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="paletteChipRow">
+                    {PALETTE_MAIN_OPTIONS.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => handlePaletteMainClick(item)}
+                        className={`paletteChip ${selectedPaletteMain === item ? "paletteChipActive" : ""}`}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedPaletteMain ? (
+                  <div className="paletteGroup">
+                    <div className="paletteHeaderRow">
+                      <span>2차 분류</span>
+                      <em>선택사항</em>
+                    </div>
+
+                    <div className="paletteChipRow">
+                      <button
+                        type="button"
+                        onClick={() => handlePaletteSubClick("")}
+                        className={`paletteChip ${!selectedPaletteSub ? "paletteChipActive" : ""}`}
+                      >
+                        전체
+                      </button>
+
+                      {paletteSubOptions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => handlePaletteSubClick(item)}
+                          className={`paletteChip ${selectedPaletteSub === item ? "paletteChipActive" : ""}`}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="paletteGroup">
+                  <div className="paletteHeaderRow">
+                    <span>색상 팔레트</span>
+                    <em>
+                      {selectedPaletteColors.length > 0
+                        ? selectedPaletteColors.join(", ")
+                        : "전체"}
+                    </em>
+                  </div>
+
+                  <div className="paletteColorRow">
+                    {paletteColorOptions.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => handlePaletteColorClick(item)}
+                        className={`paletteColorChip paletteColorChipIconOnly ${selectedPaletteColors.includes(item) ? "paletteColorChipActive" : ""}`}
+                        aria-label={item}
+                        title={item}
+                      >
+                        <i
+                          aria-hidden="true"
+                          style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <form
@@ -921,7 +1156,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           color: ${COLORS.cream};
           font-size: 13px;
           font-weight: 900;
-          margin-bottom: 12px;
+          margin-bottom: 9px;
         }
 
         .pageTitle {
@@ -1408,18 +1643,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           display: flex;
           align-items: flex-end;
           justify-content: center;
-          padding: 14px;
+          padding: 6px 10px 10px;
         }
 
         .filmSheet {
           width: min(760px, 100%);
-          max-height: min(78vh, 760px);
+          height: min(92vh, 880px);
+          max-height: min(92vh, 880px);
           overflow: hidden;
           border-radius: 28px;
           background: rgba(8, 5, 62, 0.98);
           border: 1px solid rgba(238, 224, 197, 0.22);
           box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.45);
-          padding: 14px;
+          padding: 12px;
           display: flex;
           flex-direction: column;
         }
@@ -1429,7 +1665,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           height: 5px;
           border-radius: 999px;
           background: rgba(255, 255, 255, 0.28);
-          margin: 0 auto 12px;
+          margin: 0 auto 8px;
         }
 
         .sheetHeader {
@@ -1442,15 +1678,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         .sheetHeader h3 {
           margin: 0;
-          font-size: 22px;
+          font-size: 20px;
           letter-spacing: -0.03em;
         }
 
         .sheetHeader p {
-          margin: 6px 0 0;
+          margin: 4px 0 0;
           color: ${COLORS.soft};
-          font-size: 13px;
-          line-height: 1.45;
+          font-size: 12px;
+          line-height: 1.35;
         }
 
         .sheetCloseButton {
@@ -1465,21 +1701,122 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           cursor: pointer;
         }
 
+        .palettePanel {
+          border-radius: 18px;
+          padding: 9px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid ${COLORS.line};
+          margin-bottom: 9px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .paletteGroup {
+          display: grid;
+          gap: 6px;
+        }
+
+        .paletteHeaderRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .paletteHeaderRow span {
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .paletteHeaderRow em {
+          color: ${COLORS.soft};
+          font-size: 11px;
+          font-style: normal;
+          font-weight: 800;
+        }
+
+        .paletteChipRow,
+        .paletteColorRow {
+          display: flex;
+          gap: 6px;
+          overflow-x: auto;
+          padding-bottom: 1px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .paletteChip,
+        .paletteColorChip,
+        .paletteResetButton {
+          flex: 0 0 auto;
+          border: 1px solid ${COLORS.line};
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .paletteChip {
+          padding: 7px 10px;
+        }
+
+        .paletteChipActive,
+        .paletteColorChipActive {
+          border-color: rgba(238, 224, 197, 0.62);
+          background: rgba(238, 224, 197, 0.16);
+          color: ${COLORS.cream};
+        }
+
+        .paletteResetButton {
+          padding: 6px 9px;
+          color: ${COLORS.cream};
+        }
+
+        .paletteColorChip {
+          min-height: 32px;
+          padding: 5px 8px 5px 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .paletteColorChip i {
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+        }
+
+        .paletteColorChipIconOnly {
+          width: 34px;
+          padding: 5px;
+          justify-content: center;
+        }
+
+        .paletteColorChipIconOnly i {
+          width: 20px;
+          height: 20px;
+        }
+
         .sheetSearchForm {
           display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
+          gap: 7px;
+          margin-bottom: 9px;
         }
 
         .searchInput {
           min-width: 0;
           flex: 1;
-          border-radius: 16px;
+          border-radius: 13px;
           border: 1px solid ${COLORS.line};
           background: rgba(255, 255, 255, 0.06);
           color: ${COLORS.white};
-          padding: 12px 13px;
-          font-size: 15px;
+          padding: 8px 10px;
+          font-size: 14px;
           outline: none;
         }
 
@@ -1489,15 +1826,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         .searchButton {
           border: none;
-          border-radius: 16px;
-          padding: 0 15px;
+          border-radius: 13px;
+          padding: 0 13px;
           background: ${COLORS.cream};
           color: ${COLORS.creamText};
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 900;
           cursor: pointer;
           white-space: nowrap;
-          min-height: 46px;
+          min-height: 36px;
         }
 
         .sheetFilmGrid {
@@ -1857,9 +2194,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           }
 
           .filmSheet {
-            max-height: 82vh;
+            height: 94vh;
+            max-height: 94vh;
             border-radius: 24px;
-            padding: 11px;
+            padding: 10px;
           }
 
           .sheetHeader h3 {
@@ -1868,6 +2206,22 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
           .sheetHeader p {
             font-size: 12px;
+          }
+
+          .palettePanel {
+            border-radius: 18px;
+            padding: 9px;
+            gap: 9px;
+          }
+
+          .paletteChip {
+            padding: 7px 10px;
+            font-size: 11.5px;
+          }
+
+          .paletteColorChip {
+            min-height: 32px;
+            font-size: 11.5px;
           }
 
           .sheetSearchForm {

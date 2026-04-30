@@ -25,6 +25,9 @@ type ProductRow = {
   full_name: string | null;
   category_main: string | null;
   category_sub: string | null;
+  palette_main: string | null;
+  palette_sub: string | null;
+  palette_color: string | null;
   image_path: string | null;
   simulation_image_path: string | null;
   simulation_thumb_path: string | null;
@@ -50,6 +53,9 @@ const PRODUCT_SELECT = `
   full_name,
   category_main,
   category_sub,
+  palette_main,
+  palette_sub,
+  palette_color,
   image_path,
   simulation_image_path,
   simulation_thumb_path

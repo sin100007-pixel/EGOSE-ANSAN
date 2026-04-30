@@ -231,7 +231,7 @@ export default async function DashboardPage() {
                   marginBottom: 4,
                 }}
               >
-                필름시뮬레이터 테스트
+                시뮬레이터
               </span>
               <span
                 style={{
@@ -242,7 +242,7 @@ export default async function DashboardPage() {
                   lineHeight: 1.45,
                 }}
               >
-                공간/필름 연결 1단계 확인용
+                색상팔레트, 유리한필름배치 추가필요.
               </span>
             </span>
             <span
@@ -284,7 +284,7 @@ export default async function DashboardPage() {
                   marginBottom: 4,
                 }}
               >
-                고객용 시뮬레이션 링크 만들기
+                시뮬레이터 링크생성기
               </span>
               <span
                 style={{
@@ -295,7 +295,7 @@ export default async function DashboardPage() {
                   lineHeight: 1.45,
                 }}
               >
-                7일짜리 링크 생성 / 공간·필름 제한
+                색상프리셋, 만료연기 추가필요.
               </span>
             </span>
             <span
@@ -337,7 +337,7 @@ export default async function DashboardPage() {
                   marginBottom: 4,
                 }}
               >
-                고객용 시뮬레이션 링크 관리
+                링크관리
               </span>
               <span
                 style={{

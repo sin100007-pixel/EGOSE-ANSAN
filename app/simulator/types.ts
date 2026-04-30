@@ -18,6 +18,9 @@ export type SimulatorFilm = {
   full_name: string | null;
   category_main: string | null;
   category_sub: string | null;
+  palette_main?: string | null;
+  palette_sub?: string | null;
+  palette_color?: string | null;
   image_url: string | null;
   thumb_url?: string | null;
 };

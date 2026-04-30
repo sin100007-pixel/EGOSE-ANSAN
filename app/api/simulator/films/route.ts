@@ -13,6 +13,9 @@ const PRODUCT_SELECT = `
   full_name,
   category_main,
   category_sub,
+  palette_main,
+  palette_sub,
+  palette_color,
   image_path,
   simulation_image_path,
   simulation_thumb_path
@@ -27,14 +30,26 @@ type ProductRow = {
   full_name: string | null;
   category_main: string | null;
   category_sub: string | null;
+  palette_main: string | null;
+  palette_sub: string | null;
+  palette_color: string | null;
   image_path: string | null;
   simulation_image_path: string | null;
   simulation_thumb_path: string | null;
 };
 
+type PaletteFacetRow = {
+  id: number;
+  palette_main: string | null;
+  palette_sub: string | null;
+  palette_color: string | null;
+};
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const key = serviceKey || anonKey;
 
   if (!url || !key) return null;
 
@@ -44,6 +59,22 @@ function getSupabase() {
       autoRefreshToken: false,
     },
   });
+}
+
+function cleanParam(value: string | null) {
+  return (value || "").trim();
+}
+
+function cleanPaletteColorParams(req: NextRequest) {
+  return Array.from(
+    new Set(
+      req.nextUrl.searchParams
+        .getAll("palette_color")
+        .flatMap((value) => value.split(","))
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 function normalizeForSearch(value: string) {
@@ -97,6 +128,9 @@ function buildDbOrFilter(query: string) {
     "color_name",
     "category_main",
     "category_sub",
+    "palette_main",
+    "palette_sub",
+    "palette_color",
     "manufacturer",
   ];
 
@@ -160,6 +194,9 @@ function getScore(item: ProductRow, query: string) {
     item.color_name,
     item.category_main,
     item.category_sub,
+    item.palette_main,
+    item.palette_sub,
+    item.palette_color,
     item.manufacturer,
   ]
     .map((value) => normalizeForSearch(value || ""))
@@ -174,6 +211,16 @@ function getScore(item: ProductRow, query: string) {
   }
 
   return score;
+}
+
+function uniqueSorted(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => (value || "").trim())
+        .filter((value) => value.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b, "ko"));
 }
 
 function isExpired(expiresAt: string) {
@@ -198,6 +245,47 @@ async function readAllowedProductIds(
     .filter((value: number) => Number.isFinite(value));
 }
 
+async function readPaletteFacets(
+  supabase: any,
+  options: {
+    hasToken: boolean;
+    filmScope: "all" | "custom";
+    allowedProductIds: number[];
+    paletteMain: string;
+    paletteSub: string;
+  }
+) {
+  let query = supabase
+    .from("products")
+    .select("id, palette_main, palette_sub, palette_color")
+    .eq("manufacturer", "삼성필름")
+    .eq("is_simulatable", true)
+    .or("simulation_image_path.not.is.null,image_path.not.is.null")
+    .limit(1500);
+
+  if (options.hasToken && options.filmScope === "custom") {
+    query = query.in("id", options.allowedProductIds);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  const rows = ((data || []) as PaletteFacetRow[]).filter(Boolean);
+  const mainRows = options.paletteMain
+    ? rows.filter((row) => row.palette_main === options.paletteMain)
+    : rows;
+  const subRows = options.paletteSub
+    ? mainRows.filter((row) => row.palette_sub === options.paletteSub)
+    : mainRows;
+
+  return {
+    palette_mains: uniqueSorted(rows.map((row) => row.palette_main)),
+    palette_subs: uniqueSorted(mainRows.map((row) => row.palette_sub)),
+    palette_colors: uniqueSorted(subRows.map((row) => row.palette_color)),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
@@ -208,8 +296,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const q = (req.nextUrl.searchParams.get("q") || "").trim();
-  const token = (req.nextUrl.searchParams.get("token") || "").trim();
+  const q = cleanParam(req.nextUrl.searchParams.get("q"));
+  const token = cleanParam(req.nextUrl.searchParams.get("token"));
+  const paletteMain = cleanParam(req.nextUrl.searchParams.get("palette_main"));
+  const paletteSub = cleanParam(req.nextUrl.searchParams.get("palette_sub"));
+  const paletteColors = cleanPaletteColorParams(req);
 
   if (!token) {
     const auth = await requireSimulatorInstaller();
@@ -256,10 +347,22 @@ export async function GET(req: NextRequest) {
         allowedProductIds = await readAllowedProductIds(supabase, typedLink.id);
 
         if (allowedProductIds.length === 0) {
-          return NextResponse.json({ items: [] });
+          return NextResponse.json({ items: [], facets: {
+            palette_mains: [],
+            palette_subs: [],
+            palette_colors: [],
+          } });
         }
       }
     }
+
+    const facets = await readPaletteFacets(supabase, {
+      hasToken,
+      filmScope,
+      allowedProductIds,
+      paletteMain,
+      paletteSub,
+    });
 
     let query = supabase
       .from("products")
@@ -271,6 +374,14 @@ export async function GET(req: NextRequest) {
 
     const orFilter = q ? buildDbOrFilter(q) : "";
     if (orFilter) query = query.or(orFilter);
+
+    if (paletteMain) query = query.eq("palette_main", paletteMain);
+    if (paletteSub) query = query.eq("palette_sub", paletteSub);
+    if (paletteColors.length === 1) {
+      query = query.eq("palette_color", paletteColors[0]);
+    } else if (paletteColors.length > 1) {
+      query = query.in("palette_color", paletteColors);
+    }
 
     if (hasToken && filmScope === "custom") {
       query = query.in("id", allowedProductIds);
@@ -292,7 +403,7 @@ export async function GET(req: NextRequest) {
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
     return NextResponse.json(
-      { items },
+      { items, facets },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",
