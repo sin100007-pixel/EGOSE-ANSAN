@@ -19,6 +19,7 @@ export type SimulatorFilm = {
   category_main: string | null;
   category_sub: string | null;
   image_url: string | null;
+  thumb_url?: string | null;
 };
 
 export type SimulatorLinkInfo = {

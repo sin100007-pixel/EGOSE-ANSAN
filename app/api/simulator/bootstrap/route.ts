@@ -27,6 +27,7 @@ type ProductRow = {
   category_sub: string | null;
   image_path: string | null;
   simulation_image_path: string | null;
+  simulation_thumb_path: string | null;
 };
 
 type SimulatorSpaceRow = {
@@ -50,7 +51,8 @@ const PRODUCT_SELECT = `
   category_main,
   category_sub,
   image_path,
-  simulation_image_path
+  simulation_image_path,
+  simulation_thumb_path
 `;
 
 const SPACE_SELECT = `
@@ -139,11 +141,14 @@ function toPublicImageUrl(imagePath: string | null | undefined) {
 }
 
 function normalizeFilm(item: ProductRow) {
-  const { image_path, simulation_image_path, ...rest } = item;
+  const { image_path, simulation_image_path, simulation_thumb_path, ...rest } = item;
 
   return {
     ...rest,
     image_url: toPublicImageUrl(simulation_image_path || image_path),
+    thumb_url: toPublicImageUrl(
+      simulation_thumb_path || simulation_image_path || image_path
+    ),
   };
 }
 

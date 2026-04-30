@@ -130,6 +130,30 @@ function getSpaceThumbnail(space: SimulatorSpace) {
   return space.thumbnail_url || space.overlay_image_url || space.base_image_url || "";
 }
 
+const loadedImageCache = new Set<string>();
+
+function preloadImage(src: string) {
+  if (!src || loadedImageCache.has(src)) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      loadedImageCache.add(src);
+      resolve();
+    };
+
+    img.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
+    img.src = src;
+  });
+}
+
+function getFilmThumbUrl(film: SimulatorFilm) {
+  return film.thumb_url || film.image_url || "";
+}
+
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const router = useRouter();
 
@@ -153,6 +177,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [activeZoneKey, setActiveZoneKey] = useState("");
   const [zoneFilmMap, setZoneFilmMap] = useState<Record<string, SimulatorFilm | null>>({});
   const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
+  const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
 
   const selectedSpace = useMemo(() => {
     return state.spaces.find((space) => space.id === selectedSpaceId) || state.spaces[0] || null;
@@ -334,16 +359,28 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
   };
 
-  const handleFilmClick = (film: SimulatorFilm) => {
+  const handleFilmClick = async (film: SimulatorFilm) => {
     const targetZoneKey = getTargetZoneKey();
 
-    setSelectedFilm(film);
-
-    if (targetZoneKey) {
-      applyFilmToZone(targetZoneKey, film);
+    if (!targetZoneKey || applyingFilmId !== null) {
+      return;
     }
 
-    closeFilmSheet();
+    setFilmError("");
+    setApplyingFilmId(film.id);
+
+    try {
+      if (film.image_url) {
+        await preloadImage(film.image_url);
+      }
+
+      applyFilmToZone(targetZoneKey, film);
+      closeFilmSheet();
+    } catch {
+      setFilmError("이미지를 불러오지 못했습니다. 다시 선택해주세요.");
+    } finally {
+      setApplyingFilmId(null);
+    }
   };
 
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "필름 시뮬레이터 테스트";
@@ -655,18 +692,26 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                       <button
                         key={film.id}
                         type="button"
-                        onClick={() => handleFilmClick(film)}
+                        onClick={() => void handleFilmClick(film)}
+                        disabled={applyingFilmId !== null}
                         className={`sheetFilmItem ${active ? "sheetFilmItemActive" : ""}`}
                       >
                         <div className="sheetFilmThumb">
-                          {film.image_url ? (
-                            <img src={film.image_url} alt={getFilmName(film)} />
+                          {getFilmThumbUrl(film) ? (
+                            <img
+                              src={getFilmThumbUrl(film)}
+                              alt={getFilmName(film)}
+                              loading="lazy"
+                              decoding="async"
+                            />
                           ) : null}
                         </div>
 
                         <div className="sheetFilmName">{getFilmName(film)}</div>
                         <div className="sheetFilmMeta">
-                          {getFilmCode(film) || film.manufacturer || "삼성필름"}
+                          {applyingFilmId === film.id
+                            ? "적용 중..."
+                            : getFilmCode(film) || film.manufacturer || "삼성필름"}
                         </div>
                       </button>
                     );
@@ -1216,6 +1261,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         .sheetFilmItemActive {
           border-color: rgba(238, 224, 197, 0.6);
           background: rgba(238, 224, 197, 0.14);
+        }
+
+        .sheetFilmItem:disabled {
+          opacity: 0.72;
+          cursor: wait;
         }
 
         .sheetFilmThumb {

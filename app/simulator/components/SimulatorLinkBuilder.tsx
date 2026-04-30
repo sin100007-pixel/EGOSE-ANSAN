@@ -41,6 +41,10 @@ function getFilmCode(film: SimulatorFilm) {
   return [film.product_code_1, film.product_code_2].filter(Boolean).join(" / ");
 }
 
+function getFilmThumbUrl(film: SimulatorFilm) {
+  return film.thumb_url || film.image_url || "";
+}
+
 function getSpaceThumb(space: SimulatorSpace) {
   return space.thumbnail_url || space.overlay_image_url || space.base_image_url || "";
 }
@@ -399,7 +403,14 @@ export default function SimulatorLinkBuilder() {
                             className={`filmCard ${active ? "filmCardActive" : ""}`}
                           >
                             <div className="filmThumb">
-                              {film.image_url ? <img src={film.image_url} alt={getFilmName(film)} /> : null}
+                              {getFilmThumbUrl(film) ? (
+                                <img
+                                  src={getFilmThumbUrl(film)}
+                                  alt={getFilmName(film)}
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              ) : null}
                             </div>
                             <div className="filmName">{getFilmName(film)}</div>
                             <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
