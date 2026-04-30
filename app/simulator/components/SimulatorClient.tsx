@@ -1,0 +1,1492 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { useRouter } from "next/navigation";
+import type { SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
+
+type SimulatorClientProps = {
+  token?: string;
+  mode: "installer" | "customer";
+};
+
+type BootstrapState = {
+  loading: boolean;
+  setupNeeded: boolean;
+  expired: boolean;
+  message: string;
+  spaces: SimulatorSpace[];
+  films: SimulatorFilm[];
+  link: SimulatorLinkInfo | null;
+};
+
+type MaskZoneDefinition = {
+  key: string;
+  label: string;
+  mask_url: string;
+  patternSize?: number;
+};
+
+type SimulatorStep = "space" | "apply";
+
+const COLORS = {
+  bg: "#05023B",
+  panel: "rgba(12,10,72,0.72)",
+  panelStrong: "rgba(10,8,72,0.94)",
+  cream: "#EEE0C5",
+  creamText: "#7A5A34",
+  line: "rgba(238,224,197,0.16)",
+  soft: "rgba(255,255,255,0.70)",
+  white: "#FFFFFF",
+};
+
+const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
+  {
+    key: "upper",
+    label: "상부장",
+    mask_url: "/simulator/spaces/fridge-mask-upper.png",
+    patternSize: 220,
+  },
+  {
+    key: "lower",
+    label: "하부장",
+    mask_url: "/simulator/spaces/fridge-mask-lower.png",
+    patternSize: 220,
+  },
+  {
+    key: "fridge",
+    label: "냉장고장",
+    mask_url: "/simulator/spaces/fridge-mask-fridge.png",
+    patternSize: 220,
+  },
+];
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getFilmName(film: SimulatorFilm | null) {
+  if (!film) return "필름을 선택해주세요";
+  return film.full_name || film.product_code_1 || film.color_name || "선택한 필름";
+}
+
+function getFilmCode(film: SimulatorFilm) {
+  return [film.product_code_1, film.product_code_2].filter(Boolean).join(" / ");
+}
+
+function readMaskZones(space: SimulatorSpace | null): MaskZoneDefinition[] {
+  const rawZones = space?.mask_config?.["zones"];
+
+  if (!Array.isArray(rawZones) || rawZones.length === 0) {
+    return DEFAULT_MASK_ZONES;
+  }
+
+  const parsed = rawZones
+    .map((zone) => {
+      if (!zone || typeof zone !== "object") return null;
+
+      const z = zone as Record<string, unknown>;
+
+      if (
+        typeof z.key !== "string" ||
+        typeof z.label !== "string" ||
+        typeof z.mask_url !== "string"
+      ) {
+        return null;
+      }
+
+      return {
+        key: z.key,
+        label: z.label,
+        mask_url: z.mask_url,
+        patternSize: typeof z.patternSize === "number" ? z.patternSize : 220,
+      } as MaskZoneDefinition;
+    })
+    .filter(Boolean) as MaskZoneDefinition[];
+
+  return parsed.length > 0 ? parsed : DEFAULT_MASK_ZONES;
+}
+
+function readPreviewAspectRatio(space: SimulatorSpace | null) {
+  const raw =
+    space?.mask_config &&
+    typeof space.mask_config["previewAspectRatio"] === "string"
+      ? String(space.mask_config["previewAspectRatio"])
+      : "1536 / 1024";
+
+  return raw || "1536 / 1024";
+}
+
+function getSpaceThumbnail(space: SimulatorSpace) {
+  return space.thumbnail_url || space.overlay_image_url || space.base_image_url || "";
+}
+
+export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
+  const router = useRouter();
+
+  const [state, setState] = useState<BootstrapState>({
+    loading: true,
+    setupNeeded: false,
+    expired: false,
+    message: "",
+    spaces: [],
+    films: [],
+    link: null,
+  });
+
+  const [step, setStep] = useState<SimulatorStep>("space");
+  const [selectedSpaceId, setSelectedSpaceId] = useState("");
+  const [selectedFilm, setSelectedFilm] = useState<SimulatorFilm | null>(null);
+  const [filmQuery, setFilmQuery] = useState("");
+  const [filmLoading, setFilmLoading] = useState(false);
+  const [filmError, setFilmError] = useState("");
+
+  const [activeZoneKey, setActiveZoneKey] = useState("");
+  const [zoneFilmMap, setZoneFilmMap] = useState<Record<string, SimulatorFilm | null>>({});
+  const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
+
+  const selectedSpace = useMemo(() => {
+    return state.spaces.find((space) => space.id === selectedSpaceId) || state.spaces[0] || null;
+  }, [selectedSpaceId, state.spaces]);
+
+  const maskZones = useMemo(() => readMaskZones(selectedSpace), [selectedSpace]);
+
+  const activeZone = useMemo(() => {
+    return maskZones.find((zone) => zone.key === activeZoneKey) || maskZones[0] || null;
+  }, [maskZones, activeZoneKey]);
+
+  const previewAspectRatio = useMemo(() => {
+    return readPreviewAspectRatio(selectedSpace);
+  }, [selectedSpace]);
+
+  const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
+  const activeZoneFilm = activeZone ? zoneFilmMap[activeZone.key] || null : null;
+
+  const getTargetZoneKey = () => {
+    return activeZoneKey || activeZone?.key || maskZones[0]?.key || "";
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setState((prev) => ({ ...prev, loading: true, message: "" }));
+
+      try {
+        const params = token ? `?token=${encodeURIComponent(token)}` : "";
+        const res = await fetch(`/api/simulator/bootstrap${params}`, {
+          cache: "no-store",
+        });
+        const json = await res.json();
+
+        if (cancelled) return;
+
+        const nextSpaces = Array.isArray(json.spaces) ? json.spaces : [];
+        const nextFilms = Array.isArray(json.films) ? json.films : [];
+
+        setState({
+          loading: false,
+          setupNeeded: Boolean(json.setupNeeded),
+          expired: Boolean(json.expired),
+          message: json.message || "",
+          spaces: nextSpaces,
+          films: nextFilms,
+          link: json.link || null,
+        });
+
+        if (nextSpaces[0]?.id) {
+          setSelectedSpaceId(nextSpaces[0].id);
+        }
+
+        if (nextFilms[0]) {
+          setSelectedFilm(nextFilms[0]);
+        }
+      } catch {
+        if (cancelled) return;
+
+        setState({
+          loading: false,
+          setupNeeded: false,
+          expired: false,
+          message: "시뮬레이터 정보를 불러오지 못했습니다.",
+          spaces: [],
+          films: [],
+          link: null,
+        });
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (maskZones.length === 0) return;
+
+    if (!activeZoneKey || !maskZones.some((zone) => zone.key === activeZoneKey)) {
+      setActiveZoneKey(maskZones[0].key);
+    }
+  }, [maskZones, activeZoneKey]);
+
+  useEffect(() => {
+    if (!selectedFilm) return;
+    if (!activeZone) return;
+
+    setZoneFilmMap((prev) => {
+      if (Object.keys(prev).length > 0) return prev;
+      return {
+        [activeZone.key]: selectedFilm,
+      };
+    });
+  }, [selectedFilm, activeZone]);
+
+  const applyFilmToZone = (zoneKey: string, film: SimulatorFilm) => {
+    setSelectedFilm(film);
+    setZoneFilmMap((prev) => ({
+      ...prev,
+      [zoneKey]: film,
+    }));
+  };
+
+  const clearZoneFilm = (zoneKey: string) => {
+    setZoneFilmMap((prev) => ({
+      ...prev,
+      [zoneKey]: null,
+    }));
+  };
+
+  const clearAllZones = () => {
+    setZoneFilmMap({});
+  };
+
+  const applyFilmToAllZones = (film: SimulatorFilm) => {
+    setSelectedFilm(film);
+
+    const next: Record<string, SimulatorFilm> = {};
+    maskZones.forEach((zone) => {
+      next[zone.key] = film;
+    });
+
+    setZoneFilmMap(next);
+  };
+
+  const openFilmSheet = (zoneKey: string) => {
+    setActiveZoneKey(zoneKey);
+    setFilmError("");
+    setIsFilmSheetOpen(true);
+  };
+
+  const closeFilmSheet = () => {
+    setIsFilmSheetOpen(false);
+  };
+
+  const selectSpaceAndGoApply = (spaceId: string) => {
+    setSelectedSpaceId(spaceId);
+    setStep("apply");
+  };
+
+  const goApplyStep = () => {
+    if (!selectedSpace && state.spaces[0]?.id) {
+      setSelectedSpaceId(state.spaces[0].id);
+    }
+    setStep("apply");
+  };
+
+  const searchFilms = async (keyword = filmQuery) => {
+    const q = keyword.trim();
+    setFilmLoading(true);
+    setFilmError("");
+
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (token) params.set("token", token);
+
+      const res = await fetch(`/api/simulator/films?${params.toString()}`, {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setFilmError(json.error || "필름 검색 중 오류가 발생했습니다.");
+        return;
+      }
+
+      const nextFilms = Array.isArray(json.items) ? json.items : [];
+      setState((prev) => ({ ...prev, films: nextFilms }));
+    } catch {
+      setFilmError("필름 검색 중 오류가 발생했습니다.");
+    } finally {
+      setFilmLoading(false);
+    }
+  };
+
+  const handleFilmClick = (film: SimulatorFilm) => {
+    const targetZoneKey = getTargetZoneKey();
+
+    setSelectedFilm(film);
+
+    if (targetZoneKey) {
+      applyFilmToZone(targetZoneKey, film);
+    }
+
+    closeFilmSheet();
+  };
+
+  const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "필름 시뮬레이터 테스트";
+
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        background: `
+          radial-gradient(circle at top left, rgba(238,224,197,0.10), transparent 24%),
+          radial-gradient(circle at top right, rgba(255,255,255,0.08), transparent 20%),
+          linear-gradient(180deg, #060241 0%, ${COLORS.bg} 100%)
+        `,
+        color: COLORS.white,
+      }}
+    >
+      <div className="pageWrap">
+        {mode === "installer" ? (
+          <button type="button" onClick={() => router.push("/dashboard")} className="backButton">
+            ← 대시보드
+          </button>
+        ) : null}
+
+        <div className="pageInner">
+          <section className="heroCard">
+            <div className="heroTopRow">
+              <div style={{ minWidth: 0 }}>
+                <div className="stepBadge">{step === "space" ? "1단계 공간 선택" : "2단계 색상 적용"}</div>
+
+                <h1 className="pageTitle">{mainTitle}</h1>
+
+                <p className="heroText">
+                  {step === "space"
+                    ? "시뮬레이션할 공간을 먼저 선택해주세요."
+                    : "구역 버튼을 누른 뒤 필름을 검색해서 적용해보세요."}
+                </p>
+              </div>
+
+              {state.link ? (
+                <div className="linkCard">
+                  <div style={{ color: COLORS.cream, fontSize: 13, fontWeight: 900, marginBottom: 8 }}>
+                    고객용 링크
+                  </div>
+                  <div style={{ color: COLORS.white, fontSize: 14, lineHeight: 1.65 }}>
+                    {state.link.installer_name ? <div>{state.link.installer_name}님이 보낸 시뮬레이션</div> : null}
+                    {state.link.customer_name ? <div>고객명: {state.link.customer_name}</div> : null}
+                    <div>만료: {formatDateTime(state.link.expires_at)}</div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          {state.loading ? (
+            <section style={noticeStyle()}>시뮬레이터 정보를 불러오는 중...</section>
+          ) : state.expired ? (
+            <section style={noticeStyle("danger")}>
+              <strong style={{ display: "block", fontSize: 20, marginBottom: 8 }}>만료된 링크입니다.</strong>
+              <span>{state.message || "시공자에게 새 링크를 요청해주세요."}</span>
+            </section>
+          ) : state.setupNeeded ? (
+            <section style={noticeStyle("warning")}>
+              <strong style={{ display: "block", fontSize: 20, marginBottom: 8 }}>DB 1단계 작업이 필요합니다.</strong>
+              <span>{state.message}</span>
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 14,
+                  borderRadius: 16,
+                  background: "rgba(0,0,0,0.18)",
+                  color: COLORS.white,
+                  fontSize: 13,
+                  lineHeight: 1.7,
+                }}
+              >
+                Supabase SQL Editor에서 <b>supabase/02_simulator_schema.sql</b> 파일 내용을 먼저 실행하면 됩니다.
+              </div>
+            </section>
+          ) : step === "space" ? (
+            <section className="spaceSelectCard">
+              <div className="sectionHeader">
+                <div>
+                  <div className="sectionLabel">공간 선택</div>
+                  <h2 className="sectionTitle">어디에 필름을 적용해볼까요?</h2>
+                </div>
+                <div className="spaceCount">{state.spaces.length || 0}개 공간</div>
+              </div>
+
+              <div className="spaceGrid">
+                {state.spaces.length > 0 ? (
+                  state.spaces.map((space) => {
+                    const thumbnail = getSpaceThumbnail(space);
+                    const active = selectedSpace?.id === space.id;
+
+                    return (
+                      <button
+                        key={space.id}
+                        type="button"
+                        onClick={() => selectSpaceAndGoApply(space.id)}
+                        className={`spaceCard ${active ? "spaceCardActive" : ""}`}
+                      >
+                        <div className="spaceThumb">
+                          {thumbnail ? (
+                            <img src={thumbnail} alt={space.name} />
+                          ) : (
+                            <div className="spaceThumbEmpty">이미지 준비중</div>
+                          )}
+                        </div>
+
+                        <div className="spaceInfo">
+                          <div>
+                            <div className="spaceName">{space.name}</div>
+                            <div className="spaceDesc">{space.description || "선택하면 색상 적용 화면으로 이동합니다."}</div>
+                          </div>
+
+                          <span className="spaceGoBadge">선택</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="emptyFilmBox">등록된 공간이 없습니다.</div>
+                )}
+              </div>
+            </section>
+          ) : (
+            <section className="applyCard">
+              <div className="applyTopRow">
+                <div>
+                  <div className="sectionLabel">색상 적용</div>
+                  <h2 className="spaceTitle">{selectedSpace?.name || "공간 없음"}</h2>
+                </div>
+
+                <button type="button" onClick={() => setStep("space")} className="changeSpaceButton">
+                  공간 변경
+                </button>
+              </div>
+
+              <div
+                className="previewViewport"
+                style={{
+                  aspectRatio: previewAspectRatio,
+                }}
+              >
+                {previewHasRealSpace ? (
+                  <div className="sceneStage">
+                    {maskZones.map((zone) => {
+                      const film = zoneFilmMap[zone.key];
+
+                      if (!film?.image_url) return null;
+
+                      return (
+                        <div
+                          key={zone.key}
+                          aria-hidden="true"
+                          className="maskedFilmLayer"
+                          style={{
+                            backgroundImage: `url("${film.image_url}")`,
+                            backgroundSize: `${zone.patternSize || 220}px auto`,
+                            WebkitMaskImage: `url("${zone.mask_url}")`,
+                            maskImage: `url("${zone.mask_url}")`,
+                          }}
+                        />
+                      );
+                    })}
+
+                    {selectedSpace?.base_image_url ? (
+                      <img src={selectedSpace.base_image_url} alt="공간 원본" className="sceneBaseImage" />
+                    ) : null}
+
+                    {selectedSpace?.overlay_image_url ? (
+                      <img src={selectedSpace.overlay_image_url} alt="공간 오버레이" className="sceneOverlayImage" />
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="emptyPreviewWrap">
+                    <div className="emptyPreviewBox">
+                      <div className="emptyPreviewInner">
+                        <div style={{ color: COLORS.cream, fontWeight: 900, marginBottom: 6 }}>
+                          공간 이미지 등록 전 테스트 화면
+                        </div>
+                        <div style={{ color: COLORS.soft, fontSize: 14, lineHeight: 1.6 }}>
+                          실제 공간 PNG와 구역별 마스크 PNG가 준비되면 이 영역에 적용됩니다.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="zoneApplyGrid">
+                {maskZones.map((zone) => {
+                  const active = activeZoneKey === zone.key;
+                  const film = zoneFilmMap[zone.key] || null;
+
+                  return (
+                    <button
+                      key={zone.key}
+                      type="button"
+                      onClick={() => openFilmSheet(zone.key)}
+                      className={`zoneApplyButton ${active ? "zoneApplyButtonActive" : ""}`}
+                    >
+                      <span>{zone.label}</span>
+                      <strong>{film ? getFilmName(film) : "필름 선택"}</strong>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="applyActionRow">
+                {selectedFilm ? (
+                  <button type="button" onClick={() => applyFilmToAllZones(selectedFilm)} className="smallActionButton">
+                    선택 필름 전체 적용
+                  </button>
+                ) : null}
+
+                {activeZone && zoneFilmMap[activeZone.key] ? (
+                  <button type="button" onClick={() => clearZoneFilm(activeZone.key)} className="smallActionButton">
+                    현재 구역 지우기
+                  </button>
+                ) : null}
+
+                {Object.keys(zoneFilmMap).length > 0 ? (
+                  <button type="button" onClick={clearAllZones} className="smallActionButton">
+                    전체 초기화
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <nav className="bottomStepNav" aria-label="시뮬레이터 단계 이동">
+          <button
+            type="button"
+            onClick={() => setStep("space")}
+            className={step === "space" ? "bottomStepButtonActive" : ""}
+          >
+            <span>1</span>
+            공간 선택
+          </button>
+
+          <button
+            type="button"
+            onClick={goApplyStep}
+            className={step === "apply" ? "bottomStepButtonActive" : ""}
+          >
+            <span>2</span>
+            색상 적용
+          </button>
+        </nav>
+
+        {isFilmSheetOpen ? (
+          <div className="sheetOverlay" role="presentation" onClick={closeFilmSheet}>
+            <section
+              className="filmSheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label="필름 선택"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sheetHandle" />
+
+              <div className="sheetHeader">
+                <div>
+                  <div className="sectionLabel">필름 선택</div>
+                  <h3>{activeZone?.label || "구역"}에 적용할 필름</h3>
+                  <p>검색하거나 아래 목록에서 선택하면 바로 적용됩니다.</p>
+                </div>
+
+                <button type="button" onClick={closeFilmSheet} className="sheetCloseButton">
+                  닫기
+                </button>
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void searchFilms();
+                }}
+                className="sheetSearchForm"
+              >
+                <input
+                  value={filmQuery}
+                  onChange={(event) => setFilmQuery(event.target.value)}
+                  placeholder="예: 122, SG122, 화이트"
+                  className="searchInput"
+                />
+
+                <button type="submit" className="searchButton">
+                  검색
+                </button>
+              </form>
+
+              {filmLoading ? (
+                <div style={{ color: COLORS.cream, fontSize: 14, marginBottom: 10 }}>필름 검색 중...</div>
+              ) : null}
+
+              {filmError ? (
+                <div style={{ color: "#ffd6d6", fontSize: 14, marginBottom: 10 }}>{filmError}</div>
+              ) : null}
+
+              <div className="sheetFilmGrid">
+                {state.films.length > 0 ? (
+                  state.films.map((film) => {
+                    const active = selectedFilm?.id === film.id;
+
+                    return (
+                      <button
+                        key={film.id}
+                        type="button"
+                        onClick={() => handleFilmClick(film)}
+                        className={`sheetFilmItem ${active ? "sheetFilmItemActive" : ""}`}
+                      >
+                        <div className="sheetFilmThumb">
+                          {film.image_url ? (
+                            <img src={film.image_url} alt={getFilmName(film)} />
+                          ) : null}
+                        </div>
+
+                        <div className="sheetFilmName">{getFilmName(film)}</div>
+                        <div className="sheetFilmMeta">
+                          {getFilmCode(film) || film.manufacturer || "삼성필름"}
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="emptyFilmBox">표시할 필름이 없습니다.</div>
+                )}
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </div>
+
+      <style jsx>{`
+        .pageWrap {
+          width: 100%;
+          min-height: 100vh;
+          padding-bottom: 92px;
+          box-sizing: border-box;
+        }
+
+        .pageInner {
+          width: min(1120px, 100%);
+          margin: 0 auto;
+          padding: 24px 16px 48px;
+          box-sizing: border-box;
+        }
+
+        .backButton {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 999px;
+          padding: 11px 15px;
+          background: ${COLORS.panelStrong};
+          color: ${COLORS.cream};
+          box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 900;
+          margin: 16px 0 0 16px;
+          position: sticky;
+          top: 14px;
+          z-index: 50;
+        }
+
+        .heroCard,
+        .spaceSelectCard,
+        .applyCard {
+          border: 1px solid ${COLORS.line};
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+          background: ${COLORS.panel};
+        }
+
+        .heroCard {
+          border-radius: 30px;
+          padding: 22px 18px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+          margin-bottom: 18px;
+        }
+
+        .heroTopRow {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        .stepBadge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 7px 11px;
+          background: rgba(238, 224, 197, 0.1);
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 12px;
+        }
+
+        .pageTitle {
+          margin: 0;
+          font-size: clamp(28px, 5vw, 46px);
+          line-height: 1.08;
+          letter-spacing: -0.04em;
+          word-break: keep-all;
+        }
+
+        .heroText {
+          margin: 12px 0 0;
+          color: ${COLORS.soft};
+          font-size: 15px;
+          line-height: 1.7;
+          word-break: keep-all;
+        }
+
+        .linkCard {
+          min-width: 250px;
+          border-radius: 22px;
+          padding: 14px 16px;
+          background: rgba(238, 224, 197, 0.1);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .spaceSelectCard,
+        .applyCard {
+          border-radius: 30px;
+          padding: 18px;
+        }
+
+        .sectionHeader,
+        .applyTopRow {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .sectionLabel {
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 6px;
+        }
+
+        .sectionTitle,
+        .spaceTitle {
+          margin: 0;
+          font-size: clamp(24px, 4vw, 34px);
+          letter-spacing: -0.03em;
+          word-break: keep-all;
+        }
+
+        .spaceCount,
+        .changeSpaceButton {
+          flex-shrink: 0;
+          border-radius: 999px;
+          padding: 10px 13px;
+          background: rgba(238, 224, 197, 0.1);
+          color: ${COLORS.cream};
+          border: 1px solid ${COLORS.line};
+          font-size: 13px;
+          font-weight: 900;
+        }
+
+        .changeSpaceButton {
+          cursor: pointer;
+        }
+
+        .spaceGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 14px;
+        }
+
+        .spaceCard {
+          border: 1px solid ${COLORS.line};
+          border-radius: 24px;
+          background: rgba(255, 255, 255, 0.045);
+          padding: 10px;
+          color: ${COLORS.white};
+          text-align: left;
+          cursor: pointer;
+          overflow: hidden;
+        }
+
+        .spaceCardActive {
+          border-color: rgba(238, 224, 197, 0.52);
+          background: rgba(238, 224, 197, 0.09);
+        }
+
+        .spaceThumb {
+          width: 100%;
+          aspect-ratio: 1536 / 1024;
+          border-radius: 18px;
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .spaceThumb img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .spaceThumbEmpty {
+          height: 100%;
+          display: grid;
+          place-items: center;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .spaceInfo {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 4px 4px;
+        }
+
+        .spaceName {
+          color: ${COLORS.cream};
+          font-size: 17px;
+          font-weight: 900;
+          margin-bottom: 5px;
+        }
+
+        .spaceDesc {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.5;
+          word-break: keep-all;
+        }
+
+        .spaceGoBadge {
+          flex-shrink: 0;
+          border-radius: 999px;
+          padding: 6px 10px;
+          background: rgba(238, 224, 197, 0.12);
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .previewViewport {
+          position: relative;
+          overflow: hidden;
+          border-radius: 26px;
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.04);
+          min-height: 260px;
+          width: 100%;
+          isolation: isolate;
+        }
+
+        .sceneStage {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          border-radius: 26px;
+          background: transparent;
+        }
+
+        .maskedFilmLayer {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          background-position: center;
+          background-repeat: repeat;
+          pointer-events: none;
+
+          -webkit-mask-repeat: no-repeat;
+          -webkit-mask-position: center;
+          -webkit-mask-size: 100% 100%;
+
+          mask-repeat: no-repeat;
+          mask-position: center;
+          mask-size: 100% 100%;
+        }
+
+        .sceneBaseImage,
+        .sceneOverlayImage {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: fill;
+          object-position: center;
+          pointer-events: none;
+          display: block;
+        }
+
+        .sceneBaseImage {
+          z-index: 1;
+        }
+
+        .sceneOverlayImage {
+          z-index: 10;
+        }
+
+        .emptyPreviewWrap {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 22px;
+        }
+
+        .emptyPreviewBox {
+          width: min(440px, 100%);
+          border-radius: 24px;
+          padding: 18px;
+          background: rgba(238, 224, 197, 0.1);
+          border: 1px solid ${COLORS.line};
+          box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+          min-height: 220px;
+          display: flex;
+          align-items: flex-end;
+        }
+
+        .emptyPreviewInner {
+          border-radius: 18px;
+          padding: 14px 16px;
+          background: rgba(5, 2, 59, 0.82);
+          color: ${COLORS.white};
+          backdrop-filter: blur(8px);
+        }
+
+        .zoneApplyGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 14px;
+        }
+
+        .zoneApplyButton {
+          border: 1px solid ${COLORS.line};
+          border-radius: 20px;
+          padding: 13px 12px;
+          background: rgba(255, 255, 255, 0.05);
+          color: ${COLORS.white};
+          cursor: pointer;
+          display: grid;
+          gap: 6px;
+          text-align: left;
+          min-height: 76px;
+        }
+
+        .zoneApplyButtonActive {
+          border-color: rgba(238, 224, 197, 0.62);
+          background: rgba(238, 224, 197, 0.14);
+        }
+
+        .zoneApplyButton span {
+          color: ${COLORS.cream};
+          font-size: 14px;
+          font-weight: 900;
+        }
+
+        .zoneApplyButton strong {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.35;
+          font-weight: 800;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+
+        .applyActionRow {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+
+        .smallActionButton {
+          border-radius: 12px;
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          font-size: 13px;
+          font-weight: 800;
+          padding: 9px 12px;
+          cursor: pointer;
+        }
+
+        .bottomStepNav {
+          position: fixed;
+          left: 50%;
+          bottom: 16px;
+          transform: translateX(-50%);
+          z-index: 60;
+          width: min(420px, calc(100% - 28px));
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          padding: 8px;
+          border-radius: 22px;
+          background: rgba(7, 5, 58, 0.88);
+          border: 1px solid ${COLORS.line};
+          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
+          backdrop-filter: blur(14px);
+        }
+
+        .bottomStepNav button {
+          border: 1px solid transparent;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          color: ${COLORS.soft};
+          padding: 12px 10px;
+          font-size: 14px;
+          font-weight: 900;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+        }
+
+        .bottomStepNav button span {
+          display: inline-grid;
+          place-items: center;
+          width: 20px;
+          height: 20px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+          font-size: 12px;
+        }
+
+        .bottomStepNav .bottomStepButtonActive {
+          border-color: rgba(238, 224, 197, 0.58);
+          background: rgba(238, 224, 197, 0.16);
+          color: ${COLORS.cream};
+        }
+
+        .sheetOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          background: rgba(0, 0, 0, 0.46);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding: 14px;
+        }
+
+        .filmSheet {
+          width: min(760px, 100%);
+          max-height: min(78vh, 760px);
+          overflow: hidden;
+          border-radius: 28px;
+          background: rgba(8, 5, 62, 0.98);
+          border: 1px solid rgba(238, 224, 197, 0.22);
+          box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.45);
+          padding: 14px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .sheetHandle {
+          width: 44px;
+          height: 5px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.28);
+          margin: 0 auto 12px;
+        }
+
+        .sheetHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .sheetHeader h3 {
+          margin: 0;
+          font-size: 22px;
+          letter-spacing: -0.03em;
+        }
+
+        .sheetHeader p {
+          margin: 6px 0 0;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.45;
+        }
+
+        .sheetCloseButton {
+          flex-shrink: 0;
+          border: 1px solid ${COLORS.line};
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          padding: 9px 12px;
+          font-size: 13px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .sheetSearchForm {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+
+        .searchInput {
+          min-width: 0;
+          flex: 1;
+          border-radius: 16px;
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          padding: 12px 13px;
+          font-size: 15px;
+          outline: none;
+        }
+
+        .searchInput::placeholder {
+          color: rgba(255, 255, 255, 0.42);
+        }
+
+        .searchButton {
+          border: none;
+          border-radius: 16px;
+          padding: 0 15px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 14px;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+          min-height: 46px;
+        }
+
+        .sheetFilmGrid {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          padding: 2px 2px 8px;
+        }
+
+        .sheetFilmItem {
+          border: 1px solid ${COLORS.line};
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.045);
+          color: ${COLORS.white};
+          padding: 8px;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .sheetFilmItemActive {
+          border-color: rgba(238, 224, 197, 0.6);
+          background: rgba(238, 224, 197, 0.14);
+        }
+
+        .sheetFilmThumb {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 13px;
+          overflow: hidden;
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.06);
+          margin-bottom: 8px;
+        }
+
+        .sheetFilmThumb img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+        }
+
+        .sheetFilmName {
+          color: ${COLORS.cream};
+          font-size: 12px;
+          line-height: 1.28;
+          font-weight: 900;
+          min-height: 31px;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          word-break: keep-all;
+        }
+
+        .sheetFilmMeta {
+          color: ${COLORS.soft};
+          font-size: 11px;
+          line-height: 1.3;
+          margin-top: 4px;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .emptyFilmBox {
+          border-radius: 18px;
+          padding: 18px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid ${COLORS.line};
+          color: ${COLORS.soft};
+          font-size: 14px;
+          line-height: 1.7;
+        }
+
+        @media (max-width: 640px) {
+          .pageWrap {
+            padding-bottom: 86px;
+          }
+
+          .pageInner {
+            padding: 8px 10px 24px;
+          }
+
+          .backButton {
+            margin: 8px 0 8px 10px;
+            padding: 9px 13px;
+            font-size: 13px;
+            top: 8px;
+          }
+
+          .heroCard {
+            border-radius: 22px;
+            padding: 12px;
+            margin-bottom: 10px;
+          }
+
+          .stepBadge {
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+          }
+
+          .pageTitle {
+            font-size: 25px;
+          }
+
+          .heroText {
+            font-size: 13px;
+            line-height: 1.55;
+            margin-top: 8px;
+          }
+
+          .linkCard {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .spaceSelectCard,
+          .applyCard {
+            border-radius: 22px;
+            padding: 12px;
+          }
+
+          .sectionHeader,
+          .applyTopRow {
+            margin-bottom: 10px;
+          }
+
+          .sectionTitle,
+          .spaceTitle {
+            font-size: 22px;
+          }
+
+          .spaceCount,
+          .changeSpaceButton {
+            font-size: 12px;
+            padding: 8px 10px;
+          }
+
+          .spaceGrid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+
+          .spaceCard {
+            border-radius: 20px;
+            padding: 8px;
+          }
+
+          .spaceThumb {
+            border-radius: 16px;
+          }
+
+          .spaceName {
+            font-size: 16px;
+          }
+
+          .previewViewport {
+            border-radius: 20px;
+            min-height: 0;
+          }
+
+          .sceneStage {
+            border-radius: 20px;
+          }
+
+          .zoneApplyGrid {
+            gap: 7px;
+            margin-top: 10px;
+          }
+
+          .zoneApplyButton {
+            border-radius: 16px;
+            padding: 10px 7px;
+            min-height: 64px;
+            text-align: center;
+          }
+
+          .zoneApplyButton span {
+            font-size: 13px;
+          }
+
+          .zoneApplyButton strong {
+            font-size: 10.5px;
+            -webkit-line-clamp: 2;
+          }
+
+          .applyActionRow {
+            gap: 7px;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+          }
+
+          .applyActionRow .smallActionButton {
+            white-space: nowrap;
+            font-size: 12px;
+            padding: 8px 10px;
+          }
+
+          .bottomStepNav {
+            bottom: 10px;
+            width: calc(100% - 22px);
+            border-radius: 20px;
+            padding: 7px;
+          }
+
+          .bottomStepNav button {
+            border-radius: 15px;
+            padding: 11px 8px;
+            font-size: 13px;
+          }
+
+          .sheetOverlay {
+            padding: 8px;
+          }
+
+          .filmSheet {
+            max-height: 82vh;
+            border-radius: 24px;
+            padding: 11px;
+          }
+
+          .sheetHeader h3 {
+            font-size: 19px;
+          }
+
+          .sheetHeader p {
+            font-size: 12px;
+          }
+
+          .sheetSearchForm {
+            gap: 7px;
+          }
+
+          .searchInput {
+            height: 42px;
+            border-radius: 14px;
+            padding: 9px 11px;
+            font-size: 14px;
+          }
+
+          .searchButton {
+            min-height: 42px;
+            border-radius: 14px;
+            padding: 0 13px;
+          }
+
+          .sheetFilmGrid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .sheetFilmItem {
+            border-radius: 16px;
+            padding: 7px;
+          }
+
+          .sheetFilmThumb {
+            border-radius: 12px;
+            margin-bottom: 6px;
+          }
+
+          .sheetFilmName {
+            font-size: 11px;
+            min-height: 29px;
+          }
+
+          .sheetFilmMeta {
+            font-size: 10px;
+          }
+        }
+      `}</style>
+    </main>
+  );
+}
+
+function noticeStyle(type: "default" | "warning" | "danger" = "default"): CSSProperties {
+  const background =
+    type === "danger"
+      ? "rgba(120,20,20,0.20)"
+      : type === "warning"
+        ? "rgba(238,224,197,0.10)"
+        : "rgba(255,255,255,0.05)";
+
+  const color = type === "danger" ? "#ffd6d6" : COLORS.white;
+
+  return {
+    borderRadius: 24,
+    padding: "22px 20px",
+    background,
+    border: `1px solid ${COLORS.line}`,
+    color,
+    lineHeight: 1.7,
+    boxShadow: "0 18px 48px rgba(0,0,0,0.18)",
+  };
+}

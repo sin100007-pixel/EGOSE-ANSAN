@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import BottomQuickNav from "@/app/components/BottomQuickNav";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 import EgoseBannerCarousel from "@/app/components/EgoseBannerCarousel";
+import { isSimulatorAllowedUser } from "@/app/simulator/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export default async function DashboardPage() {
   });
 
   if (!user) redirect("/api/logout");
+
+  const canUseSimulator = await isSimulatorAllowedUser(name);
 
   const COLORS = {
     bgTop: "#0F0C2E",
@@ -193,6 +196,174 @@ export default async function DashboardPage() {
             </div>
           </div>
         </section>
+
+        {canUseSimulator ? (
+        <section
+          style={{
+            ...panelStyle,
+            padding: 14,
+            marginBottom: 18,
+          }}
+        >
+          <a
+            href="/simulator"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              textDecoration: "none",
+              borderRadius: 20,
+              padding: "15px 16px",
+              background: "rgba(238,224,197,0.10)",
+              border: `1px solid ${COLORS.lineStrong}`,
+              color: COLORS.white,
+            }}
+          >
+            <span>
+              <span
+                style={{
+                  display: "block",
+                  color: COLORS.white,
+                  fontSize: 16,
+                  fontWeight: 900,
+                  lineHeight: 1.25,
+                  marginBottom: 4,
+                }}
+              >
+                필름시뮬레이터 테스트
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  color: COLORS.textSoft,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  lineHeight: 1.45,
+                }}
+              >
+                공간/필름 연결 1단계 확인용
+              </span>
+            </span>
+            <span
+              aria-hidden="true"
+              style={{
+                color: "#EEE0C5",
+                fontSize: 22,
+                fontWeight: 900,
+              }}
+            >
+              →
+            </span>
+          </a>
+
+          <a
+            href="/simulator/links/new"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              textDecoration: "none",
+              borderRadius: 20,
+              padding: "15px 16px",
+              marginTop: 10,
+              background: "rgba(238,224,197,0.10)",
+              border: `1px solid ${COLORS.lineStrong}`,
+              color: COLORS.white,
+            }}
+          >
+            <span>
+              <span
+                style={{
+                  display: "block",
+                  color: COLORS.white,
+                  fontSize: 16,
+                  fontWeight: 900,
+                  lineHeight: 1.25,
+                  marginBottom: 4,
+                }}
+              >
+                고객용 시뮬레이션 링크 만들기
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  color: COLORS.textSoft,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  lineHeight: 1.45,
+                }}
+              >
+                7일짜리 링크 생성 / 공간·필름 제한
+              </span>
+            </span>
+            <span
+              aria-hidden="true"
+              style={{
+                color: "#EEE0C5",
+                fontSize: 22,
+                fontWeight: 900,
+              }}
+            >
+              →
+            </span>
+          </a>
+
+          <a
+            href="/simulator/links/manage"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              textDecoration: "none",
+              borderRadius: 20,
+              padding: "15px 16px",
+              marginTop: 10,
+              background: "rgba(238,224,197,0.10)",
+              border: `1px solid ${COLORS.lineStrong}`,
+              color: COLORS.white,
+            }}
+          >
+            <span>
+              <span
+                style={{
+                  display: "block",
+                  color: COLORS.white,
+                  fontSize: 16,
+                  fontWeight: 900,
+                  lineHeight: 1.25,
+                  marginBottom: 4,
+                }}
+              >
+                고객용 시뮬레이션 링크 관리
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  color: COLORS.textSoft,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  lineHeight: 1.45,
+                }}
+              >
+                보낸 링크 확인 / 복사 / 삭제
+              </span>
+            </span>
+            <span
+              aria-hidden="true"
+              style={{
+                color: "#EEE0C5",
+                fontSize: 22,
+                fontWeight: 900,
+              }}
+            >
+              →
+            </span>
+          </a>
+        </section>
+        ) : null}
 
         <footer
           style={{
