@@ -165,7 +165,7 @@ function resolveSpaces(
 }
 
 async function readAllowedSpaceIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   linkId: string
 ) {
   const { data, error } = await supabase
@@ -184,7 +184,7 @@ async function readAllowedSpaceIds(
 }
 
 async function readAllowedProductIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   linkId: string
 ) {
   const { data, error } = await supabase

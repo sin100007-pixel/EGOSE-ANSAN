@@ -178,7 +178,7 @@ function isExpired(expiresAt: string) {
 }
 
 async function readAllowedProductIds(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   linkId: string
 ) {
   const { data, error } = await supabase

@@ -95,7 +95,7 @@ function isExpired(expiresAt: string) {
 }
 
 async function readCountMap(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   tableName: "simulator_link_spaces" | "simulator_link_films",
   linkIds: string[]
 ) {
