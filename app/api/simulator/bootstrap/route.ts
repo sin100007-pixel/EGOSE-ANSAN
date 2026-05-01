@@ -45,6 +45,31 @@ type SimulatorSpaceRow = {
   sort_order: number | null;
 };
 
+type ContractorProfileRow = {
+  id: string;
+  installer_name: string | null;
+  display_name: string;
+  logo_url: string | null;
+  greeting: string | null;
+  phone: string | null;
+  kakao_url: string | null;
+  brand_color: string | null;
+};
+
+type ContractorPortfolioPhotoRow = {
+  id: string;
+  contractor_profile_id: string;
+  image_url: string;
+  title: string | null;
+  description: string | null;
+  sort_order: number | null;
+  is_representative: boolean | null;
+};
+
+type ContractorProfilePayload = ContractorProfileRow & {
+  portfolio_photos: ContractorPortfolioPhotoRow[];
+};
+
 const PRODUCT_SELECT = `
   id,
   manufacturer,
@@ -261,6 +286,53 @@ async function readPresetProductIds(
     .filter((value: number) => Number.isFinite(value));
 }
 
+async function readContractorProfile(
+  supabase: any,
+  installerName: string | null | undefined
+): Promise<ContractorProfilePayload | null> {
+  const normalizedInstallerName = String(installerName || "").trim();
+
+  if (!normalizedInstallerName) {
+    return null;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("contractor_profiles")
+    .select("id, installer_name, display_name, logo_url, greeting, phone, kakao_url, brand_color")
+    .eq("installer_name", normalizedInstallerName)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("[simulator/bootstrap] contractor profile error:", profileError);
+    return null;
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  const typedProfile = profile as ContractorProfileRow;
+
+  const { data: photos, error: photosError } = await supabase
+    .from("contractor_portfolio_photos")
+    .select("id, contractor_profile_id, image_url, title, description, sort_order, is_representative")
+    .eq("contractor_profile_id", typedProfile.id)
+    .eq("is_visible", true)
+    .order("is_representative", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .limit(6);
+
+  if (photosError) {
+    console.error("[simulator/bootstrap] contractor photos error:", photosError);
+  }
+
+  return {
+    ...typedProfile,
+    portfolio_photos: ((photos || []) as ContractorPortfolioPhotoRow[]),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
@@ -320,6 +392,7 @@ export async function GET(req: NextRequest) {
       expires_at: string;
       film_scope: "all" | "custom" | "preset";
     } | null = null;
+    let contractorProfile: ContractorProfilePayload | null = null;
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
@@ -386,6 +459,8 @@ export async function GET(req: NextRequest) {
         film_scope: filmScope,
       };
 
+      contractorProfile = await readContractorProfile(supabase, typedLink.installer_name);
+
       allowedSpaceIds = await readAllowedSpaceIds(supabase, typedLink.id);
 
       if (filmScope === "custom") {
@@ -410,6 +485,7 @@ export async function GET(req: NextRequest) {
             expired: false,
             message: "이 링크에 연결된 공간이 없습니다.",
             link: linkInfo,
+            contractor: contractorProfile,
             spaces: [],
             films: [],
           },
@@ -441,6 +517,7 @@ export async function GET(req: NextRequest) {
           setupNeeded: false,
           expired: false,
           link: linkInfo,
+          contractor: contractorProfile,
           spaces: resolvedSpaces,
           films: [],
         },
@@ -475,6 +552,7 @@ export async function GET(req: NextRequest) {
         setupNeeded: false,
         expired: false,
         link: linkInfo,
+        contractor: contractorProfile,
         spaces: resolvedSpaces,
         films: ((products || []) as ProductRow[]).map((item: ProductRow) =>
           normalizeFilm(item)

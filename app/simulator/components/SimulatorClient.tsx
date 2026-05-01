@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import type { SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
+import type { ContractorProfile, SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
 
 type SimulatorClientProps = {
   token?: string;
@@ -18,6 +18,7 @@ type BootstrapState = {
   spaces: SimulatorSpace[];
   films: SimulatorFilm[];
   link: SimulatorLinkInfo | null;
+  contractor: ContractorProfile | null;
 };
 
 type MaskZoneDefinition = {
@@ -27,7 +28,7 @@ type MaskZoneDefinition = {
   patternSize?: number;
 };
 
-type SimulatorStep = "space" | "apply" | "decision";
+type SimulatorStep = "intro" | "space" | "apply" | "decision";
 
 const COLORS = {
   bg: "#05023B",
@@ -202,6 +203,16 @@ function getFilmThumbUrl(film: SimulatorFilm) {
   return film.thumb_url || film.image_url || "";
 }
 
+function getPhoneHref(phone: string | null | undefined) {
+  const cleaned = String(phone || "").replace(/[^\d+]/g, "");
+  return cleaned ? `tel:${cleaned}` : "";
+}
+
+function getKakaoHref(kakaoUrl: string | null | undefined) {
+  const value = String(kakaoUrl || "").trim();
+  return value || "";
+}
+
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const router = useRouter();
   const filmSearchSeqRef = useRef(0);
@@ -218,6 +229,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     spaces: [],
     films: [],
     link: null,
+    contractor: null,
   });
 
   const [step, setStep] = useState<SimulatorStep>("space");
@@ -291,10 +303,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           spaces: nextSpaces,
           films: nextFilms,
           link: json.link || null,
+          contractor: json.contractor || null,
         });
 
         if (nextSpaces[0]?.id) {
           setSelectedSpaceId(nextSpaces[0].id);
+        }
+
+        if (mode === "customer" && json.contractor) {
+          setStep("intro");
+        } else {
+          setStep("space");
         }
 
         if (nextFilms[0]) {
@@ -311,6 +330,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           spaces: [],
           films: [],
           link: null,
+          contractor: null,
         });
       }
     };
@@ -320,7 +340,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [mode, token]);
 
   useEffect(() => {
     if (mode !== "installer") return;
@@ -646,6 +666,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터 공사중";
+  const hasIntroStep = mode === "customer" && Boolean(state.contractor);
+  const contractorName = state.contractor?.display_name || state.link?.installer_name || "시공자";
+  const contractorPhotos = state.contractor?.portfolio_photos || [];
+  const phoneHref = getPhoneHref(state.contractor?.phone);
+  const kakaoHref = getKakaoHref(state.contractor?.kakao_url);
+
+  const stepBadgeText = hasIntroStep
+    ? step === "intro"
+      ? "1단계 시공자 소개"
+      : step === "space"
+        ? "2단계 공간 선택"
+        : step === "apply"
+          ? "3단계 색상 적용"
+          : "4단계 결정 확정"
+    : step === "space"
+      ? "1단계 공간 선택"
+      : step === "apply"
+        ? "2단계 색상 적용"
+        : "3단계 결정 확정";
+
+  const heroDescription = step === "intro"
+    ? "시공자 소개와 대표 시공사진을 확인한 뒤 시뮬레이션을 시작하세요."
+    : step === "space"
+      ? "시뮬레이션할 공간을 먼저 선택해주세요."
+      : step === "apply"
+        ? "이미지 아래에 구역 버튼을 눌러 필름을 적용하세요."
+        : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요.";
 
   return (
     <main
@@ -687,34 +734,18 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           <section className="heroCard">
             <div className="heroTopRow">
               <div style={{ minWidth: 0 }}>
-                <div className="stepBadge">
-                  {step === "space"
-                    ? "1단계 공간 선택"
-                    : step === "apply"
-                      ? "2단계 색상 적용"
-                      : "3단계 결정 확정"}
-                </div>
+                <div className="stepBadge">{stepBadgeText}</div>
 
                 <h1 className="pageTitle">{mainTitle}</h1>
 
-                <p className="heroText">
-                  {step === "space"
-                    ? "시뮬레이션할 공간을 먼저 선택해주세요."
-                    : step === "apply"
-                      ? "이미지 아래에 구역 버튼을 눌러 필름을 적용하세요."
-                      : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요."}
-                </p>
+                <p className="heroText">{heroDescription}</p>
               </div>
 
               {state.link ? (
-                <div className="linkCard">
-                  <div style={{ color: COLORS.cream, fontSize: 13, fontWeight: 900, marginBottom: 8 }}>
-                    고객용 링크
-                  </div>
+                <div className="linkCard linkCardCompact">
                   <div style={{ color: COLORS.white, fontSize: 14, lineHeight: 1.65 }}>
-                    {state.link.installer_name ? <div>{state.link.installer_name}님이 보낸 시뮬레이션</div> : null}
                     {state.link.customer_name ? <div>고객명: {state.link.customer_name}</div> : null}
-                    <div>만료: {formatDateTime(state.link.expires_at)}</div>
+                    <div>시뮬레이션 만료: {formatDateTime(state.link.expires_at)}</div>
                   </div>
                 </div>
               ) : null}
@@ -745,6 +776,72 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               >
                 Supabase SQL Editor에서 <b>supabase/02_simulator_schema.sql</b> 파일 내용을 먼저 실행하면 됩니다.
               </div>
+            </section>
+          ) : step === "intro" && hasIntroStep ? (
+            <section className="contractorIntroCard">
+              <div className="contractorIntroTop">
+                <div className="contractorLogoBox">
+                  {state.contractor?.logo_url ? (
+                    <img src={state.contractor.logo_url} alt={`${contractorName} 로고`} />
+                  ) : (
+                    <span>{contractorName.slice(0, 1)}</span>
+                  )}
+                </div>
+
+                <div className="contractorIntroTextBox">
+                  <div className="sectionLabel">시공자 소개</div>
+                  <h2>{contractorName}님이 보내신 필름 시뮬레이터입니다.</h2>
+                  {state.contractor?.greeting ? (
+                    <p>{state.contractor.greeting}</p>
+                  ) : (
+                    <p>시공 전 원하는 필름을 미리 적용해보시고 편하게 문의해주세요.</p>
+                  )}
+
+                  <div className="contractorContactRow">
+                    {state.contractor?.phone ? (
+                      <a href={phoneHref} className="contractorContactButton">
+                        전화 {state.contractor.phone}
+                      </a>
+                    ) : null}
+
+                    {kakaoHref ? (
+                      <a href={kakaoHref} target="_blank" rel="noopener noreferrer" className="contractorContactButton">
+                        카카오 문의
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {contractorPhotos.length > 0 ? (
+                <div className="portfolioPreviewBlock">
+                  <div className="portfolioHeaderRow">
+                    <div>
+                      <div className="sectionLabel">대표 시공사진</div>
+                      <h3>실제 시공 사례를 확인해보세요.</h3>
+                    </div>
+                    <span>{contractorPhotos.length}장</span>
+                  </div>
+
+                  <div className="portfolioPhotoGrid">
+                    {contractorPhotos.slice(0, 3).map((photo) => (
+                      <figure key={photo.id} className="portfolioPhotoCard">
+                        <img src={photo.image_url} alt={photo.title || "대표 시공사진"} loading="lazy" />
+                        {(photo.title || photo.description) ? (
+                          <figcaption>
+                            {photo.title ? <strong>{photo.title}</strong> : null}
+                            {photo.description ? <span>{photo.description}</span> : null}
+                          </figcaption>
+                        ) : null}
+                      </figure>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <button type="button" onClick={() => setStep("space")} className="introStartButton">
+                시뮬레이션 시작하기
+              </button>
             </section>
           ) : step === "space" ? (
             <section className="spaceSelectCard">
@@ -1010,14 +1107,25 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           )}
         </div>
 
-        <nav className="bottomStepNav" aria-label="시뮬레이터 단계 이동">
+        <nav className={`bottomStepNav ${hasIntroStep ? "bottomStepNavFour" : ""}`} aria-label="시뮬레이터 단계 이동">
+          {hasIntroStep ? (
+            <button
+              type="button"
+              onClick={() => setStep("intro")}
+              className={step === "intro" ? "bottomStepButtonActive" : ""}
+            >
+              <span>1</span>
+              소개
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setStep("space")}
             className={step === "space" ? "bottomStepButtonActive" : ""}
           >
-            <span>1</span>
-            공간 선택
+            <span>{hasIntroStep ? 2 : 1}</span>
+            공간선택
           </button>
 
           <button
@@ -1025,8 +1133,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             onClick={goApplyStep}
             className={step === "apply" ? "bottomStepButtonActive" : ""}
           >
-            <span>2</span>
-            색상 적용
+            <span>{hasIntroStep ? 3 : 2}</span>
+            색상적용
           </button>
 
           <button
@@ -1034,8 +1142,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             onClick={() => setStep("decision")}
             className={step === "decision" ? "bottomStepButtonActive" : ""}
           >
-            <span>3</span>
-            결정 확정
+            <span>{hasIntroStep ? 4 : 3}</span>
+            결정확정
           </button>
         </nav>
 
@@ -1342,6 +1450,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .heroCard,
+        .contractorIntroCard,
         .spaceSelectCard,
         .applyCard,
         .decisionCard {
@@ -1402,11 +1511,195 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           border: 1px solid ${COLORS.line};
         }
 
+        .linkCardCompact {
+          display: inline-flex;
+          align-items: center;
+          min-height: 74px;
+        }
+
+        .contractorIntroCard,
         .spaceSelectCard,
         .applyCard,
         .decisionCard {
           border-radius: 30px;
           padding: 18px;
+        }
+
+        .contractorIntroCard {
+          border: 1px solid ${COLORS.line};
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
+        }
+
+        .contractorIntroTop {
+          display: grid;
+          grid-template-columns: 116px minmax(0, 1fr);
+          gap: 16px;
+          align-items: start;
+        }
+
+        .contractorLogoBox {
+          width: 116px;
+          aspect-ratio: 1;
+          border-radius: 28px;
+          overflow: hidden;
+          display: grid;
+          place-items: center;
+          background: rgba(238, 224, 197, 0.12);
+          border: 1px solid rgba(238, 224, 197, 0.22);
+          color: ${COLORS.cream};
+          font-size: 42px;
+          font-weight: 1000;
+        }
+
+        .contractorLogoBox img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .contractorIntroTextBox h2 {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: clamp(25px, 4vw, 38px);
+          line-height: 1.16;
+          letter-spacing: -0.04em;
+          word-break: keep-all;
+        }
+
+        .contractorIntroTextBox p {
+          margin: 12px 0 0;
+          color: ${COLORS.soft};
+          font-size: 15px;
+          line-height: 1.72;
+          white-space: pre-line;
+          word-break: keep-all;
+        }
+
+        .contractorContactRow {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 14px;
+        }
+
+        .contractorContactButton {
+          min-height: 42px;
+          border-radius: 999px;
+          padding: 0 15px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 1000;
+        }
+
+        .portfolioPreviewBlock {
+          margin-top: 18px;
+          border-radius: 24px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .portfolioHeaderRow {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .portfolioHeaderRow h3 {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: 20px;
+          letter-spacing: -0.03em;
+        }
+
+        .portfolioHeaderRow span {
+          flex-shrink: 0;
+          border-radius: 999px;
+          padding: 7px 10px;
+          background: rgba(238, 224, 197, 0.1);
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .portfolioPhotoGrid {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr 1fr;
+          gap: 10px;
+        }
+
+        .portfolioPhotoCard {
+          position: relative;
+          min-height: 180px;
+          margin: 0;
+          border-radius: 20px;
+          overflow: hidden;
+          background: rgba(238, 224, 197, 0.08);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .portfolioPhotoCard:first-child {
+          min-height: 260px;
+        }
+
+        .portfolioPhotoCard img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          position: absolute;
+          inset: 0;
+        }
+
+        .portfolioPhotoCard figcaption {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 10px;
+          border-radius: 14px;
+          padding: 9px 10px;
+          background: rgba(5, 2, 59, 0.76);
+          backdrop-filter: blur(8px);
+          display: grid;
+          gap: 3px;
+        }
+
+        .portfolioPhotoCard figcaption strong {
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 1000;
+        }
+
+        .portfolioPhotoCard figcaption span {
+          color: ${COLORS.white};
+          font-size: 12px;
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .introStartButton {
+          width: 100%;
+          min-height: 54px;
+          border: none;
+          border-radius: 18px;
+          margin-top: 16px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 17px;
+          font-weight: 1000;
+          cursor: pointer;
         }
 
         .sectionHeader,
@@ -1891,29 +2184,39 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           backdrop-filter: blur(14px);
         }
 
+        .bottomStepNavFour {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          width: min(500px, calc(100% - 28px));
+        }
+
         .bottomStepNav button {
           border: 1px solid transparent;
           border-radius: 16px;
           background: rgba(255, 255, 255, 0.05);
           color: ${COLORS.soft};
-          padding: 12px 10px;
-          font-size: 14px;
+          padding: 12px 8px;
+          font-size: 13px;
           font-weight: 900;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 7px;
+          gap: 5px;
+          min-width: 0;
+          white-space: nowrap;
+          word-break: keep-all;
+          line-height: 1;
         }
 
         .bottomStepNav button span {
           display: inline-grid;
           place-items: center;
-          width: 20px;
-          height: 20px;
+          width: 18px;
+          height: 18px;
+          flex: 0 0 18px;
           border-radius: 999px;
           background: rgba(255, 255, 255, 0.08);
-          font-size: 12px;
+          font-size: 11px;
         }
 
         .bottomStepNav .bottomStepButtonActive {
@@ -2160,6 +2463,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           overflow-y: auto;
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
+          align-content: start;
+          align-items: start;
+          grid-auto-rows: max-content;
           gap: 10px;
           padding: 2px 2px 8px;
         }
@@ -2172,6 +2478,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           padding: 8px;
           text-align: left;
           cursor: pointer;
+          align-self: start;
+          height: auto;
         }
 
         .sheetFilmItemActive {
@@ -2235,6 +2543,30 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         @media (max-width: 640px) {
+          .contractorIntroTop {
+            grid-template-columns: 1fr;
+          }
+
+          .contractorLogoBox {
+            width: 86px;
+            border-radius: 22px;
+          }
+
+          .portfolioPhotoGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .portfolioPhotoCard,
+          .portfolioPhotoCard:first-child {
+            min-height: 210px;
+          }
+
+          .bottomStepNavFour {
+            width: min(500px, calc(100% - 10px));
+            gap: 4px;
+            padding: 6px;
+          }
+
           .pageWrap {
             padding-bottom: 86px;
           }
@@ -2465,9 +2797,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
           .bottomStepNav button {
             border-radius: 15px;
-            padding: 10px 5px;
-            font-size: 12px;
-            gap: 5px;
+            padding: 10px 4px;
+            font-size: 11px;
+            gap: 4px;
+          }
+
+          .bottomStepNav button span {
+            width: 17px;
+            height: 17px;
+            flex-basis: 17px;
+            font-size: 10px;
           }
 
           .sheetOverlay {

@@ -1,7 +1,7 @@
 "use client";
 
 type SimulatorLinkTabsProps = {
-  active: "new" | "manage" | "presets";
+  active: "new" | "manage" | "presets" | "settings";
 };
 
 const COLORS = {
@@ -23,24 +23,30 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
       <a href="/simulator/links/manage" className={active === "manage" ? "active" : ""}>
         링크 관리
       </a>
+      <a href="/simulator/settings" className={active === "settings" ? "active" : ""}>
+        소개 설정
+      </a>
 
       <style jsx>{`
         .linkTabs {
           position: fixed;
           left: 50%;
-          bottom: 14px;
+          bottom: calc(12px + env(safe-area-inset-bottom));
           transform: translateX(-50%);
-          z-index: 80;
-          width: min(420px, calc(100% - 28px));
+          z-index: 160;
+          width: min(520px, calc(100vw - 20px));
+          max-width: calc(100vw - 20px);
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 8px;
           padding: 8px;
           border-radius: 22px;
-          background: rgba(7, 5, 58, 0.9);
+          background: rgba(7, 5, 58, 0.94);
           border: 1px solid ${COLORS.line};
           box-shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
           backdrop-filter: blur(14px);
+          box-sizing: border-box;
+          overflow: hidden;
         }
 
         .linkTabs a {
@@ -49,7 +55,8 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
           border-radius: 16px;
           background: rgba(255, 255, 255, 0.05);
           color: ${COLORS.soft};
-          padding: 13px 10px;
+          min-width: 0;
+          padding: 13px 8px;
           font-size: 14px;
           font-weight: 900;
           text-align: center;
@@ -63,16 +70,19 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
 
         @media (max-width: 640px) {
           .linkTabs {
-            bottom: 10px;
-            width: calc(100% - 22px);
+            bottom: calc(10px + env(safe-area-inset-bottom));
+            width: calc(100vw - 14px);
+            max-width: calc(100vw - 14px);
             border-radius: 20px;
-            padding: 7px;
+            padding: 6px;
+            gap: 5px;
           }
 
           .linkTabs a {
             border-radius: 15px;
-            padding: 12px 8px;
-            font-size: 13px;
+            padding: 11px 4px;
+            font-size: 12px;
+            white-space: nowrap;
           }
         }
       `}</style>
