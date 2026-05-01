@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import type { SimulatorFilm } from "../types";
 
@@ -18,6 +18,15 @@ type PresetDetail = PresetSummary & {
   films: SimulatorFilm[];
 };
 
+type SearchOptions = {
+  query?: string;
+  silent?: boolean;
+  paletteMain?: string;
+  paletteSub?: string;
+  paletteColors?: string[];
+  updateFacets?: boolean;
+};
+
 const COLORS = {
   bg: "#05023B",
   panel: "rgba(12,10,72,0.74)",
@@ -27,6 +36,42 @@ const COLORS = {
   line: "rgba(238,224,197,0.16)",
   soft: "rgba(255,255,255,0.70)",
   white: "#FFFFFF",
+};
+
+const DEFAULT_PALETTE_MAIN_OPTIONS = ["솔리드", "우드", "스톤", "메탈", "페브릭레더"];
+
+const DEFAULT_PALETTE_COLOR_OPTIONS = [
+  "흰색",
+  "아이보리",
+  "베이지",
+  "옐로/골드",
+  "연브라운",
+  "브라운",
+  "진브라운",
+  "다크브라운",
+  "검정/차콜",
+  "회색/실버",
+  "블루",
+  "그린",
+  "레드/핑크",
+  "퍼플",
+];
+
+const PALETTE_COLOR_SWATCH: Record<string, string> = {
+  흰색: "#F8F6EF",
+  아이보리: "#EFE2C8",
+  베이지: "#CDBA99",
+  "옐로/골드": "#C9A04D",
+  연브라운: "#B98252",
+  브라운: "#8A5A35",
+  진브라운: "#5A3926",
+  다크브라운: "#3E2A20",
+  "회색/실버": "#9A9A94",
+  "검정/차콜": "#222222",
+  그린: "#6F8A5B",
+  블루: "#3D65B8",
+  "레드/핑크": "#C95E6D",
+  퍼플: "#7A5A9A",
 };
 
 function getFilmName(film: SimulatorFilm) {
@@ -39,6 +84,30 @@ function getFilmCode(film: SimulatorFilm) {
 
 function getFilmThumbUrl(film: SimulatorFilm) {
   return film.thumb_url || film.image_url || "";
+}
+
+function orderPaletteValues(values: string[], preferred: string[]) {
+  const orderMap = new Map(preferred.map((value, index) => [value, index]));
+
+  return [...values].sort((a, b) => {
+    const ai = orderMap.has(a) ? orderMap.get(a)! : 999;
+    const bi = orderMap.has(b) ? orderMap.get(b)! : 999;
+
+    if (ai !== bi) return ai - bi;
+    return a.localeCompare(b, "ko");
+  });
+}
+
+function uniqueClean(values: unknown) {
+  if (!Array.isArray(values)) return [];
+
+  return Array.from(
+    new Set(
+      values
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean)
+    )
+  );
 }
 
 function formatDate(value?: string | null) {
@@ -66,16 +135,29 @@ export default function SimulatorPresetManager() {
 
   const [editingId, setEditingId] = useState("");
   const [presetName, setPresetName] = useState("");
-  const [description, setDescription] = useState("");
 
   const [filmQuery, setFilmQuery] = useState("");
   const [filmLoading, setFilmLoading] = useState(false);
   const [filmSearchResults, setFilmSearchResults] = useState<SimulatorFilm[]>([]);
   const [selectedFilms, setSelectedFilms] = useState<SimulatorFilm[]>([]);
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [selectedPaletteMain, setSelectedPaletteMain] = useState("");
+  const [selectedPaletteSub, setSelectedPaletteSub] = useState("");
+  const [selectedPaletteColors, setSelectedPaletteColors] = useState<string[]>([]);
+  const [paletteMainOptions, setPaletteMainOptions] = useState<string[]>(DEFAULT_PALETTE_MAIN_OPTIONS);
+  const [paletteSubOptions, setPaletteSubOptions] = useState<string[]>([]);
+  const [paletteColorOptions, setPaletteColorOptions] = useState<string[]>(DEFAULT_PALETTE_COLOR_OPTIONS);
+
+  const searchRequestRef = useRef(0);
+
   const selectedFilmIds = useMemo(() => {
     return new Set(selectedFilms.map((film) => film.id));
   }, [selectedFilms]);
+
+  const activePaletteCount = useMemo(() => {
+    return [selectedPaletteMain, selectedPaletteSub].filter(Boolean).length + selectedPaletteColors.length;
+  }, [selectedPaletteMain, selectedPaletteSub, selectedPaletteColors.length]);
 
   const loadPresets = async () => {
     setLoading(true);
@@ -98,13 +180,33 @@ export default function SimulatorPresetManager() {
     }
   };
 
-  useEffect(() => {
-    void loadPresets();
-    void searchFilms("", true);
-  }, []);
+  const updatePaletteFacets = (json: any) => {
+    const mains = uniqueClean(json?.facets?.palette_mains);
+    const subs = uniqueClean(json?.facets?.palette_subs);
+    const colors = uniqueClean(json?.facets?.palette_colors);
 
-  const searchFilms = async (query?: string, silent = false) => {
-    const q = typeof query === "string" ? query.trim() : filmQuery.trim();
+    if (mains.length > 0) {
+      setPaletteMainOptions(orderPaletteValues(mains, DEFAULT_PALETTE_MAIN_OPTIONS));
+    }
+
+    setPaletteSubOptions(subs);
+    setPaletteColorOptions(
+      colors.length > 0
+        ? orderPaletteValues(colors, DEFAULT_PALETTE_COLOR_OPTIONS)
+        : DEFAULT_PALETTE_COLOR_OPTIONS
+    );
+  };
+
+  const searchFilms = async (options: SearchOptions = {}) => {
+    const requestId = searchRequestRef.current + 1;
+    searchRequestRef.current = requestId;
+
+    const q = options.query !== undefined ? options.query.trim() : filmQuery.trim();
+    const paletteMain = options.paletteMain !== undefined ? options.paletteMain : selectedPaletteMain;
+    const paletteSub = options.paletteSub !== undefined ? options.paletteSub : selectedPaletteSub;
+    const paletteColors = options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors;
+    const updateFacets = options.updateFacets === true;
+    const silent = options.silent === true;
 
     if (!silent) {
       setFilmLoading(true);
@@ -114,12 +216,17 @@ export default function SimulatorPresetManager() {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
-      params.set("skip_facets", "1");
+      if (paletteMain) params.set("palette_main", paletteMain);
+      if (paletteSub) params.set("palette_sub", paletteSub);
+      paletteColors.forEach((color) => params.append("palette_color", color));
+      if (!updateFacets) params.set("skip_facets", "1");
 
       const res = await fetch(`/api/simulator/films?${params.toString()}`, {
         cache: "no-store",
       });
       const json = await res.json();
+
+      if (requestId !== searchRequestRef.current) return;
 
       if (!res.ok) {
         if (!silent) setError(json.error || "필름 검색 중 오류가 발생했습니다.");
@@ -127,12 +234,23 @@ export default function SimulatorPresetManager() {
       }
 
       setFilmSearchResults(Array.isArray(json.items) ? json.items : []);
+      if (updateFacets) updatePaletteFacets(json);
     } catch {
-      if (!silent) setError("필름 검색 중 오류가 발생했습니다.");
+      if (requestId === searchRequestRef.current && !silent) {
+        setError("필름 검색 중 오류가 발생했습니다.");
+      }
     } finally {
-      if (!silent) setFilmLoading(false);
+      if (requestId === searchRequestRef.current && !silent) {
+        setFilmLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    void loadPresets();
+    void searchFilms({ query: "", silent: true, updateFacets: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addFilm = (film: SimulatorFilm) => {
     setSelectedFilms((prev) => {
@@ -145,13 +263,72 @@ export default function SimulatorPresetManager() {
     setSelectedFilms((prev) => prev.filter((film) => film.id !== filmId));
   };
 
+  const toggleFilm = (film: SimulatorFilm) => {
+    if (selectedFilmIds.has(film.id)) {
+      removeFilm(film.id);
+      return;
+    }
+
+    addFilm(film);
+  };
+
   const resetForm = () => {
     setEditingId("");
     setPresetName("");
-    setDescription("");
     setSelectedFilms([]);
     setMessage("");
     setError("");
+  };
+
+  const resetPaletteFilters = () => {
+    setSelectedPaletteMain("");
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true });
+  };
+
+  const handlePaletteMainClick = (value: string) => {
+    const nextMain = selectedPaletteMain === value ? "" : value;
+
+    setSelectedPaletteMain(nextMain);
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+
+    void searchFilms({
+      paletteMain: nextMain,
+      paletteSub: "",
+      paletteColors: [],
+      updateFacets: true,
+    });
+  };
+
+  const handlePaletteSubClick = (value: string) => {
+    const nextSub = selectedPaletteSub === value ? "" : value;
+
+    setSelectedPaletteSub(nextSub);
+    setSelectedPaletteColors([]);
+
+    void searchFilms({
+      paletteMain: selectedPaletteMain,
+      paletteSub: nextSub,
+      paletteColors: [],
+      updateFacets: true,
+    });
+  };
+
+  const handlePaletteColorClick = (value: string) => {
+    const nextColors = selectedPaletteColors.includes(value)
+      ? selectedPaletteColors.filter((item) => item !== value)
+      : [...selectedPaletteColors, value];
+
+    setSelectedPaletteColors(nextColors);
+
+    void searchFilms({
+      paletteMain: selectedPaletteMain,
+      paletteSub: selectedPaletteSub,
+      paletteColors: nextColors,
+      updateFacets: false,
+    });
   };
 
   const savePreset = async () => {
@@ -168,7 +345,7 @@ export default function SimulatorPresetManager() {
         body: JSON.stringify({
           id: editingId || undefined,
           name: presetName,
-          description,
+          description: "",
           product_ids: selectedFilms.map((film) => film.id),
         }),
       });
@@ -209,7 +386,6 @@ export default function SimulatorPresetManager() {
       const detail = json.item as PresetDetail;
       setEditingId(detail.id);
       setPresetName(detail.name || "");
-      setDescription(detail.description || "");
       setSelectedFilms(Array.isArray(detail.films) ? detail.films : []);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -220,9 +396,7 @@ export default function SimulatorPresetManager() {
   };
 
   const deletePreset = async (preset: PresetSummary) => {
-    const ok = window.confirm(
-      `${preset.name} 프리셋을 삭제할까요?\n기존 고객 링크가 이 프리셋을 사용 중이면 링크에는 기존 프리셋 내용이 유지됩니다.`
-    );
+    const ok = window.confirm(`${preset.name} 프리셋을 삭제할까요?`);
 
     if (!ok) return;
 
@@ -266,98 +440,224 @@ export default function SimulatorPresetManager() {
           <div className="stepBadge">필름 제한 프리셋</div>
           <h1>보여줄 필름 묶음 만들기</h1>
           <p>
-            자주 쓰는 추천 필름을 프리셋으로 저장해두면, 고객 링크 생성 시 프리셋만 선택해서 필름 노출 범위를 빠르게 제한할 수 있습니다.
+            자주 쓰는 추천 필름을 프리셋 이름으로 저장해두고, 고객 링크 생성 시 바로 선택할 수 있습니다.
           </p>
         </section>
 
         <div className="layout">
           <section className="panel formPanel">
-            <div className="sectionTitleRow">
+            <div className="sectionTitleRow compactTitle">
               <div>
                 <h2>{editingId ? "프리셋 수정" : "새 프리셋 만들기"}</h2>
-                <p>프리셋 이름을 정하고 고객에게 보여줄 필름을 선택하세요.</p>
+                <p>프리셋 이름을 입력하고 고객에게 보여줄 필름을 담아주세요.</p>
               </div>
               {editingId ? <span>수정 중</span> : <span>새 프리셋</span>}
             </div>
 
-            <div className="fieldGrid">
-              <label>
-                <span>프리셋 이름</span>
-                <input
-                  value={presetName}
-                  onChange={(event) => setPresetName(event.target.value)}
-                  placeholder="예: 화이트 추천 20종"
-                />
-              </label>
+            <label className="presetNameField">
+              <span>프리셋 이름설정</span>
+              <input
+                value={presetName}
+                onChange={(event) => setPresetName(event.target.value)}
+                placeholder="예: 화이트 추천 20종, 우드 인기색 모음"
+              />
+            </label>
 
-              <label>
-                <span>설명</span>
-                <input
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="예: 밝은 주방/붙박이장 고객용"
-                />
-              </label>
-            </div>
+            <div className="fieldSectionLabel">프리셋 할 제품 찾기</div>
 
             <div className="filmPicker">
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void searchFilms();
+                  void searchFilms({ updateFacets: false });
                 }}
                 className="searchRow"
               >
                 <input
                   value={filmQuery}
                   onChange={(event) => setFilmQuery(event.target.value)}
-                  placeholder="예: 122, 화이트, 우드, SG"
+                  placeholder="제품번호/색상명 검색 예: 122, 화이트, SG"
                 />
                 <button type="submit">{filmLoading ? "검색중" : "검색"}</button>
               </form>
 
+              <div className="filterToolbar">
+                <button
+                  type="button"
+                  onClick={() => setPaletteOpen((prev) => !prev)}
+                  className={`paletteToggle ${activePaletteCount > 0 ? "paletteToggleActive" : ""}`}
+                >
+                  <span>색상으로 찾기</span>
+                  <strong>{activePaletteCount > 0 ? `${activePaletteCount}개 적용중` : "열기"}</strong>
+                </button>
+
+                {activePaletteCount > 0 ? (
+                  <button type="button" onClick={resetPaletteFilters} className="smallResetButton">
+                    색상 초기화
+                  </button>
+                ) : null}
+              </div>
+
+              {activePaletteCount > 0 ? (
+                <div className="activeFilterList">
+                  {selectedPaletteMain ? (
+                    <button type="button" onClick={() => handlePaletteMainClick(selectedPaletteMain)}>
+                      {selectedPaletteMain} ×
+                    </button>
+                  ) : null}
+                  {selectedPaletteSub ? (
+                    <button type="button" onClick={() => handlePaletteSubClick(selectedPaletteSub)}>
+                      {selectedPaletteSub} ×
+                    </button>
+                  ) : null}
+                  {selectedPaletteColors.map((color) => (
+                    <button key={color} type="button" onClick={() => handlePaletteColorClick(color)}>
+                      {color} ×
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {paletteOpen ? (
+                <div className="palettePanel">
+                  <div className="palettePanelHeader">
+                    <div>
+                      <strong>색상 팔레트</strong>
+                      <p>필요할 때만 열어서 고르고, 결과 목록은 넓게 유지합니다.</p>
+                    </div>
+                    <button type="button" onClick={() => setPaletteOpen(false)}>
+                      접기
+                    </button>
+                  </div>
+
+                  <div className="paletteGroup">
+                    <div className="paletteLabelRow">
+                      <span>1차 분류</span>
+                    </div>
+                    <div className="paletteChipRow">
+                      {paletteMainOptions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => handlePaletteMainClick(item)}
+                          className={`paletteChip ${selectedPaletteMain === item ? "paletteChipActive" : ""}`}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedPaletteMain ? (
+                    <div className="paletteGroup">
+                      <div className="paletteLabelRow">
+                        <span>2차 분류</span>
+                        <em>선택사항</em>
+                      </div>
+                      <div className="paletteChipRow">
+                        <button
+                          type="button"
+                          onClick={() => handlePaletteSubClick("")}
+                          className={`paletteChip ${!selectedPaletteSub ? "paletteChipActive" : ""}`}
+                        >
+                          전체
+                        </button>
+                        {paletteSubOptions.map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => handlePaletteSubClick(item)}
+                            className={`paletteChip ${selectedPaletteSub === item ? "paletteChipActive" : ""}`}
+                          >
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="paletteGroup">
+                    <div className="paletteLabelRow">
+                      <span>색상</span>
+                      <em>{selectedPaletteColors.length > 0 ? selectedPaletteColors.join(", ") : "전체"}</em>
+                    </div>
+                    <div className="paletteColorGrid">
+                      {paletteColorOptions.map((item) => {
+                        const active = selectedPaletteColors.includes(item);
+
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => handlePaletteColorClick(item)}
+                            className={`paletteColorChip ${active ? "paletteColorChipActive" : ""}`}
+                            aria-pressed={active}
+                          >
+                            <i style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }} />
+                            <span>{item}</span>
+                            {active ? <b aria-hidden="true">✓</b> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="pickerStatusBar">
+                <span>검색 결과 {filmSearchResults.length}개</span>
+                <strong>선택한 필름 {selectedFilms.length}개</strong>
+              </div>
+
               {selectedFilms.length > 0 ? (
-                <div className="selectedFilmList">
+                <div className="selectedFilmList" aria-label="선택한 필름 목록">
                   {selectedFilms.map((film) => (
                     <button
                       key={film.id}
                       type="button"
                       onClick={() => removeFilm(film.id)}
+                      title="누르면 선택 해제"
                     >
                       {getFilmName(film)} ×
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="hintBox">
-                  아직 선택한 필름이 없습니다. 검색 결과에서 필름을 눌러 프리셋에 담아주세요.
+                <div className="hintBox compactHint">
+                  검색 결과에서 필름을 누르면 프리셋에 담깁니다.
                 </div>
               )}
 
-              <div className="filmGrid">
+              <div className="filmList">
                 {filmSearchResults.map((film) => {
                   const active = selectedFilmIds.has(film.id);
+                  const thumb = getFilmThumbUrl(film);
 
                   return (
                     <button
                       key={film.id}
                       type="button"
-                      onClick={() => addFilm(film)}
-                      className={`filmCard ${active ? "filmCardActive" : ""}`}
+                      onClick={() => toggleFilm(film)}
+                      className={`filmRow ${active ? "filmRowActive" : ""}`}
                     >
                       <div className="filmThumb">
-                        {getFilmThumbUrl(film) ? (
+                        {thumb ? (
                           <img
-                            src={getFilmThumbUrl(film)}
+                            src={thumb}
                             alt={getFilmName(film)}
                             loading="lazy"
                             decoding="async"
                           />
                         ) : null}
                       </div>
-                      <div className="filmName">{getFilmName(film)}</div>
-                      <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
-                      {active ? <div className="selectedMark">선택됨</div> : null}
+                      <div className="filmInfo">
+                        <div className="filmName">{getFilmName(film)}</div>
+                        <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
+                        <div className="filmPaletteMeta">
+                          {[film.palette_main, film.palette_sub, film.palette_color].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                      <div className="filmAction">{active ? "선택됨" : "담기"}</div>
                     </button>
                   );
                 })}
@@ -405,7 +705,6 @@ export default function SimulatorPresetManager() {
                   <article key={preset.id} className="presetCard">
                     <div>
                       <h3>{preset.name}</h3>
-                      <p>{preset.description || "설명 없음"}</p>
                     </div>
                     <div className="presetMeta">
                       <span>필름 {preset.item_count}개</span>
@@ -494,6 +793,7 @@ export default function SimulatorPresetManager() {
           color: ${COLORS.cream};
           font-size: 13px;
           font-weight: 900;
+          white-space: nowrap;
         }
 
         h1 {
@@ -504,8 +804,7 @@ export default function SimulatorPresetManager() {
         }
 
         .heroCard p,
-        .sectionTitleRow p,
-        .presetCard p {
+        .sectionTitleRow p {
           color: ${COLORS.soft};
           line-height: 1.6;
           word-break: keep-all;
@@ -536,6 +835,10 @@ export default function SimulatorPresetManager() {
           margin-bottom: 14px;
         }
 
+        .compactTitle {
+          margin-bottom: 12px;
+        }
+
         .sectionTitleRow h2 {
           margin: 0;
           color: ${COLORS.cream};
@@ -546,12 +849,6 @@ export default function SimulatorPresetManager() {
         .sectionTitleRow p {
           margin: 5px 0 0;
           font-size: 13px;
-        }
-
-        .fieldGrid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
         }
 
         label {
@@ -577,13 +874,25 @@ export default function SimulatorPresetManager() {
           outline: none;
         }
 
+        .presetNameField {
+          margin-bottom: 10px;
+        }
+
+        .fieldSectionLabel {
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin: 0 0 7px;
+        }
+
         .filmPicker {
-          margin-top: 18px;
+          display: grid;
+          gap: 10px;
         }
 
         .searchRow {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 92px;
+          grid-template-columns: minmax(0, 1fr) 86px;
           gap: 8px;
         }
 
@@ -591,7 +900,9 @@ export default function SimulatorPresetManager() {
         .saveButton,
         .cancelButton,
         .refreshButton,
-        .presetActions button {
+        .presetActions button,
+        .smallResetButton,
+        .palettePanelHeader button {
           border: 0;
           border-radius: 15px;
           padding: 12px 13px;
@@ -609,20 +920,65 @@ export default function SimulatorPresetManager() {
         }
 
         .cancelButton,
-        .deleteButton {
+        .deleteButton,
+        .smallResetButton,
+        .palettePanelHeader button {
           background: rgba(255, 255, 255, 0.08);
           color: ${COLORS.white};
           border: 1px solid ${COLORS.line};
         }
 
-        .selectedFilmList {
-          display: flex;
-          flex-wrap: wrap;
+        .filterToolbar {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
           gap: 8px;
-          margin-top: 12px;
+          align-items: stretch;
         }
 
+        .paletteToggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 17px;
+          background: rgba(255, 255, 255, 0.055);
+          color: ${COLORS.white};
+          padding: 12px 13px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .paletteToggle span {
+          color: ${COLORS.cream};
+          font-size: 14px;
+          font-weight: 900;
+        }
+
+        .paletteToggle strong {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .paletteToggleActive {
+          border-color: rgba(238, 224, 197, 0.72);
+          background: rgba(238, 224, 197, 0.12);
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.12) inset;
+        }
+
+        .activeFilterList,
+        .selectedFilmList {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .activeFilterList button,
         .selectedFilmList button {
+          flex: 0 0 auto;
           border: 1px solid rgba(238, 224, 197, 0.48);
           border-radius: 999px;
           background: rgba(238, 224, 197, 0.16);
@@ -631,6 +987,189 @@ export default function SimulatorPresetManager() {
           font-size: 12px;
           font-weight: 900;
           cursor: pointer;
+          max-width: 220px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .palettePanel {
+          border-radius: 20px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(238, 224, 197, 0.2);
+          display: grid;
+          gap: 12px;
+        }
+
+        .palettePanelHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .palettePanelHeader strong {
+          color: ${COLORS.cream};
+          font-size: 15px;
+        }
+
+        .palettePanelHeader p {
+          margin: 4px 0 0;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.45;
+          word-break: keep-all;
+        }
+
+        .palettePanelHeader button {
+          flex-shrink: 0;
+          padding: 8px 11px;
+          border-radius: 999px;
+          font-size: 12px;
+        }
+
+        .paletteGroup {
+          display: grid;
+          gap: 7px;
+        }
+
+        .paletteLabelRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .paletteLabelRow span {
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .paletteLabelRow em {
+          color: ${COLORS.soft};
+          font-size: 11px;
+          font-style: normal;
+          font-weight: 800;
+        }
+
+        .paletteChipRow {
+          display: flex;
+          gap: 6px;
+          overflow-x: auto;
+          padding-bottom: 1px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .paletteChip {
+          flex: 0 0 auto;
+          border: 1px solid ${COLORS.line};
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+          padding: 8px 11px;
+        }
+
+        .paletteChipActive {
+          border-color: rgba(238, 224, 197, 0.92);
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.22), 0 8px 16px rgba(0, 0, 0, 0.22);
+        }
+
+        .paletteColorGrid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 7px;
+        }
+
+        .paletteColorChip {
+          position: relative;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          padding: 8px 9px;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .paletteColorChip i {
+          flex: 0 0 auto;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.42);
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+        }
+
+        .paletteColorChip span {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .paletteColorChip b {
+          position: absolute;
+          right: 6px;
+          top: 5px;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: ${COLORS.bg};
+          color: ${COLORS.cream};
+          font-size: 11px;
+        }
+
+        .paletteColorChipActive {
+          border-color: rgba(238, 224, 197, 0.92);
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.18) inset;
+        }
+
+        .paletteColorChipActive i {
+          border: 2px solid ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+        }
+
+        .pickerStatusBar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 16px;
+          background: rgba(0, 0, 0, 0.12);
+          padding: 10px 12px;
+        }
+
+        .pickerStatusBar span,
+        .pickerStatusBar strong {
+          font-size: 13px;
+          font-weight: 900;
+        }
+
+        .pickerStatusBar span {
+          color: ${COLORS.soft};
+        }
+
+        .pickerStatusBar strong {
+          color: ${COLORS.cream};
         }
 
         .hintBox,
@@ -642,6 +1181,11 @@ export default function SimulatorPresetManager() {
           font-size: 14px;
           line-height: 1.6;
           margin-top: 12px;
+        }
+
+        .compactHint {
+          margin-top: 0;
+          padding: 11px 12px;
         }
 
         .hintBox,
@@ -663,18 +1207,20 @@ export default function SimulatorPresetManager() {
           background: rgba(238, 224, 197, 0.1);
         }
 
-        .filmGrid {
+        .filmList {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-          gap: 10px;
-          margin-top: 12px;
-          max-height: 520px;
+          gap: 8px;
+          max-height: 560px;
           overflow: auto;
           padding-right: 2px;
         }
 
-        .filmCard {
-          position: relative;
+        .filmRow {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 64px minmax(0, 1fr) 70px;
+          gap: 10px;
+          align-items: center;
           border: 1px solid ${COLORS.line};
           border-radius: 18px;
           background: rgba(255, 255, 255, 0.045);
@@ -684,17 +1230,17 @@ export default function SimulatorPresetManager() {
           padding: 8px;
         }
 
-        .filmCardActive {
-          border-color: rgba(238, 224, 197, 0.8);
-          background: rgba(238, 224, 197, 0.16);
-          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.18) inset;
+        .filmRowActive {
+          border-color: rgba(238, 224, 197, 0.86);
+          background: rgba(238, 224, 197, 0.14);
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.14) inset;
         }
 
         .filmThumb {
-          width: 100%;
-          aspect-ratio: 1 / 1;
+          width: 64px;
+          height: 64px;
           overflow: hidden;
-          border-radius: 13px;
+          border-radius: 14px;
           border: 1px solid ${COLORS.line};
           background: rgba(255, 255, 255, 0.06);
         }
@@ -706,32 +1252,53 @@ export default function SimulatorPresetManager() {
           display: block;
         }
 
+        .filmInfo {
+          min-width: 0;
+        }
+
         .filmName {
           color: ${COLORS.cream};
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 900;
-          line-height: 1.35;
-          margin-top: 8px;
+          line-height: 1.32;
           word-break: keep-all;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
-        .filmMeta {
+        .filmMeta,
+        .filmPaletteMeta {
           color: ${COLORS.soft};
           font-size: 11px;
-          margin-top: 4px;
-          line-height: 1.35;
+          margin-top: 3px;
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        .selectedMark {
-          position: absolute;
-          top: 12px;
-          right: 12px;
+        .filmPaletteMeta {
+          color: rgba(238, 224, 197, 0.74);
+        }
+
+        .filmAction {
+          justify-self: end;
           border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+          color: ${COLORS.soft};
+          border: 1px solid ${COLORS.line};
+          padding: 8px 9px;
+          font-size: 12px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .filmRowActive .filmAction {
           background: ${COLORS.cream};
           color: ${COLORS.creamText};
-          padding: 5px 7px;
-          font-size: 11px;
-          font-weight: 900;
+          border-color: ${COLORS.cream};
         }
 
         .actionRow {
@@ -763,11 +1330,7 @@ export default function SimulatorPresetManager() {
           color: ${COLORS.cream};
           font-size: 17px;
           letter-spacing: -0.02em;
-        }
-
-        .presetCard p {
-          margin: 6px 0 0;
-          font-size: 13px;
+          word-break: keep-all;
         }
 
         .presetMeta {
@@ -799,7 +1362,7 @@ export default function SimulatorPresetManager() {
           cursor: not-allowed;
         }
 
-        @media (max-width: 860px) {
+        @media (max-width: 940px) {
           .layout {
             grid-template-columns: 1fr;
           }
@@ -815,13 +1378,60 @@ export default function SimulatorPresetManager() {
             border-radius: 24px;
           }
 
-          .fieldGrid {
+          .panel {
+            padding: 14px;
+          }
+
+          .compactTitle {
+            align-items: flex-start;
+          }
+
+          .searchRow {
+            grid-template-columns: minmax(0, 1fr) 74px;
+          }
+
+          .searchRow button {
+            padding-left: 8px;
+            padding-right: 8px;
+          }
+
+          .filterToolbar {
             grid-template-columns: 1fr;
           }
 
-          .filmGrid {
+          .smallResetButton {
+            padding: 10px 12px;
+          }
+
+          .paletteColorGrid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            max-height: 480px;
+          }
+
+          .filmList {
+            max-height: 470px;
+          }
+
+          .filmRow {
+            grid-template-columns: 54px minmax(0, 1fr) 58px;
+            gap: 8px;
+            padding: 7px;
+            border-radius: 16px;
+          }
+
+          .filmThumb {
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+          }
+
+          .filmName {
+            font-size: 13px;
+            -webkit-line-clamp: 1;
+          }
+
+          .filmAction {
+            padding: 7px 7px;
+            font-size: 11px;
           }
         }
       `}</style>

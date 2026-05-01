@@ -396,9 +396,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       ? json.facets.palette_colors.filter(Boolean)
       : [];
 
+    const hasPaletteColorFacet = Array.isArray(json?.facets?.palette_colors);
+
     setPaletteSubOptions(nextSubs);
     setPaletteColorOptions(
-      nextColors.length > 0 ? orderPaletteColors(nextColors) : PALETTE_COLOR_OPTIONS
+      hasPaletteColorFacet ? orderPaletteColors(nextColors) : PALETTE_COLOR_OPTIONS
     );
   };
 
@@ -1039,44 +1041,46 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   </div>
                 ) : null}
 
-                <div className="paletteGroup">
-                  <div className="paletteHeaderRow">
-                    <span>색상 팔레트</span>
-                    <em>
-                      {selectedPaletteColors.length > 0
-                        ? selectedPaletteColors.join(", ")
-                        : "전체"}
-                    </em>
-                  </div>
+                {paletteColorOptions.length > 0 ? (
+                  <div className="paletteGroup">
+                    <div className="paletteHeaderRow">
+                      <span>색상 팔레트</span>
+                      <em>
+                        {selectedPaletteColors.length > 0
+                          ? selectedPaletteColors.join(", ")
+                          : "전체"}
+                      </em>
+                    </div>
 
-                  <div className="paletteColorRow">
-                    {paletteColorOptions.map((item) => {
-                      const isColorSelected = selectedPaletteColors.includes(item);
+                    <div className="paletteColorRow">
+                      {paletteColorOptions.map((item) => {
+                        const isColorSelected = selectedPaletteColors.includes(item);
 
-                      return (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => handlePaletteColorClick(item)}
-                          className={`paletteColorChip paletteColorChipIconOnly ${isColorSelected ? "paletteColorChipActive" : ""}`}
-                          aria-label={`${item}${isColorSelected ? " 선택됨" : ""}`}
-                          aria-pressed={isColorSelected}
-                          title={item}
-                        >
-                          <i
-                            aria-hidden="true"
-                            style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }}
-                          />
-                          {isColorSelected ? (
-                            <span className="paletteColorCheck" aria-hidden="true">
-                              ✓
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => handlePaletteColorClick(item)}
+                            className={`paletteColorChip paletteColorChipIconOnly ${isColorSelected ? "paletteColorChipActive" : ""}`}
+                            aria-label={`${item}${isColorSelected ? " 선택됨" : ""}`}
+                            aria-pressed={isColorSelected}
+                            title={item}
+                          >
+                            <i
+                              aria-hidden="true"
+                              style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }}
+                            />
+                            {isColorSelected ? (
+                              <span className="paletteColorCheck" aria-hidden="true">
+                                ✓
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
 
               <form
@@ -1933,6 +1937,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           overflow-y: auto;
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-auto-rows: max-content;
+          align-content: start;
           gap: 10px;
           padding: 2px 2px 8px;
         }
@@ -1999,12 +2005,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         .emptyFilmBox {
           border-radius: 18px;
-          padding: 18px;
+          padding: 14px 16px;
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid ${COLORS.line};
           color: ${COLORS.soft};
           font-size: 14px;
-          line-height: 1.7;
+          line-height: 1.55;
+        }
+
+        .sheetFilmGrid .emptyFilmBox {
+          grid-column: 1 / -1;
+          align-self: start;
         }
 
         @media (max-width: 640px) {
@@ -2134,125 +2145,89 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           }
 
           .decisionSummary {
-          border-radius: 22px;
-          padding: 14px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid ${COLORS.line};
-          margin-top: 12px;
-        }
+            border-radius: 18px;
+            padding: 11px;
+            margin-top: 10px;
+          }
 
-        .decisionSpaceName {
-          color: ${COLORS.cream};
-          font-size: 18px;
-          font-weight: 900;
-          margin-bottom: 10px;
-        }
+          .decisionSpaceName {
+            font-size: 16px;
+            margin-bottom: 8px;
+          }
 
-        .decisionZoneList {
-          display: grid;
-          gap: 8px;
-        }
+          .decisionZoneList {
+            gap: 7px;
+          }
 
-        .decisionZoneItem {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          border-radius: 15px;
-          padding: 11px 12px;
-          background: rgba(255, 255, 255, 0.045);
-          border: 1px solid ${COLORS.line};
-        }
+          .decisionZoneItem {
+            align-items: flex-start;
+            border-radius: 14px;
+            padding: 10px;
+          }
 
-        .decisionZoneItem span {
-          color: ${COLORS.soft};
-          font-size: 13px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
+          .decisionZoneItem span {
+            font-size: 12px;
+          }
 
-        .decisionZoneItem strong {
-          color: ${COLORS.white};
-          font-size: 13px;
-          line-height: 1.35;
-          text-align: right;
-          word-break: keep-all;
-        }
+          .decisionZoneItem strong {
+            font-size: 12px;
+            line-height: 1.35;
+            max-width: 68%;
+          }
 
-        .decisionActionGrid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-          margin-top: 12px;
-        }
+          .decisionActionGrid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 10px;
+          }
 
-        .decisionActionCard {
-          border-radius: 22px;
-          padding: 14px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid ${COLORS.line};
-        }
+          .decisionActionCard {
+            position: relative;
+            border-radius: 18px;
+            padding: 13px 13px 13px 54px;
+            min-height: 0;
+          }
 
-        .decisionActionIcon {
-          display: inline-grid;
-          place-items: center;
-          width: 30px;
-          height: 30px;
-          border-radius: 999px;
-          background: rgba(238, 224, 197, 0.14);
-          color: ${COLORS.cream};
-          font-size: 13px;
-          font-weight: 900;
-          margin-bottom: 10px;
-        }
+          .decisionActionIcon {
+            position: absolute;
+            left: 13px;
+            top: 13px;
+            width: 28px;
+            height: 28px;
+            margin-bottom: 0;
+            font-size: 12px;
+          }
 
-        .decisionActionCard h3 {
-          margin: 0 0 8px;
-          color: ${COLORS.cream};
-          font-size: 17px;
-          letter-spacing: -0.03em;
-        }
+          .decisionActionCard h3 {
+            margin: 0 0 5px;
+            font-size: 16px;
+            line-height: 1.32;
+          }
 
-        .decisionActionCard p {
-          margin: 0 0 12px;
-          color: ${COLORS.soft};
-          font-size: 13px;
-          line-height: 1.65;
-          word-break: keep-all;
-        }
+          .decisionActionCard p {
+            margin: 0 0 10px;
+            font-size: 12.5px;
+            line-height: 1.55;
+          }
 
-        .primaryDecisionButton {
-          width: 100%;
-          min-height: 44px;
-          border: none;
-          border-radius: 15px;
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
-          font-size: 14px;
-          font-weight: 900;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-sizing: border-box;
-        }
+          .primaryDecisionButton {
+            width: 100%;
+            min-height: 40px;
+            border-radius: 14px;
+            font-size: 13px;
+            padding: 0 12px;
+          }
 
-        .decisionMessage {
-          margin-top: 9px;
-          color: ${COLORS.cream};
-          font-size: 12px;
-          line-height: 1.45;
-        }
+          .decisionMessage {
+            margin-top: 7px;
+            font-size: 11.5px;
+          }
 
-        .storeInfoBox {
-          display: grid;
-          gap: 4px;
-          border-radius: 15px;
-          padding: 11px;
-          background: rgba(238, 224, 197, 0.09);
-          border: 1px solid rgba(238, 224, 197, 0.18);
-        }
+          .storeInfoBox {
+            border-radius: 14px;
+            padding: 10px;
+            gap: 3px;
+          }
 
         .storeInfoBox strong {
           color: ${COLORS.cream};
