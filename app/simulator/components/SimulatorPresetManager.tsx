@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import type { SimulatorFilm } from "../types";
 
@@ -125,6 +126,9 @@ function formatDate(value?: string | null) {
 }
 
 export default function SimulatorPresetManager() {
+  const router = useRouter();
+  const [isDashboardMoving, setIsDashboardMoving] = useState(false);
+
   const [presets, setPresets] = useState<PresetSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -150,6 +154,34 @@ export default function SimulatorPresetManager() {
   const [paletteColorOptions, setPaletteColorOptions] = useState<string[]>(DEFAULT_PALETTE_COLOR_OPTIONS);
 
   const searchRequestRef = useRef(0);
+
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    const idle = window.setTimeout(() => {
+      router.prefetch("/dashboard");
+    }, 250);
+
+    return () => {
+      window.clearTimeout(idle);
+    };
+  }, [router]);
+
+  const paintThenNavigate = (to: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        router.push(to);
+      });
+    });
+  };
+
+  const goToDashboard = () => {
+    if (isDashboardMoving) return;
+
+    setIsDashboardMoving(true);
+    router.prefetch("/dashboard");
+    paintThenNavigate("/dashboard");
+  };
 
   const selectedFilmIds = useMemo(() => {
     return new Set(selectedFilms.map((film) => film.id));
@@ -432,9 +464,15 @@ export default function SimulatorPresetManager() {
   return (
     <main className="page">
       <div className="pageInner">
-        <a href="/dashboard" className="backButton">
+
+        {isDashboardMoving ? (
+          <div className="dashboardMoveOverlay" aria-live="polite">
+            <div className="dashboardMoveToast">대시보드로 이동 중...</div>
+          </div>
+        ) : null}
+        <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
           ← 대시보드
-        </a>
+        </button>
 
         <section className="heroCard">
           <div className="stepBadge">필름 제한 프리셋</div>
@@ -749,6 +787,31 @@ export default function SimulatorPresetManager() {
           color: ${COLORS.white};
         }
 
+
+        .dashboardMoveOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(7, 6, 27, 0.30);
+          backdrop-filter: blur(2px);
+          pointer-events: none;
+        }
+
+        .dashboardMoveToast {
+          padding: 14px 18px;
+          border-radius: 999px;
+          background: rgba(10, 8, 72, 0.94);
+          color: #fff;
+          border: 1px solid rgba(255,255,255,0.18);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.28);
+          font-size: 14px;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+        }
+
         .pageInner {
           width: min(1180px, 100%);
           margin: 0 auto;
@@ -765,6 +828,8 @@ export default function SimulatorPresetManager() {
           background: ${COLORS.panelStrong};
           color: ${COLORS.cream};
           text-decoration: none;
+          cursor: pointer;
+          appearance: none;
           font-size: 14px;
           font-weight: 900;
           margin-bottom: 14px;

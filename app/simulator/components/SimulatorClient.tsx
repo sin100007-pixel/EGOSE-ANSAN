@@ -237,6 +237,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
   const [decisionMessage, setDecisionMessage] = useState("");
+  const [isDashboardMoving, setIsDashboardMoving] = useState(false);
 
   const selectedSpace = useMemo(() => {
     return state.spaces.find((space) => space.id === selectedSpaceId) || state.spaces[0] || null;
@@ -315,6 +316,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       cancelled = true;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (mode !== "installer") return;
+
+    router.prefetch("/dashboard");
+    const idle = window.setTimeout(() => {
+      router.prefetch("/dashboard");
+    }, 250);
+
+    return () => {
+      window.clearTimeout(idle);
+    };
+  }, [mode, router]);
 
   useEffect(() => {
     if (maskZones.length === 0) return;
@@ -610,6 +624,22 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
   };
 
+  const paintThenNavigate = (to: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        router.push(to);
+      });
+    });
+  };
+
+  const goToDashboard = () => {
+    if (isDashboardMoving) return;
+
+    setIsDashboardMoving(true);
+    router.prefetch("/dashboard");
+    paintThenNavigate("/dashboard");
+  };
+
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터 공사중";
 
   return (
@@ -625,8 +655,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }}
     >
       <div className="pageWrap">
+
+        {isDashboardMoving ? (
+          <div className="dashboardMoveOverlay" aria-live="polite">
+            <div className="dashboardMoveToast">대시보드로 이동 중...</div>
+          </div>
+        ) : null}
         {mode === "installer" ? (
-          <button type="button" onClick={() => router.push("/dashboard")} className="backButton">
+          <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
             ← 대시보드
           </button>
         ) : null}
@@ -709,9 +745,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   state.spaces.map((space) => {
                     const thumbnail = getSpaceThumbnail(space);
                     const active = selectedSpace?.id === space.id;
-                    const thumbZones = readMaskZones(space);
-                    const thumbAspectRatio = readPreviewAspectRatio(space);
-                    const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
 
                     return (
                       <button
@@ -720,30 +753,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                         onClick={() => selectSpaceAndGoApply(space.id)}
                         className={`spaceCard ${active ? "spaceCardActive" : ""}`}
                       >
-                        <div className="spaceThumb" style={{ aspectRatio: thumbAspectRatio }}>
-                          {hasSceneThumb ? (
-                            <div className="spaceThumbStage">
-                              {thumbZones.map((zone) => (
-                                <div
-                                  key={zone.key}
-                                  aria-hidden="true"
-                                  className="spaceThumbCheckerLayer"
-                                  style={{
-                                    WebkitMaskImage: `url("${zone.mask_url}")`,
-                                    maskImage: `url("${zone.mask_url}")`,
-                                  }}
-                                />
-                              ))}
-
-                              {space.base_image_url ? (
-                                <img src={space.base_image_url} alt="공간 원본" className="spaceThumbBaseImage" />
-                              ) : null}
-
-                              {space.overlay_image_url ? (
-                                <img src={space.overlay_image_url} alt={space.name} className="spaceThumbOverlayImage" />
-                              ) : null}
-                            </div>
-                          ) : thumbnail ? (
+                        <div className="spaceThumb">
+                          {thumbnail ? (
                             <img src={thumbnail} alt={space.name} />
                           ) : (
                             <div className="spaceThumbEmpty">이미지 준비중</div>
@@ -1182,6 +1193,31 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           box-sizing: border-box;
         }
 
+
+        .dashboardMoveOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(7, 6, 27, 0.30);
+          backdrop-filter: blur(2px);
+          pointer-events: none;
+        }
+
+        .dashboardMoveToast {
+          padding: 14px 18px;
+          border-radius: 999px;
+          background: rgba(10, 8, 72, 0.94);
+          color: #fff;
+          border: 1px solid rgba(255,255,255,0.18);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.28);
+          font-size: 14px;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+        }
+
         .pageInner {
           width: min(1120px, 100%);
           margin: 0 auto;
@@ -1339,70 +1375,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .spaceThumb {
-          position: relative;
           width: 100%;
           aspect-ratio: 1536 / 1024;
           border-radius: 18px;
           overflow: hidden;
           background: rgba(255, 255, 255, 0.06);
           border: 1px solid ${COLORS.line};
-          isolation: isolate;
         }
 
-        .spaceThumb > img {
+        .spaceThumb img {
           display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
-        }
-
-        .spaceThumbStage {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-          border-radius: inherit;
-          background: transparent;
-        }
-
-        .spaceThumbCheckerLayer {
-          position: absolute;
-          inset: 0;
-          z-index: 2;
-          pointer-events: none;
-          background-color: rgba(255, 255, 255, 0.94);
-          background-image:
-            linear-gradient(45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
-            linear-gradient(-45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%),
-            linear-gradient(-45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%);
-          background-size: 12px 12px;
-          background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
-          -webkit-mask-repeat: no-repeat;
-          -webkit-mask-position: center;
-          -webkit-mask-size: 100% 100%;
-          mask-repeat: no-repeat;
-          mask-position: center;
-          mask-size: 100% 100%;
-        }
-
-        .spaceThumbBaseImage,
-        .spaceThumbOverlayImage {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: fill;
-          object-position: center;
-          pointer-events: none;
-          display: block;
-        }
-
-        .spaceThumbBaseImage {
-          z-index: 1;
-        }
-
-        .spaceThumbOverlayImage {
-          z-index: 10;
         }
 
         .spaceThumbEmpty {
