@@ -245,11 +245,27 @@ async function readAllowedProductIds(
     .filter((value: number) => Number.isFinite(value));
 }
 
+async function readPresetProductIds(
+  supabase: any,
+  presetId: string
+) {
+  const { data, error } = await supabase
+    .from("simulator_film_preset_items")
+    .select("product_id")
+    .eq("preset_id", presetId);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map((row: { product_id?: number | string | null }) => Number(row.product_id))
+    .filter((value: number) => Number.isFinite(value));
+}
+
 async function readPaletteFacets(
   supabase: any,
   options: {
     hasToken: boolean;
-    filmScope: "all" | "custom";
+    filmScope: "all" | "custom" | "preset";
     allowedProductIds: number[];
     paletteMain: string;
     paletteSub: string;
@@ -263,7 +279,7 @@ async function readPaletteFacets(
     .or("simulation_image_path.not.is.null,image_path.not.is.null")
     .limit(1500);
 
-  if (options.hasToken && options.filmScope === "custom") {
+  if (options.hasToken && options.filmScope !== "all") {
     query = query.in("id", options.allowedProductIds);
   }
 
@@ -316,13 +332,14 @@ export async function GET(req: NextRequest) {
 
   try {
     let allowedProductIds: number[] = [];
-    let filmScope: "all" | "custom" = "all";
+    let filmScope: "all" | "custom" | "preset" = "all";
+    let presetId = "";
     const hasToken = token.length > 0;
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
         .from("simulator_links")
-        .select("id, expires_at, is_active, film_scope")
+        .select("id, expires_at, is_active, film_scope, preset_id")
         .eq("token", token)
         .maybeSingle();
 
@@ -333,6 +350,7 @@ export async function GET(req: NextRequest) {
         expires_at: string;
         is_active: boolean;
         film_scope: string | null;
+        preset_id: string | null;
       } | null;
 
       if (!typedLink || !typedLink.is_active || isExpired(typedLink.expires_at)) {
@@ -342,12 +360,21 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      filmScope = typedLink.film_scope === "custom" ? "custom" : "all";
+      filmScope =
+        typedLink.film_scope === "custom"
+          ? "custom"
+          : typedLink.film_scope === "preset"
+            ? "preset"
+            : "all";
+      presetId = typedLink.preset_id || "";
 
       if (filmScope === "custom") {
         allowedProductIds = await readAllowedProductIds(supabase, typedLink.id);
+      } else if (filmScope === "preset" && presetId) {
+        allowedProductIds = await readPresetProductIds(supabase, presetId);
+      }
 
-        if (allowedProductIds.length === 0) {
+      if (filmScope !== "all" && allowedProductIds.length === 0) {
           return NextResponse.json({
             items: [],
             ...(skipFacets
@@ -362,7 +389,6 @@ export async function GET(req: NextRequest) {
           });
         }
       }
-    }
 
     const facets = skipFacets
       ? null
@@ -393,7 +419,7 @@ export async function GET(req: NextRequest) {
       query = query.in("palette_color", paletteColors);
     }
 
-    if (hasToken && filmScope === "custom") {
+    if (hasToken && filmScope !== "all") {
       query = query.in("id", allowedProductIds);
     }
 

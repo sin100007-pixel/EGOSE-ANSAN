@@ -14,6 +14,7 @@ type SimulatorLinkRow = {
   expires_at: string;
   is_active: boolean;
   film_scope: string | null;
+  preset_id: string | null;
 };
 
 type ProductRow = {
@@ -210,6 +211,22 @@ async function readAllowedProductIds(
     .filter((value: number) => Number.isFinite(value));
 }
 
+async function readPresetProductIds(
+  supabase: any,
+  presetId: string
+) {
+  const { data, error } = await supabase
+    .from("simulator_film_preset_items")
+    .select("product_id")
+    .eq("preset_id", presetId);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map((row: { product_id?: number | string | null }) => Number(row.product_id))
+    .filter((value: number) => Number.isFinite(value));
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
@@ -267,13 +284,14 @@ export async function GET(req: NextRequest) {
   try {
     let allowedSpaceIds: string[] = [];
     let allowedProductIds: number[] = [];
-    let filmScope: "all" | "custom" = "all";
+    let filmScope: "all" | "custom" | "preset" = "all";
+    let presetId = "";
     const hasToken = token.length > 0;
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
         .from("simulator_links")
-        .select("id, token, installer_name, customer_name, expires_at, is_active, film_scope")
+        .select("id, token, installer_name, customer_name, expires_at, is_active, film_scope, preset_id")
         .eq("token", token)
         .maybeSingle();
 
@@ -300,7 +318,13 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      filmScope = typedLink.film_scope === "custom" ? "custom" : "all";
+      filmScope =
+        typedLink.film_scope === "custom"
+          ? "custom"
+          : typedLink.film_scope === "preset"
+            ? "preset"
+            : "all";
+      presetId = typedLink.preset_id || "";
 
       linkInfo = {
         token: typedLink.token,
@@ -314,6 +338,8 @@ export async function GET(req: NextRequest) {
 
       if (filmScope === "custom") {
         allowedProductIds = await readAllowedProductIds(supabase, typedLink.id);
+      } else if (filmScope === "preset" && presetId) {
+        allowedProductIds = await readPresetProductIds(supabase, presetId);
       }
     }
 
@@ -357,7 +383,7 @@ export async function GET(req: NextRequest) {
       !hasToken
     );
 
-    if (hasToken && filmScope === "custom" && allowedProductIds.length === 0) {
+    if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return NextResponse.json(
         {
           setupNeeded: false,
@@ -382,7 +408,7 @@ export async function GET(req: NextRequest) {
       .or("simulation_image_path.not.is.null,image_path.not.is.null")
       .limit(80);
 
-    if (hasToken && filmScope === "custom") {
+    if (hasToken && filmScope !== "all") {
       productQuery = productQuery.in("id", allowedProductIds);
     }
 

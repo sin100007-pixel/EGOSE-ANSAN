@@ -9,6 +9,17 @@ type BootstrapResponse = {
   films?: SimulatorFilm[];
 };
 
+type FilmPreset = {
+  id: string;
+  name: string;
+  description: string | null;
+  item_count: number;
+};
+
+type PresetsResponse = {
+  items?: FilmPreset[];
+};
+
 type LinkResult = {
   url: string;
   query_url?: string;
@@ -19,6 +30,7 @@ type LinkResult = {
     customer_name: string | null;
     expires_at: string;
     film_scope: string;
+    preset_id?: string | null;
   };
 };
 
@@ -77,7 +89,9 @@ export default function SimulatorLinkBuilder() {
   const [memo, setMemo] = useState("");
   const [expiresInDays, setExpiresInDays] = useState(7);
 
-  const [filmScope, setFilmScope] = useState<"all" | "custom">("all");
+  const [filmScope, setFilmScope] = useState<"all" | "custom" | "preset">("all");
+  const [presets, setPresets] = useState<FilmPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
   const [filmQuery, setFilmQuery] = useState("");
   const [filmLoading, setFilmLoading] = useState(false);
   const [filmSearchResults, setFilmSearchResults] = useState<SimulatorFilm[]>([]);
@@ -97,13 +111,15 @@ export default function SimulatorLinkBuilder() {
       setError("");
 
       try {
-        const [whoamiRes, bootstrapRes] = await Promise.all([
+        const [whoamiRes, bootstrapRes, presetsRes] = await Promise.all([
           fetch("/api/whoami", { cache: "no-store" }),
           fetch("/api/simulator/bootstrap", { cache: "no-store" }),
+          fetch("/api/simulator/presets", { cache: "no-store" }),
         ]);
 
         const whoami = await whoamiRes.json();
         const bootstrap = (await bootstrapRes.json()) as BootstrapResponse;
+        const presetsJson = (await presetsRes.json()) as PresetsResponse;
 
         if (cancelled) return;
 
@@ -113,10 +129,13 @@ export default function SimulatorLinkBuilder() {
 
         const nextSpaces = Array.isArray(bootstrap.spaces) ? bootstrap.spaces : [];
         const nextFilms = Array.isArray(bootstrap.films) ? bootstrap.films : [];
+        const nextPresets = Array.isArray(presetsJson.items) ? presetsJson.items : [];
 
         setSpaces(nextSpaces);
         setSelectedSpaceIds(nextSpaces[0]?.id ? [nextSpaces[0].id] : []);
         setFilmSearchResults(nextFilms);
+        setPresets(nextPresets);
+        setSelectedPresetId(nextPresets[0]?.id || "");
       } catch {
         if (!cancelled) {
           setError("링크 생성 정보를 불러오지 못했습니다.");
@@ -161,6 +180,7 @@ export default function SimulatorLinkBuilder() {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      params.set("skip_facets", "1");
 
       const res = await fetch(`/api/simulator/films?${params.toString()}`, {
         cache: "no-store",
@@ -199,6 +219,7 @@ export default function SimulatorLinkBuilder() {
           expires_in_days: expiresInDays,
           space_ids: selectedSpaceIds,
           film_scope: filmScope,
+          preset_id: filmScope === "preset" ? selectedPresetId : null,
           product_ids:
             filmScope === "custom"
               ? selectedFilms.map((film) => film.id)
@@ -334,7 +355,7 @@ export default function SimulatorLinkBuilder() {
                 <div className="sectionTitleRow">
                   <div>
                     <h2>필름 제한</h2>
-                    <p>전체 삼성필름을 허용하거나, 고객이 볼 수 있는 필름만 직접 고를 수 있습니다.</p>
+                    <p>전체 삼성필름, 직접 선택한 필름, 또는 미리 만들어둔 프리셋 중에서 고를 수 있습니다.</p>
                   </div>
                 </div>
 
@@ -349,12 +370,51 @@ export default function SimulatorLinkBuilder() {
 
                   <button
                     type="button"
+                    onClick={() => setFilmScope("preset")}
+                    className={filmScope === "preset" ? "scopeActive" : ""}
+                  >
+                    프리셋으로 제한
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setFilmScope("custom")}
                     className={filmScope === "custom" ? "scopeActive" : ""}
                   >
-                    선택한 필름만 허용
+                    직접 선택
                   </button>
                 </div>
+
+                {filmScope === "preset" ? (
+                  <div className="presetSelectBox">
+                    {presets.length > 0 ? (
+                      <>
+                        <label>
+                          <span>사용할 프리셋</span>
+                          <select
+                            value={selectedPresetId}
+                            onChange={(event) => setSelectedPresetId(event.target.value)}
+                          >
+                            {presets.map((preset) => (
+                              <option key={preset.id} value={preset.id}>
+                                {preset.name} · 필름 {preset.item_count}개
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="hintBox">
+                          선택한 프리셋에 담긴 필름만 고객 화면의 검색/색상 팔레트/시뮬레이션에 표시됩니다.
+                        </div>
+                      </>
+                    ) : (
+                      <div className="hintBox">
+                        아직 만든 프리셋이 없습니다. 하단의 프리셋 메뉴에서 먼저 프리셋을 만들어주세요.
+                        <br />
+                        <a href="/simulator/presets">프리셋 만들러 가기</a>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
                 {filmScope === "custom" ? (
                   <div className="customFilmBox">
@@ -473,7 +533,11 @@ export default function SimulatorLinkBuilder() {
                 <div>
                   <span>필름</span>
                   <strong>
-                    {filmScope === "all" ? "삼성필름 전체" : `${selectedFilms.length}개`}
+                    {filmScope === "all"
+                      ? "삼성필름 전체"
+                      : filmScope === "preset"
+                        ? presets.find((preset) => preset.id === selectedPresetId)?.name || "프리셋 선택"
+                        : `${selectedFilms.length}개`}
                   </strong>
                 </div>
                 <div>
@@ -707,7 +771,7 @@ export default function SimulatorLinkBuilder() {
 
         .scopeRow {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
         }
 
@@ -728,8 +792,14 @@ export default function SimulatorLinkBuilder() {
           color: ${COLORS.cream};
         }
 
+        .presetSelectBox,
         .customFilmBox {
           margin-top: 12px;
+        }
+
+        .hintBox a {
+          color: ${COLORS.cream};
+          font-weight: 900;
         }
 
         .searchRow {

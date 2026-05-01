@@ -1,7 +1,7 @@
 "use client";
 
 type SimulatorLinkTabsProps = {
-  active: "new" | "manage";
+  active: "new" | "manage" | "presets";
 };
 
 const COLORS = {
@@ -17,6 +17,9 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
       <a href="/simulator/links/new" className={active === "new" ? "active" : ""}>
         링크 생성
       </a>
+      <a href="/simulator/presets" className={active === "presets" ? "active" : ""}>
+        프리셋
+      </a>
       <a href="/simulator/links/manage" className={active === "manage" ? "active" : ""}>
         링크 관리
       </a>
@@ -30,7 +33,7 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
           z-index: 80;
           width: min(420px, calc(100% - 28px));
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr 1fr 1fr;
           gap: 8px;
           padding: 8px;
           border-radius: 22px;

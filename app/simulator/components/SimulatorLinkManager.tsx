@@ -13,7 +13,8 @@ type ManagedLink = {
   created_at: string;
   is_active: boolean;
   is_expired: boolean;
-  film_scope: "all" | "custom";
+  film_scope: "all" | "custom" | "preset";
+  preset_name: string | null;
   space_count: number;
   film_count: number;
   url: string;
@@ -212,7 +213,9 @@ export default function SimulatorLinkManager() {
                       <strong>
                         {link.film_scope === "all"
                           ? "삼성필름 전체"
-                          : `선택 필름 ${link.film_count}개`}
+                          : link.film_scope === "preset"
+                            ? `${link.preset_name || "프리셋"} · ${link.film_count}개`
+                            : `선택 필름 ${link.film_count}개`}
                       </strong>
                     </div>
                   </div>

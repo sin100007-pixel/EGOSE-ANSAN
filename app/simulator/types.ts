@@ -32,3 +32,10 @@ export type SimulatorLinkInfo = {
   expires_at: string;
   film_scope?: string | null;
 };
+
+export type SimulatorFilmPreset = {
+  id: string;
+  name: string;
+  description: string | null;
+  item_count: number;
+};
