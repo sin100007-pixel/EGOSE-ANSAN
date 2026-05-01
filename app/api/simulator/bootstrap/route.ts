@@ -73,38 +73,72 @@ const SPACE_SELECT = `
   sort_order
 `;
 
-const LOCAL_TEST_SPACE: SimulatorSpaceRow = {
-  id: "local-fridge-test",
-  name: "냉장고장 테스트",
-  description: "로컬 테스트용 공간입니다.",
-  thumbnail_url: "/simulator/spaces/fridge-test-overlay.png",
-  base_image_url: null,
-  overlay_image_url: "/simulator/spaces/fridge-test-overlay.png",
-  mask_config: {
-    previewAspectRatio: "1536 / 1024",
-    zones: [
-      {
-        key: "upper",
-        label: "상부장",
-        mask_url: "/simulator/spaces/fridge-mask-upper.png",
-        patternSize: 220,
-      },
-      {
-        key: "lower",
-        label: "하부장",
-        mask_url: "/simulator/spaces/fridge-mask-lower.png",
-        patternSize: 220,
-      },
-      {
-        key: "fridge",
-        label: "냉장고장",
-        mask_url: "/simulator/spaces/fridge-mask-fridge.png",
-        patternSize: 220,
-      },
-    ],
+const LOCAL_FALLBACK_SPACES: SimulatorSpaceRow[] = [
+  {
+    id: "local-fridge-test",
+    name: "냉장고장",
+    description: "냉장고장 / 상하부장을 시뮬레이션하는 공간입니다.",
+    thumbnail_url: "/simulator/fridge/fridge-overlay.png",
+    base_image_url: null,
+    overlay_image_url: "/simulator/fridge/fridge-overlay.png",
+    mask_config: {
+      previewAspectRatio: "1536 / 1024",
+      zones: [
+        {
+          key: "upper",
+          label: "상부장",
+          mask_url: "/simulator/fridge/fridge-upper-mask.png",
+          patternSize: 220,
+        },
+        {
+          key: "lower",
+          label: "하부장",
+          mask_url: "/simulator/fridge/fridge-lower-mask.png",
+          patternSize: 220,
+        },
+        {
+          key: "fridge",
+          label: "냉장고장",
+          mask_url: "/simulator/fridge/fridge-fridge-mask.png",
+          patternSize: 220,
+        },
+      ],
+    },
+    sort_order: 1,
   },
-  sort_order: 1,
-};
+  {
+    id: "local-tvwall-test",
+    name: "TV 벽면",
+    description: "TV 벽면과 하단 수납장을 시뮬레이션하는 공간입니다.",
+    thumbnail_url: "/simulator/tvwall/tvwall-overlay.png",
+    base_image_url: null,
+    overlay_image_url: "/simulator/tvwall/tvwall-overlay.png",
+    mask_config: {
+      previewAspectRatio: "1 / 1",
+      zones: [
+        {
+          key: "wall1",
+          label: "상단 벽면",
+          mask_url: "/simulator/tvwall/tvwall-wall1-mask.png",
+          patternSize: 220,
+        },
+        {
+          key: "wall2",
+          label: "메인 벽면",
+          mask_url: "/simulator/tvwall/tvwall-wall2-mask.png",
+          patternSize: 220,
+        },
+        {
+          key: "cabinet",
+          label: "하단 수납장",
+          mask_url: "/simulator/tvwall/tvwall-cabinet-mask.png",
+          patternSize: 220,
+        },
+      ],
+    },
+    sort_order: 2,
+  },
+];
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -173,7 +207,7 @@ function resolveSpaces(
     return spaces;
   }
 
-  return allowLocalFallback ? [LOCAL_TEST_SPACE] : [];
+  return allowLocalFallback ? LOCAL_FALLBACK_SPACES : [];
 }
 
 async function readAllowedSpaceIds(
@@ -236,7 +270,7 @@ export async function GET(req: NextRequest) {
         setupNeeded: true,
         message:
           "Supabase 환경변수 NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 없습니다.",
-        spaces: [LOCAL_TEST_SPACE],
+        spaces: LOCAL_FALLBACK_SPACES,
         films: [],
       },
       {
@@ -258,7 +292,7 @@ export async function GET(req: NextRequest) {
         {
           setupNeeded: false,
           expired: false,
-          message: auth.error,
+          message: auth.error || "로그인이 필요합니다.",
           link: null,
           spaces: [],
           films: [],
@@ -273,44 +307,62 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  let linkInfo = null as null | {
-    token: string;
-    installer_name: string | null;
-    customer_name: string | null;
-    expires_at: string;
-    film_scope: string | null;
-  };
-
   try {
+    const hasToken = token.length > 0;
     let allowedSpaceIds: string[] = [];
     let allowedProductIds: number[] = [];
     let filmScope: "all" | "custom" | "preset" = "all";
     let presetId = "";
-    const hasToken = token.length > 0;
+    let linkInfo: {
+      token: string;
+      installer_name: string | null;
+      customer_name: string | null;
+      expires_at: string;
+      film_scope: "all" | "custom" | "preset";
+    } | null = null;
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
         .from("simulator_links")
-        .select("id, token, installer_name, customer_name, expires_at, is_active, film_scope, preset_id")
+        .select(
+          "id, token, installer_name, customer_name, expires_at, is_active, film_scope, preset_id"
+        )
         .eq("token", token)
         .maybeSingle();
 
-      if (linkError) throw linkError;
+      if (linkError) {
+        throw linkError;
+      }
 
-      const typedLink = link as SimulatorLinkRow | null;
-
-      if (!typedLink || !typedLink.is_active || isExpired(typedLink.expires_at)) {
+      if (!link) {
         return NextResponse.json(
           {
             setupNeeded: false,
             expired: true,
-            message: "이 시뮬레이션 링크는 만료되었거나 사용할 수 없습니다.",
-            link: null,
+            message: "유효하지 않은 링크입니다.",
             spaces: [],
             films: [],
           },
           {
-            status: 410,
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate",
+            },
+          }
+        );
+      }
+
+      const typedLink = link as SimulatorLinkRow;
+
+      if (!typedLink.is_active || isExpired(typedLink.expires_at)) {
+        return NextResponse.json(
+          {
+            setupNeeded: false,
+            expired: true,
+            message: "이 링크의 사용기간이 만료되었습니다.",
+            spaces: [],
+            films: [],
+          },
+          {
             headers: {
               "Cache-Control": "no-store, no-cache, must-revalidate",
             },
@@ -451,7 +503,7 @@ export async function GET(req: NextRequest) {
           ? "필름시뮬레이터 DB 테이블이 아직 없습니다. supabase/02_simulator_schema.sql을 먼저 실행하세요."
           : message || "시뮬레이터 정보를 불러오지 못했습니다.",
         link: null,
-        spaces: [LOCAL_TEST_SPACE],
+        spaces: LOCAL_FALLBACK_SPACES,
         films: [],
       },
       {

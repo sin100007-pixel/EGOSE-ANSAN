@@ -44,19 +44,19 @@ const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
   {
     key: "upper",
     label: "상부장",
-    mask_url: "/simulator/spaces/fridge-mask-upper.png",
+    mask_url: "/simulator/fridge/fridge-upper-mask.png",
     patternSize: 220,
   },
   {
     key: "lower",
     label: "하부장",
-    mask_url: "/simulator/spaces/fridge-mask-lower.png",
+    mask_url: "/simulator/fridge/fridge-lower-mask.png",
     patternSize: 220,
   },
   {
     key: "fridge",
     label: "냉장고장",
-    mask_url: "/simulator/spaces/fridge-mask-fridge.png",
+    mask_url: "/simulator/fridge/fridge-fridge-mask.png",
     patternSize: 220,
   },
 ];
