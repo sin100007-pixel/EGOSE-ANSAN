@@ -624,10 +624,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
   };
 
-  const paintThenNavigate = (to: string) => {
+  const paintThenNavigateToDashboard = () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        router.push(to);
+        router.push("/dashboard");
       });
     });
   };
@@ -637,7 +637,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     setIsDashboardMoving(true);
     router.prefetch("/dashboard");
-    paintThenNavigate("/dashboard");
+    paintThenNavigateToDashboard();
   };
 
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터 공사중";

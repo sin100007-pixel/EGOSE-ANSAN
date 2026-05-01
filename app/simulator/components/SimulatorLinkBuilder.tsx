@@ -115,10 +115,10 @@ export default function SimulatorLinkBuilder() {
     };
   }, [router]);
 
-  const paintThenNavigate = (to: string) => {
+  const paintThenNavigateToDashboard = () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        router.push(to);
+        router.push("/dashboard");
       });
     });
   };
@@ -128,7 +128,7 @@ export default function SimulatorLinkBuilder() {
 
     setIsDashboardMoving(true);
     router.prefetch("/dashboard");
-    paintThenNavigate("/dashboard");
+    paintThenNavigateToDashboard();
   };
 
   const selectedFilmIds = useMemo(() => {

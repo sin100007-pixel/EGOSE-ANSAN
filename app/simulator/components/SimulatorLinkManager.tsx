@@ -79,10 +79,10 @@ export default function SimulatorLinkManager() {
     };
   }, [router]);
 
-  const paintThenNavigate = (to: string) => {
+  const paintThenNavigateToDashboard = () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        router.push(to);
+        router.push("/dashboard");
       });
     });
   };
@@ -92,7 +92,7 @@ export default function SimulatorLinkManager() {
 
     setIsDashboardMoving(true);
     router.prefetch("/dashboard");
-    paintThenNavigate("/dashboard");
+    paintThenNavigateToDashboard();
   };
 
   const loadLinks = async () => {
