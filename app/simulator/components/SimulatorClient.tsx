@@ -256,6 +256,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
   const activeZoneFilm = activeZone ? zoneFilmMap[activeZone.key] || null : null;
 
+  const applyingFilm = useMemo(() => {
+    if (applyingFilmId === null) return null;
+    return state.films.find((film) => film.id === applyingFilmId) || null;
+  }, [applyingFilmId, state.films]);
+
   const getTargetZoneKey = () => {
     return activeZoneKey || activeZone?.key || maskZones[0]?.key || "";
   };
@@ -661,6 +666,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             <div className="dashboardMoveToast">대시보드로 이동 중...</div>
           </div>
         ) : null}
+
+        {applyingFilmId !== null ? (
+          <div className="filmApplyOverlay" aria-live="assertive" aria-label="필름 적용 중">
+            <div className="filmApplyToast">
+              <span className="filmApplySpinner" aria-hidden="true" />
+              <strong>적용중...</strong>
+              <p>{applyingFilm ? getFilmName(applyingFilm) : "선택한 필름"}을 적용하고 있어요.</p>
+            </div>
+          </div>
+        ) : null}
+
         {mode === "installer" ? (
           <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
             ← 대시보드
@@ -1241,6 +1257,62 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           font-size: 14px;
           font-weight: 900;
           letter-spacing: -0.02em;
+        }
+
+        .filmApplyOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+          background: rgba(5, 2, 35, 0.38);
+          backdrop-filter: blur(3px);
+        }
+
+        .filmApplyToast {
+          width: min(280px, 100%);
+          border-radius: 24px;
+          padding: 22px 18px 18px;
+          background: rgba(10, 8, 72, 0.96);
+          border: 1px solid rgba(238,224,197,0.28);
+          box-shadow: 0 22px 58px rgba(0,0,0,0.42);
+          color: ${COLORS.white};
+          text-align: center;
+        }
+
+        .filmApplySpinner {
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          border: 3px solid rgba(238,224,197,0.28);
+          border-top-color: ${COLORS.cream};
+          display: inline-block;
+          margin-bottom: 12px;
+          animation: filmApplySpin 0.8s linear infinite;
+        }
+
+        .filmApplyToast strong {
+          display: block;
+          color: ${COLORS.cream};
+          font-size: 18px;
+          font-weight: 1000;
+          letter-spacing: -0.03em;
+        }
+
+        .filmApplyToast p {
+          margin: 7px 0 0;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.45;
+          word-break: keep-all;
+        }
+
+        @keyframes filmApplySpin {
+          to {
+            transform: rotate(360deg);
+          }
         }
 
         .pageInner {
