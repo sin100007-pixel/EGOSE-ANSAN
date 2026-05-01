@@ -185,8 +185,8 @@ async function readPresetDetail(
     films = ((products || []) as ProductRow[])
       .map((item) => normalizeFilm(item))
       .sort((a, b) => {
-        const ai = orderMap.get(Number(a.id)) ?? 99999;
-        const bi = orderMap.get(Number(b.id)) ?? 99999;
+        const ai: number = Number(orderMap.get(Number(a.id)) ?? 99999);
+        const bi: number = Number(orderMap.get(Number(b.id)) ?? 99999);
         return ai - bi;
       });
   }
