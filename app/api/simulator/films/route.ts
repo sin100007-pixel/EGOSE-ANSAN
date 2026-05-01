@@ -301,6 +301,7 @@ export async function GET(req: NextRequest) {
   const paletteMain = cleanParam(req.nextUrl.searchParams.get("palette_main"));
   const paletteSub = cleanParam(req.nextUrl.searchParams.get("palette_sub"));
   const paletteColors = cleanPaletteColorParams(req);
+  const skipFacets = cleanParam(req.nextUrl.searchParams.get("skip_facets")) === "1";
 
   if (!token) {
     const auth = await requireSimulatorInstaller();
@@ -347,22 +348,31 @@ export async function GET(req: NextRequest) {
         allowedProductIds = await readAllowedProductIds(supabase, typedLink.id);
 
         if (allowedProductIds.length === 0) {
-          return NextResponse.json({ items: [], facets: {
-            palette_mains: [],
-            palette_subs: [],
-            palette_colors: [],
-          } });
+          return NextResponse.json({
+            items: [],
+            ...(skipFacets
+              ? {}
+              : {
+                  facets: {
+                    palette_mains: [],
+                    palette_subs: [],
+                    palette_colors: [],
+                  },
+                }),
+          });
         }
       }
     }
 
-    const facets = await readPaletteFacets(supabase, {
-      hasToken,
-      filmScope,
-      allowedProductIds,
-      paletteMain,
-      paletteSub,
-    });
+    const facets = skipFacets
+      ? null
+      : await readPaletteFacets(supabase, {
+          hasToken,
+          filmScope,
+          allowedProductIds,
+          paletteMain,
+          paletteSub,
+        });
 
     let query = supabase
       .from("products")
@@ -403,7 +413,10 @@ export async function GET(req: NextRequest) {
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
     return NextResponse.json(
-      { items, facets },
+      {
+        items,
+        ...(facets ? { facets } : {}),
+      },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate",

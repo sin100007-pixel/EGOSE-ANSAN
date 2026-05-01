@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
@@ -204,6 +204,11 @@ function getFilmThumbUrl(film: SimulatorFilm) {
 
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const router = useRouter();
+  const filmSearchSeqRef = useRef(0);
+  const filmSearchAbortRef = useRef<AbortController | null>(null);
+  const selectedPaletteMainRef = useRef("");
+  const selectedPaletteSubRef = useRef("");
+  const selectedPaletteColorsRef = useRef<string[]>([]);
 
   const [state, setState] = useState<BootstrapState>({
     loading: true,
@@ -403,15 +408,24 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       paletteMain?: string;
       paletteSub?: string;
       paletteColors?: string[];
+      includeFacets?: boolean;
     } = {}
   ) => {
     const q = keyword.trim();
     const nextPaletteMain =
-      overrides.paletteMain !== undefined ? overrides.paletteMain : selectedPaletteMain;
+      overrides.paletteMain !== undefined ? overrides.paletteMain : selectedPaletteMainRef.current;
     const nextPaletteSub =
-      overrides.paletteSub !== undefined ? overrides.paletteSub : selectedPaletteSub;
+      overrides.paletteSub !== undefined ? overrides.paletteSub : selectedPaletteSubRef.current;
     const nextPaletteColors =
-      overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColors;
+      overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColorsRef.current;
+    const includeFacets = overrides.includeFacets !== false;
+    const requestSeq = filmSearchSeqRef.current + 1;
+
+    filmSearchSeqRef.current = requestSeq;
+    filmSearchAbortRef.current?.abort();
+
+    const controller = new AbortController();
+    filmSearchAbortRef.current = controller;
 
     setFilmLoading(true);
     setFilmError("");
@@ -422,13 +436,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       if (token) params.set("token", token);
       if (nextPaletteMain) params.set("palette_main", nextPaletteMain);
       if (nextPaletteSub) params.set("palette_sub", nextPaletteSub);
+      if (!includeFacets) params.set("skip_facets", "1");
       nextPaletteColors.forEach((color) => params.append("palette_color", color));
 
       const res = await fetch(`/api/simulator/films?${params.toString()}`, {
         cache: "no-store",
+        signal: controller.signal,
       });
 
       const json = await res.json();
+
+      if (requestSeq !== filmSearchSeqRef.current) {
+        return;
+      }
 
       if (!res.ok) {
         setFilmError(json.error || "필름 검색 중 오류가 발생했습니다.");
@@ -436,17 +456,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       const nextFilms = Array.isArray(json.items) ? json.items : [];
-      updatePaletteFacets(json);
+      if (json.facets) {
+        updatePaletteFacets(json);
+      }
       setState((prev) => ({ ...prev, films: nextFilms }));
-    } catch {
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        return;
+      }
+
+      if (requestSeq !== filmSearchSeqRef.current) {
+        return;
+      }
+
       setFilmError("필름 검색 중 오류가 발생했습니다.");
     } finally {
-      setFilmLoading(false);
+      if (requestSeq === filmSearchSeqRef.current) {
+        setFilmLoading(false);
+      }
     }
   };
 
   const handlePaletteMainClick = (value: string) => {
-    const nextMain = selectedPaletteMain === value ? "" : value;
+    const nextMain = selectedPaletteMainRef.current === value ? "" : value;
+
+    selectedPaletteMainRef.current = nextMain;
+    selectedPaletteSubRef.current = "";
+    selectedPaletteColorsRef.current = [];
 
     setSelectedPaletteMain(nextMain);
     setSelectedPaletteSub("");
@@ -457,39 +493,52 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       paletteMain: nextMain,
       paletteSub: "",
       paletteColors: [],
+      includeFacets: true,
     });
   };
 
   const handlePaletteSubClick = (value: string) => {
-    const nextSub = selectedPaletteSub === value ? "" : value;
+    const nextSub = selectedPaletteSubRef.current === value ? "" : value;
+
+    selectedPaletteSubRef.current = nextSub;
+    selectedPaletteColorsRef.current = [];
 
     setSelectedPaletteSub(nextSub);
     setSelectedPaletteColors([]);
     setFilmQuery("");
 
     void searchFilms("", {
-      paletteMain: selectedPaletteMain,
+      paletteMain: selectedPaletteMainRef.current,
       paletteSub: nextSub,
       paletteColors: [],
+      includeFacets: true,
     });
   };
 
   const handlePaletteColorClick = (value: string) => {
-    const nextColors = selectedPaletteColors.includes(value)
-      ? selectedPaletteColors.filter((color) => color !== value)
-      : [...selectedPaletteColors, value];
+    const currentColors = selectedPaletteColorsRef.current;
+    const nextColors = currentColors.includes(value)
+      ? currentColors.filter((color) => color !== value)
+      : [...currentColors, value];
+
+    selectedPaletteColorsRef.current = nextColors;
 
     setSelectedPaletteColors(nextColors);
     setFilmQuery("");
 
     void searchFilms("", {
-      paletteMain: selectedPaletteMain,
-      paletteSub: selectedPaletteSub,
+      paletteMain: selectedPaletteMainRef.current,
+      paletteSub: selectedPaletteSubRef.current,
       paletteColors: nextColors,
+      includeFacets: false,
     });
   };
 
   const resetPaletteFilters = () => {
+    selectedPaletteMainRef.current = "";
+    selectedPaletteSubRef.current = "";
+    selectedPaletteColorsRef.current = [];
+
     setSelectedPaletteMain("");
     setSelectedPaletteSub("");
     setSelectedPaletteColors([]);
@@ -501,6 +550,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       paletteMain: "",
       paletteSub: "",
       paletteColors: [],
+      includeFacets: true,
     });
   };
 
@@ -1000,21 +1050,31 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   </div>
 
                   <div className="paletteColorRow">
-                    {paletteColorOptions.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => handlePaletteColorClick(item)}
-                        className={`paletteColorChip paletteColorChipIconOnly ${selectedPaletteColors.includes(item) ? "paletteColorChipActive" : ""}`}
-                        aria-label={item}
-                        title={item}
-                      >
-                        <i
-                          aria-hidden="true"
-                          style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }}
-                        />
-                      </button>
-                    ))}
+                    {paletteColorOptions.map((item) => {
+                      const isColorSelected = selectedPaletteColors.includes(item);
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => handlePaletteColorClick(item)}
+                          className={`paletteColorChip paletteColorChipIconOnly ${isColorSelected ? "paletteColorChipActive" : ""}`}
+                          aria-label={`${item}${isColorSelected ? " 선택됨" : ""}`}
+                          aria-pressed={isColorSelected}
+                          title={item}
+                        >
+                          <i
+                            aria-hidden="true"
+                            style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }}
+                          />
+                          {isColorSelected ? (
+                            <span className="paletteColorCheck" aria-hidden="true">
+                              ✓
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1022,7 +1082,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void searchFilms();
+                  void searchFilms(filmQuery, { includeFacets: false });
                 }}
                 className="sheetSearchForm"
               >
@@ -1765,9 +1825,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         .paletteChipActive,
         .paletteColorChipActive {
-          border-color: rgba(238, 224, 197, 0.62);
-          background: rgba(238, 224, 197, 0.16);
-          color: ${COLORS.cream};
+          border-color: rgba(238, 224, 197, 0.92);
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.22), 0 8px 16px rgba(0, 0, 0, 0.22);
         }
 
         .paletteResetButton {
@@ -1776,11 +1837,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .paletteColorChip {
+          position: relative;
           min-height: 32px;
           padding: 5px 8px 5px 6px;
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease, border-color 0.14s ease;
         }
 
         .paletteColorChip i {
@@ -1789,6 +1852,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           border-radius: 999px;
           border: 1px solid rgba(255, 255, 255, 0.35);
           box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+        }
+
+        .paletteColorChipActive {
+          transform: translateY(-1px);
+        }
+
+        .paletteColorChipActive i {
+          border: 2px solid ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+        }
+
+        .paletteColorCheck {
+          position: absolute;
+          right: -4px;
+          top: -5px;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: ${COLORS.bg};
+          border: 1px solid rgba(238, 224, 197, 0.95);
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 1000;
+          line-height: 1;
         }
 
         .paletteColorChipIconOnly {
