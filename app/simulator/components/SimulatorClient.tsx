@@ -745,6 +745,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   state.spaces.map((space) => {
                     const thumbnail = getSpaceThumbnail(space);
                     const active = selectedSpace?.id === space.id;
+                    const thumbZones = readMaskZones(space);
+                    const thumbAspectRatio = readPreviewAspectRatio(space);
+                    const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
 
                     return (
                       <button
@@ -753,8 +756,30 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                         onClick={() => selectSpaceAndGoApply(space.id)}
                         className={`spaceCard ${active ? "spaceCardActive" : ""}`}
                       >
-                        <div className="spaceThumb">
-                          {thumbnail ? (
+                        <div className="spaceThumb" style={{ aspectRatio: thumbAspectRatio }}>
+                          {hasSceneThumb ? (
+                            <div className="spaceThumbStage">
+                              {thumbZones.map((zone) => (
+                                <div
+                                  key={zone.key}
+                                  aria-hidden="true"
+                                  className="spaceThumbCheckerLayer"
+                                  style={{
+                                    WebkitMaskImage: `url("${zone.mask_url}")`,
+                                    maskImage: `url("${zone.mask_url}")`,
+                                  }}
+                                />
+                              ))}
+
+                              {space.base_image_url ? (
+                                <img src={space.base_image_url} alt="공간 원본" className="spaceThumbBaseImage" />
+                              ) : null}
+
+                              {space.overlay_image_url ? (
+                                <img src={space.overlay_image_url} alt={space.name} className="spaceThumbOverlayImage" />
+                              ) : null}
+                            </div>
+                          ) : thumbnail ? (
                             <img src={thumbnail} alt={space.name} />
                           ) : (
                             <div className="spaceThumbEmpty">이미지 준비중</div>
@@ -1375,19 +1400,70 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .spaceThumb {
+          position: relative;
           width: 100%;
           aspect-ratio: 1536 / 1024;
           border-radius: 18px;
           overflow: hidden;
           background: rgba(255, 255, 255, 0.06);
           border: 1px solid ${COLORS.line};
+          isolation: isolate;
         }
 
-        .spaceThumb img {
+        .spaceThumb > img {
           display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        .spaceThumbStage {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          border-radius: inherit;
+          background: transparent;
+        }
+
+        .spaceThumbCheckerLayer {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+          background-color: rgba(255, 255, 255, 0.94);
+          background-image:
+            linear-gradient(45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%);
+          background-size: 12px 12px;
+          background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
+          -webkit-mask-repeat: no-repeat;
+          -webkit-mask-position: center;
+          -webkit-mask-size: 100% 100%;
+          mask-repeat: no-repeat;
+          mask-position: center;
+          mask-size: 100% 100%;
+        }
+
+        .spaceThumbBaseImage,
+        .spaceThumbOverlayImage {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: fill;
+          object-position: center;
+          pointer-events: none;
+          display: block;
+        }
+
+        .spaceThumbBaseImage {
+          z-index: 1;
+        }
+
+        .spaceThumbOverlayImage {
+          z-index: 10;
         }
 
         .spaceThumbEmpty {
