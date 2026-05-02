@@ -21,6 +21,13 @@ type PresetsResponse = {
   items?: FilmPreset[];
 };
 
+type MaskZoneDefinition = {
+  key: string;
+  label: string;
+  mask_url: string;
+  patternSize?: number;
+};
+
 type LinkResult = {
   url: string;
   query_url?: string;
@@ -34,6 +41,27 @@ type LinkResult = {
     preset_id?: string | null;
   };
 };
+
+const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
+  {
+    key: "upper",
+    label: "상부장",
+    mask_url: "/simulator/fridge/fridge-upper-mask.png",
+    patternSize: 220,
+  },
+  {
+    key: "lower",
+    label: "하부장",
+    mask_url: "/simulator/fridge/fridge-lower-mask.png",
+    patternSize: 220,
+  },
+  {
+    key: "fridge",
+    label: "냉장고장",
+    mask_url: "/simulator/fridge/fridge-fridge-mask.png",
+    patternSize: 220,
+  },
+];
 
 const COLORS = {
   bg: "#05023B",
@@ -60,6 +88,49 @@ function getFilmThumbUrl(film: SimulatorFilm) {
 
 function getSpaceThumb(space: SimulatorSpace) {
   return space.thumbnail_url || space.overlay_image_url || space.base_image_url || "";
+}
+
+function readMaskZones(space: SimulatorSpace | null): MaskZoneDefinition[] {
+  const rawZones = space?.mask_config?.["zones"];
+
+  if (!Array.isArray(rawZones) || rawZones.length === 0) {
+    return DEFAULT_MASK_ZONES;
+  }
+
+  const parsed = rawZones
+    .map((zone) => {
+      if (!zone || typeof zone !== "object") return null;
+
+      const z = zone as Record<string, unknown>;
+
+      if (
+        typeof z.key !== "string" ||
+        typeof z.label !== "string" ||
+        typeof z.mask_url !== "string"
+      ) {
+        return null;
+      }
+
+      return {
+        key: z.key,
+        label: z.label,
+        mask_url: z.mask_url,
+        patternSize: typeof z.patternSize === "number" ? z.patternSize : 220,
+      } as MaskZoneDefinition;
+    })
+    .filter(Boolean) as MaskZoneDefinition[];
+
+  return parsed.length > 0 ? parsed : DEFAULT_MASK_ZONES;
+}
+
+function readPreviewAspectRatio(space: SimulatorSpace | null) {
+  const raw =
+    space?.mask_config &&
+    typeof space.mask_config["previewAspectRatio"] === "string"
+      ? String(space.mask_config["previewAspectRatio"])
+      : "1536 / 1024";
+
+  return raw || "1536 / 1024";
 }
 
 function formatDate(value?: string | null) {
@@ -367,6 +438,9 @@ export default function SimulatorLinkBuilder() {
                     spaces.map((space) => {
                       const active = selectedSpaceIds.includes(space.id);
                       const thumb = getSpaceThumb(space);
+                      const thumbZones = readMaskZones(space);
+                      const thumbAspectRatio = readPreviewAspectRatio(space);
+                      const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
 
                       return (
                         <button
@@ -375,8 +449,34 @@ export default function SimulatorLinkBuilder() {
                           onClick={() => toggleSpace(space.id)}
                           className={`spaceCard ${active ? "spaceCardActive" : ""}`}
                         >
-                          <div className="spaceThumb">
-                            {thumb ? <img src={thumb} alt={space.name} /> : null}
+                          <div className="spaceThumb" style={{ aspectRatio: thumbAspectRatio }}>
+                            {hasSceneThumb ? (
+                              <div className="spaceThumbStage">
+                                {thumbZones.map((zone) => (
+                                  <div
+                                    key={zone.key}
+                                    aria-hidden="true"
+                                    className="spaceThumbCheckerLayer"
+                                    style={{
+                                      WebkitMaskImage: `url("${zone.mask_url}")`,
+                                      maskImage: `url("${zone.mask_url}")`,
+                                    }}
+                                  />
+                                ))}
+
+                                {space.base_image_url ? (
+                                  <img src={space.base_image_url} alt="공간 원본" className="spaceThumbBaseImage" />
+                                ) : null}
+
+                                {space.overlay_image_url ? (
+                                  <img src={space.overlay_image_url} alt={space.name} className="spaceThumbOverlayImage" />
+                                ) : null}
+                              </div>
+                            ) : thumb ? (
+                              <img src={thumb} alt={space.name} />
+                            ) : (
+                              <div className="spaceThumbEmpty">이미지 준비중</div>
+                            )}
                           </div>
                           <div className="spaceName">{space.name}</div>
                           <div className="spaceState">{active ? "선택됨" : "선택 안 됨"}</div>
@@ -804,6 +904,7 @@ export default function SimulatorLinkBuilder() {
         }
 
         .spaceThumb {
+          position: relative;
           width: 100%;
           aspect-ratio: 1536 / 1024;
           overflow: hidden;
@@ -812,12 +913,68 @@ export default function SimulatorLinkBuilder() {
           background: rgba(255, 255, 255, 0.06);
         }
 
+        .spaceThumbStage {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          border-radius: inherit;
+          background: transparent;
+        }
+
+        .spaceThumbCheckerLayer {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+          background-color: rgba(255, 255, 255, 0.94);
+          background-image:
+            linear-gradient(45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%);
+          background-size: 12px 12px;
+          background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
+          -webkit-mask-repeat: no-repeat;
+          -webkit-mask-position: center;
+          -webkit-mask-size: 100% 100%;
+          mask-repeat: no-repeat;
+          mask-position: center;
+          mask-size: 100% 100%;
+        }
+
+        .spaceThumbBaseImage,
+        .spaceThumbOverlayImage,
         .spaceThumb img,
         .filmThumb img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
+        }
+
+        .spaceThumbBaseImage,
+        .spaceThumbOverlayImage {
+          position: absolute;
+          inset: 0;
+        }
+
+        .spaceThumbBaseImage {
+          z-index: 1;
+        }
+
+        .spaceThumbOverlayImage {
+          z-index: 3;
+        }
+
+        .spaceThumbEmpty {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          font-weight: 800;
         }
 
         .spaceName {

@@ -89,12 +89,20 @@ function normalizeFilmScope(value: unknown): FilmScope {
   return "all";
 }
 
+const ALLOWED_EXPIRES_IN_DAYS = [1, 3, 7] as const;
+
+function normalizeExpiresInDays(daysValue: unknown) {
+  const rawDays = Math.floor(Number(daysValue));
+
+  return ALLOWED_EXPIRES_IN_DAYS.includes(
+    rawDays as (typeof ALLOWED_EXPIRES_IN_DAYS)[number]
+  )
+    ? rawDays
+    : 7;
+}
+
 function getExpiresAt(daysValue: unknown) {
-  const rawDays = Number(daysValue);
-  const safeDays =
-    Number.isFinite(rawDays) && rawDays > 0 && rawDays <= 30
-      ? Math.floor(rawDays)
-      : 7;
+  const safeDays = normalizeExpiresInDays(daysValue);
 
   const date = new Date();
   date.setDate(date.getDate() + safeDays);

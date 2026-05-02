@@ -612,7 +612,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       "필름 시뮬레이션 결정 결과",
       selectedSpace ? `공간: ${selectedSpace.name}` : "",
       state.link?.installer_name ? `시공자: ${state.link.installer_name}` : "",
-      state.link?.customer_name ? `고객명: ${state.link.customer_name}` : "",
       "",
       ...maskZones.map((zone) => {
         const film = zoneFilmMap[zone.key];
@@ -745,10 +744,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
                 {state.link ? (
                   <div className="linkCard linkCardCompact">
-                    <div style={{ color: COLORS.white, fontSize: 14, lineHeight: 1.65 }}>
-                      {state.link.customer_name ? <div>고객명: {state.link.customer_name}</div> : null}
-                      <div>시뮬레이션 만료: {formatDateTime(state.link.expires_at)}</div>
-                    </div>
+                  <div className="linkCardText">
+                  <div>시뮬레이션 만료: {formatDateTime(state.link.expires_at)}</div>
+                 </div>
                   </div>
                 ) : null}
               </div>
@@ -782,20 +780,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             </section>
           ) : step === "intro" && hasIntroStep ? (
             <SimulatorIntroOverview
-              contractorName={contractorName}
-              logoUrl={state.contractor?.logo_url}
-              greeting={state.contractor?.greeting}
-              phone={state.contractor?.phone}
-              phoneHref={phoneHref}
-              kakaoHref={kakaoHref}
-              photos={contractorPhotos}
-              customerName={state.link?.customer_name}
-              expiresAt={state.link?.expires_at}
-              brandColor={state.contractor?.brand_color}
-              showHero
-              showStartButton
-              onStart={() => setStep("space")}
-            />
+  contractorName={contractorName}
+  logoUrl={state.contractor?.logo_url}
+  greeting={state.contractor?.greeting}
+  phone={state.contractor?.phone}
+  phoneHref={phoneHref}
+  kakaoHref={kakaoHref}
+  photos={contractorPhotos}
+  expiresAt={state.link?.expires_at}
+  brandColor={state.contractor?.brand_color}
+  showHero={false}
+  showStartButton
+  onStart={() => setStep("space")}
+/>
           ) : step === "space" ? (
             <section className="spaceSelectCard">
               <div className="sectionHeader">
@@ -1457,17 +1454,27 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .linkCard {
-          min-width: 250px;
-          border-radius: 22px;
-          padding: 14px 16px;
-          background: rgba(238, 224, 197, 0.1);
-          border: 1px solid ${COLORS.line};
-        }
-
-        .linkCardCompact {
-          display: inline-flex;
+         display: inline-flex;
           align-items: center;
-          min-height: 74px;
+         align-self: flex-start;
+          min-width: 0;
+          max-width: min(100%, 320px);
+         border-radius: 20px;
+         padding: 10px 14px;
+          background: rgba(238, 224, 197, 0.1);
+         border: 1px solid ${COLORS.line};
+          }
+
+          .linkCardCompact {
+          min-height: auto;
+          }
+
+          .linkCardText {
+         color: ${COLORS.white};
+         font-size: 14px;
+          line-height: 1.45;
+         font-weight: 800;
+          word-break: keep-all;
         }
 
         .contractorIntroCard,
@@ -2619,8 +2626,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           }
 
           .linkCard {
-            width: 100%;
+           width: auto;
             min-width: 0;
+            max-width: 100%;
+            padding: 10px 14px;
+            border-radius: 18px;
+          }
+
+           .linkCardText {
+            font-size: 13px;
+            line-height: 1.4;
           }
 
           .spaceSelectCard,

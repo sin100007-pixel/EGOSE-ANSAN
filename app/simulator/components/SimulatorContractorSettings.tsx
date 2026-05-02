@@ -112,21 +112,21 @@ export default function SimulatorContractorSettings() {
   const previewName = displayName || installerName || "시공자";
 
   const renderCustomerPreview = () => (
-    <SimulatorIntroOverview
-      contractorName={previewName}
-      logoUrl={logoUrl}
-      greeting={greeting}
-      phone={phone}
-      showKakao={Boolean(kakaoUrl)}
-      photos={visiblePhotos}
-      customerName="최진규"
-      expiresAt="2026. 05. 05. 오전 08:11"
-      brandColor={brandColor}
-      showHero
-      showBottomNav
-      showStartButton={false}
-    />
-  );
+  <SimulatorIntroOverview
+    contractorName={previewName}
+    logoUrl={logoUrl}
+    greeting={greeting}
+    phone={phone}
+    showKakao={Boolean(kakaoUrl)}
+    photos={visiblePhotos}
+    customerName="최진규"
+    expiresAt="2026. 05. 05. 오전 08:11"
+    brandColor={brandColor}
+    showHero={false}
+    showBottomNav
+    showStartButton={false}
+  />
+);
 
   const applyResponse = (json: ApiResponse) => {
     const profile = json.profile || null;

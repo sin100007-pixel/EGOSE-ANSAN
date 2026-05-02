@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 type IntroPhoto = {
   id?: string | number | null;
@@ -70,17 +70,35 @@ function KakaoIcon() {
   );
 }
 
-function ContactButton({ href, label, icon, ariaLabel }: { href?: string | null; label: string; icon: ReactNode; ariaLabel: string }) {
+function ContactButton({
+  href,
+  label,
+  icon,
+  ariaLabel,
+}: {
+  href?: string | null;
+  label: string;
+  icon: ReactNode;
+  ariaLabel: string;
+}) {
   const content = (
     <>
-      <span className="introContactIcon" aria-hidden="true">{icon}</span>
+      <span className="introContactIcon" aria-hidden="true">
+        {icon}
+      </span>
       <span className="introContactLabel">{label}</span>
     </>
   );
 
   if (href) {
     return (
-      <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noopener noreferrer" : undefined} className="introContactButton" aria-label={ariaLabel}>
+      <a
+        href={href}
+        target={href.startsWith("http") ? "_blank" : undefined}
+        rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+        className="introContactButton"
+        aria-label={ariaLabel}
+      >
         {content}
       </a>
     );
@@ -111,8 +129,11 @@ export default function SimulatorIntroOverview({
   startButtonLabel = "시뮬레이션 시작",
   onStart,
 }: SimulatorIntroOverviewProps) {
+  const [selectedPhoto, setSelectedPhoto] = useState<IntroPhoto | null>(null);
+
   const safeContractorName = contractorName || "시공자";
-  const safeGreeting = greeting || "시공 전 원하는 필름을 미리 적용해보시고 편하게 문의해주세요.";
+  const safeGreeting =
+    greeting || "시공 전 원하는 필름을 미리 적용해보시고 편하게 문의해주세요.";
   const visiblePhotos = photos.filter((photo) => photo.image_url);
   const shouldShowKakao = showKakao ?? Boolean(kakaoHref);
   const formattedExpiresAt = formatIntroDateTime(expiresAt);
@@ -121,13 +142,35 @@ export default function SimulatorIntroOverview({
     "--intro-brand-color": brandColor || COLORS.cream,
   } as CSSProperties;
 
+  useEffect(() => {
+    if (!selectedPhoto) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedPhoto(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedPhoto]);
+
   return (
     <div className="introOverview" style={rootStyle}>
       {showHero ? (
         <section className="introHeroCard">
           <div className="stepBadge">step1 소개</div>
           <h1 className="introTitle">필름 시뮬레이터</h1>
-          <p className="introHeroText">시공자 소개와 대표 시공사진을 확인한 뒤 시뮬레이션을 시작하세요.</p>
+          <p className="introHeroText">
+            시공자 소개와 대표 시공사진을 확인한 뒤 시뮬레이션을 시작하세요.
+          </p>
 
           {hasLinkInfo ? (
             <div className="linkCard">
@@ -141,16 +184,34 @@ export default function SimulatorIntroOverview({
       <section className="introCard">
         <div className="introTop">
           <div className="logoBox">
-            {logoUrl ? <img src={logoUrl} alt={`${safeContractorName} 로고`} /> : <span>{safeContractorName.slice(0, 1)}</span>}
+            {logoUrl ? (
+              <img src={logoUrl} alt={`${safeContractorName} 로고`} />
+            ) : (
+              <span>{safeContractorName.slice(0, 1)}</span>
+            )}
           </div>
 
           <div className="textBox">
             <p>{safeGreeting}</p>
 
-            {(phone || shouldShowKakao) ? (
+            {phone || shouldShowKakao ? (
               <div className="contactRow">
-                {phone ? <ContactButton href={phoneHref} label={phone} icon={<PhoneIcon />} ariaLabel={`전화 ${phone}`} /> : null}
-                {shouldShowKakao ? <ContactButton href={kakaoHref} label="카카오 문의" icon={<KakaoIcon />} ariaLabel="카카오 문의" /> : null}
+                {phone ? (
+                  <ContactButton
+                    href={phoneHref}
+                    label={phone}
+                    icon={<PhoneIcon />}
+                    ariaLabel={`전화 ${phone}`}
+                  />
+                ) : null}
+                {shouldShowKakao ? (
+                  <ContactButton
+                    href={kakaoHref}
+                    label="카카오 문의"
+                    icon={<KakaoIcon />}
+                    ariaLabel="카카오 문의"
+                  />
+                ) : null}
               </div>
             ) : null}
 
@@ -174,27 +235,88 @@ export default function SimulatorIntroOverview({
           </div>
 
           <div className="portfolioPhotoGrid">
-            {visiblePhotos.slice(0, 3).map((photo, index) => (
-              <figure key={photo.id || `${photo.image_url}-${index}`} className="portfolioPhotoCard">
-                <img src={photo.image_url} alt={photo.title || "대표 시공사진"} loading="lazy" />
-                {(photo.title || photo.description) ? (
-                  <figcaption>
-                    {photo.title ? <strong>{photo.title}</strong> : null}
-                    {photo.description ? <span>{photo.description}</span> : null}
-                  </figcaption>
-                ) : null}
+            {visiblePhotos.map((photo, index) => (
+              <figure
+                key={photo.id || `${photo.image_url}-${index}`}
+                className="portfolioPhotoCard"
+              >
+                <button
+                  type="button"
+                  className="portfolioPhotoButton"
+                  onClick={() => setSelectedPhoto(photo)}
+                  aria-label={`${photo.title || "대표 시공사진"} 크게 보기`}
+                >
+                  <img
+                    src={photo.image_url}
+                    alt={photo.title || "대표 시공사진"}
+                    loading="lazy"
+                  />
+                  {photo.title || photo.description ? (
+                    <figcaption>
+                      {photo.title ? <strong>{photo.title}</strong> : null}
+                      {photo.description ? <span>{photo.description}</span> : null}
+                    </figcaption>
+                  ) : null}
+                </button>
               </figure>
             ))}
           </div>
         </section>
       ) : null}
 
+      {selectedPhoto ? (
+        <div
+          className="photoModalBackdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="대표 시공사진 크게 보기"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div
+            className="photoModalCard"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="photoModalClose"
+              onClick={() => setSelectedPhoto(null)}
+              aria-label="닫기"
+            >
+              ×
+            </button>
+
+            <div className="photoModalImageWrap">
+              <img
+                src={selectedPhoto.image_url}
+                alt={selectedPhoto.title || "대표 시공사진"}
+                className="photoModalImage"
+              />
+            </div>
+
+            {selectedPhoto.title || selectedPhoto.description ? (
+              <div className="photoModalCaption">
+                {selectedPhoto.title ? <strong>{selectedPhoto.title}</strong> : null}
+                {selectedPhoto.description ? <span>{selectedPhoto.description}</span> : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {showBottomNav ? (
         <nav className="previewStepNav" aria-label="시뮬레이터 단계 미리보기">
-          <button type="button" className="previewStepButton previewStepButtonActive"><span>1</span>소개</button>
-          <button type="button" className="previewStepButton"><span>2</span>공간선택</button>
-          <button type="button" className="previewStepButton"><span>3</span>색상적용</button>
-          <button type="button" className="previewStepButton"><span>4</span>결정확정</button>
+          <button type="button" className="previewStepButton previewStepButtonActive">
+            <span>1</span>소개
+          </button>
+          <button type="button" className="previewStepButton">
+            <span>2</span>공간선택
+          </button>
+          <button type="button" className="previewStepButton">
+            <span>3</span>색상적용
+          </button>
+          <button type="button" className="previewStepButton">
+            <span>4</span>결정확정
+          </button>
         </nav>
       ) : null}
 
@@ -211,7 +333,11 @@ export default function SimulatorIntroOverview({
         .portfolioBlock {
           border: 1px solid ${COLORS.line};
           box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.075),
+            rgba(255, 255, 255, 0.035)
+          );
           border-radius: 30px;
         }
 
@@ -392,7 +518,8 @@ export default function SimulatorIntroOverview({
           font-size: 16px;
           font-weight: 1000;
           cursor: pointer;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 14px 30px rgba(0, 0, 0, 0.22);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
+            0 14px 30px rgba(0, 0, 0, 0.22);
         }
 
         .portfolioBlock {
@@ -434,32 +561,70 @@ export default function SimulatorIntroOverview({
         }
 
         .portfolioPhotoGrid {
-          display: grid;
-          grid-template-columns: 1.2fr 1fr 1fr;
-          gap: 10px;
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 0 2px 8px;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+        }
+
+        .portfolioPhotoGrid::-webkit-scrollbar {
+          height: 6px;
+        }
+
+        .portfolioPhotoGrid::-webkit-scrollbar-thumb {
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.24);
+        }
+
+        .portfolioPhotoGrid::-webkit-scrollbar-track {
+          background: transparent;
         }
 
         .portfolioPhotoCard {
           position: relative;
-          min-height: 180px;
+          flex: 0 0 min(82%, 330px);
+          min-height: 230px;
           margin: 0;
           border-radius: 20px;
           overflow: hidden;
           background: rgba(238, 224, 197, 0.08);
           border: 1px solid ${COLORS.line};
+          scroll-snap-align: start;
         }
 
         .portfolioPhotoCard:first-child {
-          min-height: 260px;
+          min-height: 230px;
         }
 
-        .portfolioPhotoCard img {
+        .portfolioPhotoButton {
+          position: relative;
+          display: block;
+          width: 100%;
+          height: 100%;
+          min-height: inherit;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .portfolioPhotoButton img {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
+          transition: transform 0.2s ease;
+        }
+
+        .portfolioPhotoButton:active img {
+          transform: scale(1.01);
         }
 
         .portfolioPhotoCard figcaption {
@@ -473,6 +638,7 @@ export default function SimulatorIntroOverview({
           backdrop-filter: blur(8px);
           display: grid;
           gap: 3px;
+          pointer-events: none;
         }
 
         .portfolioPhotoCard strong,
@@ -481,16 +647,90 @@ export default function SimulatorIntroOverview({
         }
 
         .portfolioPhotoCard strong {
-          color: ${COLORS.white};
+          color: ${COLORS.cream};
           font-size: 13px;
-          font-weight: 1000;
+          font-weight: 900;
         }
 
         .portfolioPhotoCard span {
           color: ${COLORS.soft};
           font-size: 12px;
           line-height: 1.45;
-          font-weight: 800;
+          font-weight: 500;
+        }
+
+        .photoModalBackdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: rgba(3, 2, 28, 0.86);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          backdrop-filter: blur(8px);
+        }
+
+        .photoModalCard {
+          position: relative;
+          width: min(920px, 100%);
+          max-height: 90vh;
+          border-radius: 22px;
+          overflow: hidden;
+          border: 1px solid rgba(238, 224, 197, 0.2);
+          background: rgba(10, 8, 72, 0.96);
+          box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .photoModalClose {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 2;
+          width: 38px;
+          height: 38px;
+          border: 0;
+          border-radius: 999px;
+          background: rgba(5, 2, 59, 0.72);
+          color: ${COLORS.cream};
+          font-size: 26px;
+          line-height: 1;
+          cursor: pointer;
+        }
+
+        .photoModalImageWrap {
+          width: 100%;
+          background: rgba(0, 0, 0, 0.18);
+        }
+
+        .photoModalImage {
+          display: block;
+          width: 100%;
+          max-height: 72vh;
+          object-fit: contain;
+          background: #111;
+        }
+
+        .photoModalCaption {
+          padding: 16px 18px 18px;
+          display: grid;
+          gap: 6px;
+        }
+
+        .photoModalCaption strong {
+          color: ${COLORS.cream};
+          font-size: 16px;
+          font-weight: 900;
+          line-height: 1.4;
+        }
+
+        .photoModalCaption span {
+          color: ${COLORS.soft};
+          font-size: 14px;
+          line-height: 1.6;
+          font-weight: 500;
         }
 
         .previewStepNav {
@@ -592,12 +832,29 @@ export default function SimulatorIntroOverview({
           }
 
           .portfolioPhotoGrid {
-            grid-template-columns: 1fr;
+            display: flex;
+            grid-template-columns: unset;
+            overflow-x: auto;
           }
 
           .portfolioPhotoCard,
           .portfolioPhotoCard:first-child {
+            flex: 0 0 86%;
             min-height: 210px;
+          }
+
+          .photoModalBackdrop {
+            padding: 14px;
+          }
+
+          .photoModalCard {
+            width: 100%;
+            max-height: 88vh;
+            border-radius: 18px;
+          }
+
+          .photoModalImage {
+            max-height: 64vh;
           }
         }
 
@@ -639,6 +896,31 @@ export default function SimulatorIntroOverview({
             width: 18px;
             height: 18px;
             font-size: 10px;
+          }
+
+          .portfolioPhotoCard,
+          .portfolioPhotoCard:first-child {
+            flex-basis: 88%;
+          }
+
+          .photoModalClose {
+            top: 8px;
+            right: 8px;
+            width: 34px;
+            height: 34px;
+            font-size: 24px;
+          }
+
+          .photoModalCaption {
+            padding: 14px 14px 16px;
+          }
+
+          .photoModalCaption strong {
+            font-size: 15px;
+          }
+
+          .photoModalCaption span {
+            font-size: 13px;
           }
         }
       `}</style>
