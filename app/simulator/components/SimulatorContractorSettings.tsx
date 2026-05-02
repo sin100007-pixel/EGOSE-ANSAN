@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
+import SimulatorIntroOverview from "./SimulatorIntroOverview";
 
 type ContractorProfile = {
   id?: string;
@@ -107,6 +108,25 @@ export default function SimulatorContractorSettings() {
   const visiblePhotos = useMemo(() => {
     return photos.filter((photo) => photo.image_url.trim() && photo.is_visible);
   }, [photos]);
+
+  const previewName = displayName || installerName || "시공자";
+
+  const renderCustomerPreview = () => (
+    <SimulatorIntroOverview
+      contractorName={previewName}
+      logoUrl={logoUrl}
+      greeting={greeting}
+      phone={phone}
+      showKakao={Boolean(kakaoUrl)}
+      photos={visiblePhotos}
+      customerName="최진규"
+      expiresAt="2026. 05. 05. 오전 08:11"
+      brandColor={brandColor}
+      showHero
+      showBottomNav
+      showStartButton={false}
+    />
+  );
 
   const applyResponse = (json: ApiResponse) => {
     const profile = json.profile || null;
@@ -405,38 +425,8 @@ export default function SimulatorContractorSettings() {
                 <strong>고객 첫 화면</strong>
               </div>
 
-              <div className="introPreview" style={{ borderColor: `${brandColor}88` }}>
-                <div className="previewTop">
-                  <div className="logoPreview">
-                    {logoUrl ? <img src={logoUrl} alt="시공자 로고 미리보기" /> : <span>{(displayName || installerName || "시").slice(0, 1)}</span>}
-                  </div>
-                  <div>
-                    <small>시공자 소개</small>
-                    <h2>{displayName || installerName || "시공자"}님이 보내신 필름 시뮬레이터입니다.</h2>
-                    <p>{greeting || "시공 전 원하는 필름을 미리 적용해보시고 편하게 문의주세요."}</p>
-                  </div>
-                </div>
-
-                <div className="previewButtons">
-                  {phone ? <span>전화 {phone}</span> : null}
-                  {kakaoUrl ? <span>카카오 문의</span> : null}
-                </div>
-
-                {visiblePhotos.length > 0 ? (
-                  <div className="photoPreviewGrid">
-                    {visiblePhotos.slice(0, 3).map((photo, index) => (
-                      <div className="photoPreview" key={`${photo.image_url}-${index}`}>
-                        <img src={photo.image_url} alt={photo.title || "대표 시공사진"} />
-                        <div>
-                          <strong>{photo.title || "대표 시공사진"}</strong>
-                          {photo.description ? <span>{photo.description}</span> : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="emptyPreview">대표 시공사진 URL을 입력하면 여기에 보입니다.</div>
-                )}
+              <div className="introPreview introPreviewFrame" style={{ borderColor: `${brandColor}88` }}>
+                {renderCustomerPreview()}
               </div>
             </div>
           </section>
@@ -549,38 +539,8 @@ export default function SimulatorContractorSettings() {
               <button type="button" onClick={() => setIsPreviewOpen(false)}>닫기</button>
             </div>
 
-            <div className="introPreview" style={{ borderColor: `${brandColor}88` }}>
-              <div className="previewTop">
-                <div className="logoPreview">
-                  {logoUrl ? <img src={logoUrl} alt="시공자 로고 미리보기" /> : <span>{(displayName || installerName || "시").slice(0, 1)}</span>}
-                </div>
-                <div>
-                  <small>시공자 소개</small>
-                  <h2>{displayName || installerName || "시공자"}님이 보내신 필름 시뮬레이터입니다.</h2>
-                  <p>{greeting || "시공 전 원하는 필름을 미리 적용해보시고 편하게 문의주세요."}</p>
-                </div>
-              </div>
-
-              <div className="previewButtons">
-                {phone ? <span>전화 {phone}</span> : null}
-                {kakaoUrl ? <span>카카오 문의</span> : null}
-              </div>
-
-              {visiblePhotos.length > 0 ? (
-                <div className="photoPreviewGrid">
-                  {visiblePhotos.slice(0, 3).map((photo, index) => (
-                    <div className="photoPreview" key={`${photo.image_url}-${index}`}>
-                      <img src={photo.image_url} alt={photo.title || "대표 시공사진"} />
-                      <div>
-                        <strong>{photo.title || "대표 시공사진"}</strong>
-                        {photo.description ? <span>{photo.description}</span> : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="emptyPreview">대표 시공사진 URL을 입력하면 여기에 보입니다.</div>
-              )}
+            <div className="introPreview introPreviewFrame" style={{ borderColor: `${brandColor}88` }}>
+              {renderCustomerPreview()}
             </div>
           </div>
         </div>
@@ -918,32 +878,224 @@ export default function SimulatorContractorSettings() {
         .introPreview {
           border: 1px solid rgba(238, 224, 197, 0.2);
           border-radius: 24px;
-          padding: 18px;
+          padding: 10px;
           background: ${COLORS.panelStrong};
         }
 
-        .previewTop {
-          display: grid;
-          grid-template-columns: 88px 1fr;
-          gap: 16px;
-          align-items: center;
+        .introPreviewFrame {
+          overflow: hidden;
         }
 
-        .logoPreview {
-          width: 88px;
-          aspect-ratio: 1;
-          display: grid;
-          place-items: center;
-          border-radius: 22px;
-          overflow: hidden;
-          border: 1px solid rgba(238, 224, 197, 0.22);
-          background: rgba(238, 224, 197, 0.13);
+        .customerPreviewPage {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .customerPreviewHeroCard,
+        .customerPreviewIntroCard,
+        .customerPreviewPortfolioBlock {
+          border: 1px solid ${COLORS.line};
+          border-radius: 24px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+        }
+
+        .customerPreviewHeroCard {
+          padding: 16px;
+        }
+
+        .customerPreviewStepBadge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 7px 11px;
+          background: rgba(238, 224, 197, 0.1);
           color: ${COLORS.cream};
-          font-size: 44px;
+          font-size: 12px;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .customerPreviewTitle {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: 30px;
+          line-height: 1.08;
+          letter-spacing: -0.04em;
+          word-break: keep-all;
+        }
+
+        .customerPreviewHeroText {
+          margin: 10px 0 0;
+          color: ${COLORS.soft};
+          font-size: 14px;
+          line-height: 1.65;
+          word-break: keep-all;
+        }
+
+        .customerPreviewLinkCard {
+          margin-top: 14px;
+          border-radius: 20px;
+          padding: 14px 16px;
+          background: rgba(238, 224, 197, 0.1);
+          border: 1px solid ${COLORS.line};
+          color: ${COLORS.white};
+          font-size: 14px;
+          line-height: 1.7;
+          font-weight: 800;
+        }
+
+        .customerPreviewIntroCard {
+          padding: 16px;
+        }
+
+        .customerPreviewLogoBox {
+          width: min(340px, 100%);
+          min-height: 0;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          align-self: center;
+          margin: 0 auto;
+          background: transparent;
+          border: 0;
+          border-radius: 0;
+          color: ${COLORS.cream};
+          font-size: 72px;
           font-weight: 1000;
         }
 
-        .logoPreview img,
+        .customerPreviewLogoBox img {
+          width: 100%;
+          max-width: 340px;
+          height: auto;
+          max-height: 136px;
+          object-fit: contain;
+          object-position: center center;
+          display: block;
+        }
+
+        .customerPreviewTextBox {
+          margin-top: 14px;
+        }
+
+        .customerPreviewTextBox p {
+          margin: 0;
+          color: ${COLORS.soft};
+          font-size: 15px;
+          line-height: 1.72;
+          white-space: pre-line;
+          word-break: keep-all;
+        }
+
+        .customerPreviewContactRow {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 16px;
+        }
+
+        .customerPreviewContactButton {
+          min-height: 46px;
+          border-radius: 999px;
+          padding: 0 15px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: rgba(238, 224, 197, 0.1);
+          border: 1px solid rgba(238, 224, 197, 0.2);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 24px rgba(0, 0, 0, 0.18);
+          color: ${COLORS.cream};
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 1000;
+          white-space: nowrap;
+          word-break: keep-all;
+        }
+
+        .customerPreviewContactIcon {
+          width: 22px;
+          height: 22px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          background: rgba(238, 224, 197, 0.16);
+          color: ${COLORS.cream};
+        }
+
+        .customerPreviewContactIcon svg {
+          width: 14px;
+          height: 14px;
+          display: block;
+          fill: currentColor;
+        }
+
+        .customerPreviewContactIcon.kakao svg {
+          width: 15px;
+          height: 15px;
+        }
+
+        .customerPreviewPortfolioBlock {
+          padding: 14px;
+        }
+
+        .customerPreviewPortfolioHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .customerPreviewSectionLabel {
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 6px;
+        }
+
+        .customerPreviewPortfolioHeader h3 {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: 20px;
+          letter-spacing: -0.03em;
+          line-height: 1.3;
+          word-break: keep-all;
+        }
+
+        .customerPreviewPortfolioHeader > span {
+          flex-shrink: 0;
+          border-radius: 999px;
+          padding: 7px 10px;
+          background: rgba(238, 224, 197, 0.1);
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .customerPreviewPhotoGrid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+
+        .customerPreviewPhotoCard {
+          position: relative;
+          min-height: 210px;
+          margin: 0;
+          border-radius: 20px;
+          overflow: hidden;
+          background: rgba(238, 224, 197, 0.08);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .customerPreviewPhotoCard img,
         .photoPreview img,
         .photoThumb img {
           width: 100%;
@@ -952,33 +1104,74 @@ export default function SimulatorContractorSettings() {
           display: block;
         }
 
-        .previewTop small {
-          color: ${COLORS.cream};
+        .customerPreviewPhotoCard figcaption {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 10px;
+          border-radius: 14px;
+          padding: 9px 10px;
+          background: rgba(7, 5, 58, 0.76);
+          backdrop-filter: blur(10px);
+        }
+
+        .customerPreviewPhotoCard strong,
+        .customerPreviewPhotoCard span {
+          display: block;
+        }
+
+        .customerPreviewPhotoCard strong {
+          font-size: 13px;
+          color: ${COLORS.white};
+        }
+
+        .customerPreviewPhotoCard span {
+          margin-top: 3px;
+          font-size: 12px;
+          color: ${COLORS.soft};
+        }
+
+        .customerPreviewBottomNav {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 6px;
+          border-radius: 22px;
+          padding: 6px;
+          background: rgba(8, 6, 62, 0.96);
+          border: 1px solid ${COLORS.line};
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+        }
+
+        .customerPreviewBottomButton {
+          min-height: 44px;
+          border: 0;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          color: ${COLORS.soft};
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 12px;
           font-weight: 900;
         }
 
-        .previewTop h2 {
-          margin: 6px 0 8px;
-          font-size: 24px;
-          line-height: 1.22;
-          letter-spacing: -0.04em;
-        }
-
-        .previewButtons {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin: 16px 0;
-        }
-
-        .previewButtons span {
-          display: inline-flex;
+        .customerPreviewBottomButton span {
+          width: 20px;
+          height: 20px;
           border-radius: 999px;
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
-          padding: 10px 13px;
-          font-size: 13px;
-          font-weight: 1000;
+          background: rgba(238, 224, 197, 0.18);
+          color: ${COLORS.cream};
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+        }
+
+        .customerPreviewBottomButtonActive {
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          box-shadow: inset 0 0 0 1px rgba(238, 224, 197, 0.24);
         }
 
         .photoPreviewGrid {
@@ -1196,35 +1389,62 @@ export default function SimulatorContractorSettings() {
           }
 
           .introPreview {
-            padding: 14px;
+            padding: 8px;
             border-radius: 20px;
           }
 
-          .previewTop {
-            grid-template-columns: 1fr;
-            gap: 12px;
-            align-items: flex-start;
+          .customerPreviewPage {
+            gap: 10px;
           }
 
-          .logoPreview {
-            width: 72px;
-            border-radius: 18px;
+          .customerPreviewHeroCard,
+          .customerPreviewIntroCard,
+          .customerPreviewPortfolioBlock {
+            border-radius: 20px;
+          }
+
+          .customerPreviewHeroCard,
+          .customerPreviewIntroCard {
+            padding: 14px;
+          }
+
+          .customerPreviewTitle {
+            font-size: 24px;
+          }
+
+          .customerPreviewHeroText,
+          .customerPreviewTextBox p {
+            font-size: 13px;
+            line-height: 1.6;
+          }
+
+          .customerPreviewLogoBox {
+            width: min(280px, 100%);
             font-size: 34px;
           }
 
-          .previewTop h2 {
-            margin: 4px 0 6px;
-            font-size: 20px;
-            line-height: 1.28;
+          .customerPreviewLogoBox img {
+            max-width: 280px;
+            max-height: 112px;
           }
 
-          .previewButtons {
-            margin: 12px 0 14px;
+          .customerPreviewContactRow {
+            grid-template-columns: 1fr;
           }
 
-          .previewButtons span {
-            min-height: 42px;
-            align-items: center;
+          .customerPreviewBottomNav {
+            gap: 4px;
+          }
+
+          .customerPreviewBottomButton {
+            min-height: 40px;
+            font-size: 11px;
+          }
+
+          .customerPreviewBottomButton span {
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
           }
 
           .photoPreview {
@@ -1316,9 +1536,8 @@ export default function SimulatorContractorSettings() {
             font-size: 12px;
           }
 
-          .previewButtons span {
+          .customerPreviewContactButton {
             width: 100%;
-            justify-content: center;
           }
 
           .previewBubbleBackdrop {

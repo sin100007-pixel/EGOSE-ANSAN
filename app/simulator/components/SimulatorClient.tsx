@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { ContractorProfile, SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
+import SimulatorIntroOverview from "./SimulatorIntroOverview";
 
 type SimulatorClientProps = {
   token?: string;
@@ -674,12 +675,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const stepBadgeText = hasIntroStep
     ? step === "intro"
-      ? "1단계 시공자 소개"
+      ? "step1 소개"
       : step === "space"
-        ? "2단계 공간 선택"
+        ? "step2 공간 선택"
         : step === "apply"
-          ? "3단계 색상 적용"
-          : "4단계 결정 확정"
+          ? "step3 색상 적용"
+          : "step4 결정 확정"
     : step === "space"
       ? "1단계 공간 선택"
       : step === "apply"
@@ -731,26 +732,28 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         <div className="pageInner">
-          <section className="heroCard">
-            <div className="heroTopRow">
-              <div style={{ minWidth: 0 }}>
-                <div className="stepBadge">{stepBadgeText}</div>
+          {step === "intro" && hasIntroStep ? null : (
+            <section className="heroCard">
+              <div className="heroTopRow">
+                <div style={{ minWidth: 0 }}>
+                  <div className="stepBadge">{stepBadgeText}</div>
 
-                <h1 className="pageTitle">{mainTitle}</h1>
+                  <h1 className="pageTitle">{mainTitle}</h1>
 
-                <p className="heroText">{heroDescription}</p>
-              </div>
-
-              {state.link ? (
-                <div className="linkCard linkCardCompact">
-                  <div style={{ color: COLORS.white, fontSize: 14, lineHeight: 1.65 }}>
-                    {state.link.customer_name ? <div>고객명: {state.link.customer_name}</div> : null}
-                    <div>시뮬레이션 만료: {formatDateTime(state.link.expires_at)}</div>
-                  </div>
+                  <p className="heroText">{heroDescription}</p>
                 </div>
-              ) : null}
-            </div>
-          </section>
+
+                {state.link ? (
+                  <div className="linkCard linkCardCompact">
+                    <div style={{ color: COLORS.white, fontSize: 14, lineHeight: 1.65 }}>
+                      {state.link.customer_name ? <div>고객명: {state.link.customer_name}</div> : null}
+                      <div>시뮬레이션 만료: {formatDateTime(state.link.expires_at)}</div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          )}
 
           {state.loading ? (
             <section style={noticeStyle()}>시뮬레이터 정보를 불러오는 중...</section>
@@ -778,71 +781,21 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               </div>
             </section>
           ) : step === "intro" && hasIntroStep ? (
-            <section className="contractorIntroCard">
-              <div className="contractorIntroTop">
-                <div className="contractorLogoBox">
-                  {state.contractor?.logo_url ? (
-                    <img src={state.contractor.logo_url} alt={`${contractorName} 로고`} />
-                  ) : (
-                    <span>{contractorName.slice(0, 1)}</span>
-                  )}
-                </div>
-
-                <div className="contractorIntroTextBox">
-                  <div className="sectionLabel">시공자 소개</div>
-                  <h2>{contractorName}님이 보내신 필름 시뮬레이터입니다.</h2>
-                  {state.contractor?.greeting ? (
-                    <p>{state.contractor.greeting}</p>
-                  ) : (
-                    <p>시공 전 원하는 필름을 미리 적용해보시고 편하게 문의해주세요.</p>
-                  )}
-
-                  <div className="contractorContactRow">
-                    {state.contractor?.phone ? (
-                      <a href={phoneHref} className="contractorContactButton">
-                        전화 {state.contractor.phone}
-                      </a>
-                    ) : null}
-
-                    {kakaoHref ? (
-                      <a href={kakaoHref} target="_blank" rel="noopener noreferrer" className="contractorContactButton">
-                        카카오 문의
-                      </a>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              {contractorPhotos.length > 0 ? (
-                <div className="portfolioPreviewBlock">
-                  <div className="portfolioHeaderRow">
-                    <div>
-                      <div className="sectionLabel">대표 시공사진</div>
-                      <h3>실제 시공 사례를 확인해보세요.</h3>
-                    </div>
-                    <span>{contractorPhotos.length}장</span>
-                  </div>
-
-                  <div className="portfolioPhotoGrid">
-                    {contractorPhotos.slice(0, 3).map((photo) => (
-                      <figure key={photo.id} className="portfolioPhotoCard">
-                        <img src={photo.image_url} alt={photo.title || "대표 시공사진"} loading="lazy" />
-                        {(photo.title || photo.description) ? (
-                          <figcaption>
-                            {photo.title ? <strong>{photo.title}</strong> : null}
-                            {photo.description ? <span>{photo.description}</span> : null}
-                          </figcaption>
-                        ) : null}
-                      </figure>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <button type="button" onClick={() => setStep("space")} className="introStartButton">
-                시뮬레이션 시작하기
-              </button>
-            </section>
+            <SimulatorIntroOverview
+              contractorName={contractorName}
+              logoUrl={state.contractor?.logo_url}
+              greeting={state.contractor?.greeting}
+              phone={state.contractor?.phone}
+              phoneHref={phoneHref}
+              kakaoHref={kakaoHref}
+              photos={contractorPhotos}
+              customerName={state.link?.customer_name}
+              expiresAt={state.link?.expires_at}
+              brandColor={state.contractor?.brand_color}
+              showHero
+              showStartButton
+              onStart={() => setStep("space")}
+            />
           ) : step === "space" ? (
             <section className="spaceSelectCard">
               <div className="sectionHeader">
@@ -1532,31 +1485,37 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .contractorIntroTop {
-          display: grid;
-          grid-template-columns: 116px minmax(0, 1fr);
+          display: flex;
+          flex-direction: column;
           gap: 16px;
-          align-items: start;
+          align-items: stretch;
         }
 
         .contractorLogoBox {
-          width: 116px;
-          aspect-ratio: 1;
-          border-radius: 28px;
+          width: min(340px, 100%);
+          min-height: 0;
           overflow: hidden;
-          display: grid;
-          place-items: center;
-          background: rgba(238, 224, 197, 0.12);
-          border: 1px solid rgba(238, 224, 197, 0.22);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          align-self: center;
+          background: transparent;
+          border: 0;
+          border-radius: 0;
           color: ${COLORS.cream};
-          font-size: 42px;
+          font-size: 72px;
           font-weight: 1000;
         }
 
         .contractorLogoBox img {
           width: 100%;
-          height: 100%;
-          object-fit: cover;
+          max-width: 340px;
+          height: auto;
+          max-height: 136px;
+          object-fit: contain;
+          object-position: center center;
           display: block;
+          transform: none;
         }
 
         .contractorIntroTextBox h2 {
@@ -1578,24 +1537,53 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .contractorContactRow {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 14px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 16px;
         }
 
         .contractorContactButton {
-          min-height: 42px;
+          min-height: 46px;
           border-radius: 999px;
           padding: 0 15px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
+          gap: 8px;
+          background: rgba(238, 224, 197, 0.1);
+          border: 1px solid rgba(238, 224, 197, 0.2);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 24px rgba(0, 0, 0, 0.18);
+          color: ${COLORS.cream};
           text-decoration: none;
           font-size: 14px;
           font-weight: 1000;
+          white-space: nowrap;
+          word-break: keep-all;
+        }
+
+        .contractorContactIcon {
+          width: 22px;
+          height: 22px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          background: rgba(238, 224, 197, 0.16);
+          color: ${COLORS.cream};
+        }
+
+        .contractorContactIcon svg {
+          width: 14px;
+          height: 14px;
+          display: block;
+          fill: currentColor;
+        }
+
+        .contractorContactIcon.kakao svg {
+          width: 15px;
+          height: 15px;
         }
 
         .portfolioPreviewBlock {
@@ -1693,10 +1681,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           width: 100%;
           min-height: 54px;
           border: none;
-          border-radius: 18px;
-          margin-top: 16px;
+          border-radius: 999px;
+          margin-top: 12px;
           background: ${COLORS.cream};
           color: ${COLORS.creamText};
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
           font-size: 17px;
           font-weight: 1000;
           cursor: pointer;
@@ -2544,12 +2533,37 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         @media (max-width: 640px) {
           .contractorIntroTop {
-            grid-template-columns: 1fr;
+            gap: 14px;
           }
 
           .contractorLogoBox {
-            width: 86px;
-            border-radius: 22px;
+            width: min(320px, 100%);
+            min-height: 0;
+            border-radius: 0;
+            overflow: hidden;
+          }
+
+          .contractorLogoBox img {
+            max-width: 320px;
+            max-height: 128px;
+            transform: none;
+          }
+
+          .contractorContactRow {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .contractorContactButton {
+            min-height: 44px;
+            padding: 0 10px;
+            font-size: 13px;
+            gap: 6px;
+          }
+
+          .contractorContactIcon {
+            width: 20px;
+            height: 20px;
           }
 
           .portfolioPhotoGrid {
