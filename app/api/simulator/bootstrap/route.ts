@@ -342,6 +342,7 @@ export async function GET(req: NextRequest) {
         setupNeeded: true,
         message:
           "Supabase 환경변수 NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 없습니다.",
+        contractor: null,
         spaces: LOCAL_FALLBACK_SPACES,
         films: [],
       },
@@ -355,6 +356,7 @@ export async function GET(req: NextRequest) {
   }
 
   const token = (req.nextUrl.searchParams.get("token") || "").trim();
+  let previewInstallerName = "";
 
   if (!token) {
     const auth = await requireSimulatorInstaller();
@@ -366,6 +368,7 @@ export async function GET(req: NextRequest) {
           expired: false,
           message: auth.error || "로그인이 필요합니다.",
           link: null,
+          contractor: null,
           spaces: [],
           films: [],
         },
@@ -377,6 +380,8 @@ export async function GET(req: NextRequest) {
         }
       );
     }
+
+    previewInstallerName = auth.name;
   }
 
   try {
@@ -393,6 +398,12 @@ export async function GET(req: NextRequest) {
       film_scope: "all" | "custom" | "preset";
     } | null = null;
     let contractorProfile: ContractorProfilePayload | null = null;
+
+    // 시공자가 직접 /simulator 로 들어온 미리보기 화면에서도
+    // 본인의 소개정보/카카오톡 링크를 사용할 수 있게 불러옵니다.
+    if (!hasToken && previewInstallerName) {
+      contractorProfile = await readContractorProfile(supabase, previewInstallerName);
+    }
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
@@ -581,6 +592,7 @@ export async function GET(req: NextRequest) {
           ? "필름시뮬레이터 DB 테이블이 아직 없습니다. supabase/02_simulator_schema.sql을 먼저 실행하세요."
           : message || "시뮬레이터 정보를 불러오지 못했습니다.",
         link: null,
+        contractor: null,
         spaces: LOCAL_FALLBACK_SPACES,
         films: [],
       },
