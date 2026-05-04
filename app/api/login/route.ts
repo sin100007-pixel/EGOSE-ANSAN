@@ -1,14 +1,14 @@
 // app/api/login/route.ts
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { withSessionCookie } from "../../../lib/session";
 import { prisma } from "@/lib/prisma";
+import { issueAuthCookies } from "@/lib/auth-tokens";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { name, password, remember } = await req.json();
+    const { name, password } = await req.json();
 
     const trimmedName = (name ?? "").trim();
     const rawPassword = (password ?? "").toString();
@@ -35,11 +35,10 @@ export async function POST(req: Request) {
     // 2) 비밀번호 체크
     let ok = false;
 
-    // passwordHash가 있으면 bcrypt로 검증
     if (user.passwordHash && user.passwordHash.length > 0) {
       ok = await bcrypt.compare(rawPassword, user.passwordHash);
     } else {
-      // 없으면 전화번호 뒷자리(phoneLast4)와 문자열 비교
+      // 기존 방식 유지: passwordHash가 없으면 전화번호 뒷자리 사용
       ok = rawPassword === user.phoneLast4;
     }
 
@@ -50,13 +49,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3) 세션 쿠키 설정 후 응답
+    // 3) 새 보안 자동로그인 쿠키 발급
     const res = NextResponse.json({ ok: true });
 
-    withSessionCookie(
+    await issueAuthCookies(
       res,
-      { uid: user.id, name: user.name },
-      Boolean(remember)
+      {
+        uid: user.id,
+        name: user.name,
+        role: user.role ?? "USER",
+        memberType: user.memberType ?? "INSTALLER",
+      },
+      {
+        userAgent: req.headers.get("user-agent"),
+        keepLegacyCookie: true,
+      }
     );
 
     return res;
