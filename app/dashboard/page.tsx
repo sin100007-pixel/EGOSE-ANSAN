@@ -1,26 +1,19 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import BottomQuickNav from "@/app/components/BottomQuickNav";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 import EgoseBannerCarousel from "@/app/components/EgoseBannerCarousel";
 import { isSimulatorAllowedUser } from "@/app/simulator/auth";
+import { getCurrentEgoseUser } from "@/lib/server-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const sessionCookie = cookies().get("session_user");
-  if (!sessionCookie) redirect("/");
-  const name = decodeURIComponent(sessionCookie.value || "");
+  const user = await getCurrentEgoseUser();
 
-  const user = await prisma.user.findFirst({
-    where: { name },
-    select: { qrUrl: true },
-  });
+  if (!user) redirect("/");
 
-  if (!user) redirect("/api/logout");
-
+  const name = user.name;
   const canUseSimulator = await isSimulatorAllowedUser(name);
 
   const COLORS = {
