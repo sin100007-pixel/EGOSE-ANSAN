@@ -417,6 +417,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setStep("apply");
   };
 
+  const goDecisionStep = () => {
+    const hasAnyFilm = maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]));
+
+    if (!hasAnyFilm) {
+      return;
+    }
+
+    setDecisionMessage("");
+    setStep("decision");
+  };
+
   const updatePaletteFacets = (json: any) => {
     const nextSubs = Array.isArray(json?.facets?.palette_subs)
       ? json.facets.palette_subs.filter(Boolean)
@@ -638,13 +649,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       await navigator.clipboard.writeText(text);
-      setDecisionMessage("결정 결과를 복사했습니다. 시공자에게 붙여넣어 전송해주세요.");
+      setDecisionMessage("결정 결과를 복사했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
     } catch {
       try {
         await navigator.clipboard.writeText(text);
-        setDecisionMessage("결정 결과를 복사했습니다. 시공자에게 붙여넣어 전송해주세요.");
+        setDecisionMessage("결정 결과를 복사했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
       } catch {
-        setDecisionMessage("전송에 실패했습니다. 화면의 결과를 캡쳐해서 시공자에게 보내주세요.");
+        setDecisionMessage("전송에 실패했습니다. 화면의 결과를 캡쳐해서 보내주세요.");
       }
     }
   };
@@ -665,7 +676,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     paintThenNavigateToDashboard();
   };
 
-  const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터 공사중";
+  const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터";
   const hasIntroStep = mode === "customer" && Boolean(state.contractor);
   const contractorName = state.contractor?.display_name || state.link?.installer_name || "시공자";
   const contractorPhotos = state.contractor?.portfolio_photos || [];
@@ -980,6 +991,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   </button>
                 ) : null}
               </div>
+
+              <div className="applyDecisionRow">
+                <button
+                  type="button"
+                  onClick={goDecisionStep}
+                  className="decisionNextButton"
+                  disabled={!maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]))}
+                >
+                  결정확정으로 넘어가기
+                </button>
+              </div>
             </section>
           ) : (
             <section className="decisionCard">
@@ -1016,19 +1038,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <div className="decisionActionIcon">1</div>
                   <h3>결정 결과 전송</h3>
                   <p>
-                    선택한 구역별 필름 결과를 시공자에게 보낼 수 있습니다. 휴대폰에서는 공유창이 열리고, 지원하지 않는 경우 결과가 복사됩니다.
+                    선택한 구역별 필름 결과를 보낼 수 있습니다. 휴대폰에서는 공유창이 열리고, 지원하지 않는 경우 결과가 복사됩니다.
                   </p>
                   <button type="button" onClick={() => void shareDecisionResult()} className="primaryDecisionButton">
-                    시공자에게 결과 전송
+                    시뮬레이션 결과 전송
                   </button>
                   {decisionMessage ? <div className="decisionMessage">{decisionMessage}</div> : null}
                 </section>
 
                 <section className="decisionActionCard">
                   <div className="decisionActionIcon">2</div>
-                  <h3>매장 샘플 안내</h3>
+                  <h3>샘플 안내</h3>
                   <p>
-                    현재 샘플택배 서비스는 이용할 수 없지만, 매장으로 오시면 샘플을 받아 보실 수 있습니다.
+                    거래처의 매장으로 오시면 샘플을 받아 보실 수 있습니다.
                   </p>
                   <div className="storeInfoBox">
                     <strong>이고세(주)</strong>
@@ -1043,14 +1065,20 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <p>
                     필름 선택이나 샘플 확인이 필요하면 카카오톡으로 문의해주세요.
                   </p>
-                  <a
-                    href="http://pf.kakao.com/_IxgdJj/chat"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="primaryDecisionButton"
-                  >
-                    카카오톡 문의하기
-                  </a>
+                  {kakaoHref ? (
+                    <a
+                      href={kakaoHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="primaryDecisionButton"
+                    >
+                      카카오톡 문의하기
+                    </a>
+                  ) : (
+                    <button type="button" className="primaryDecisionButton" disabled>
+                      카카오톡 링크 준비중
+                    </button>
+                  )}
                 </section>
               </div>
             </section>
@@ -2030,6 +2058,30 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           cursor: pointer;
         }
 
+        .applyDecisionRow {
+          margin-top: 12px;
+        }
+
+        .decisionNextButton {
+          width: 100%;
+          border: none;
+          border-radius: 16px;
+          padding: 15px 16px;
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          font-size: 16px;
+          font-weight: 1000;
+          letter-spacing: -0.02em;
+          cursor: pointer;
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+        }
+
+        .decisionNextButton:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
         .decisionSummary {
           border-radius: 22px;
           padding: 14px;
@@ -2719,6 +2771,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             white-space: nowrap;
             font-size: 12px;
             padding: 8px 10px;
+          }
+
+          .applyDecisionRow {
+            margin-top: 10px;
+          }
+
+          .decisionNextButton {
+            border-radius: 14px;
+            padding: 13px 14px;
+            font-size: 15px;
           }
 
           .decisionSummary {
