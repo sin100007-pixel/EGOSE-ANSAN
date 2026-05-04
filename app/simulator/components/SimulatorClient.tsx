@@ -214,6 +214,65 @@ function getKakaoHref(kakaoUrl: string | null | undefined) {
   return value || "";
 }
 
+
+function CustomerIntroLoadingSkeleton() {
+  return (
+    <div className="introLoadingSkeleton" aria-live="polite" aria-busy="true">
+      <section className="introSkeletonHero">
+        <div className="introSkeletonPill" />
+        <div className="introSkeletonTitle" />
+        <div className="introSkeletonText wide" />
+        <div className="introSkeletonText" />
+      </section>
+
+      <section className="introSkeletonCard">
+        <div className="introSkeletonTop">
+          <div className="introSkeletonLogo" />
+          <div className="introSkeletonCopy">
+            <div className="introSkeletonLine wide" />
+            <div className="introSkeletonLine" />
+            <div className="introSkeletonLine short" />
+
+            <div className="introSkeletonContactRow">
+              <div className="introSkeletonButton" />
+              <div className="introSkeletonButton" />
+            </div>
+          </div>
+        </div>
+
+        <div className="introSkeletonStartButton" />
+      </section>
+
+      <section className="introSkeletonPortfolio">
+        <div className="introSkeletonHeaderRow">
+          <div>
+            <div className="introSkeletonSmallTitle" />
+            <div className="introSkeletonText" />
+          </div>
+          <div className="introSkeletonMiniPill" />
+        </div>
+
+        <div className="introSkeletonPhotoGrid">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <article key={index} className="introSkeletonPhotoCard">
+              <div className="introSkeletonPhoto" />
+              <div className="introSkeletonPhotoTitle" />
+              <div className="introSkeletonPhotoText" />
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <nav className="introSkeletonBottomNav" aria-hidden="true">
+        <div className="introSkeletonNavButton active" />
+        <div className="introSkeletonNavButton" />
+        <div className="introSkeletonNavButton" />
+        <div className="introSkeletonNavButton" />
+      </nav>
+    </div>
+  );
+}
+
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const router = useRouter();
   const filmSearchSeqRef = useRef(0);
@@ -814,7 +873,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         <div className="pageInner">
-          {step === "intro" && hasIntroStep ? null : (
+          {(mode === "customer" && state.loading) || (step === "intro" && hasIntroStep) ? null : (
             <section className="heroCard">
               <div className="heroTopRow">
                 <div style={{ minWidth: 0 }}>
@@ -837,7 +896,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           )}
 
           {state.loading ? (
-            <section style={noticeStyle()}>시뮬레이터 정보를 불러오는 중...</section>
+            mode === "customer" ? (
+              <CustomerIntroLoadingSkeleton />
+            ) : (
+              <section style={noticeStyle()}>시뮬레이터 정보를 불러오는 중...</section>
+            )
           ) : state.expired ? (
             <section style={noticeStyle("danger")}>
               <strong style={{ display: "block", fontSize: 20, marginBottom: 8 }}>만료된 링크입니다.</strong>
@@ -1397,6 +1460,250 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       </div>
 
       <style jsx>{`
+        .introLoadingSkeleton {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          color: ${COLORS.white};
+          padding-bottom: 84px;
+        }
+
+        .introSkeletonHero,
+        .introSkeletonCard,
+        .introSkeletonPortfolio {
+          border: 1px solid ${COLORS.line};
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.075),
+            rgba(255, 255, 255, 0.035)
+          );
+          border-radius: 30px;
+          padding: 22px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .introSkeletonHero::after,
+        .introSkeletonCard::after,
+        .introSkeletonPortfolio::after,
+        .introSkeletonPill::after,
+        .introSkeletonTitle::after,
+        .introSkeletonText::after,
+        .introSkeletonLogo::after,
+        .introSkeletonLine::after,
+        .introSkeletonButton::after,
+        .introSkeletonStartButton::after,
+        .introSkeletonSmallTitle::after,
+        .introSkeletonMiniPill::after,
+        .introSkeletonPhotoCard::after,
+        .introSkeletonPhoto::after,
+        .introSkeletonPhotoTitle::after,
+        .introSkeletonPhotoText::after,
+        .introSkeletonNavButton::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: introSkeletonShimmer 1.35s infinite;
+        }
+
+        .introSkeletonPill,
+        .introSkeletonTitle,
+        .introSkeletonText,
+        .introSkeletonLogo,
+        .introSkeletonLine,
+        .introSkeletonButton,
+        .introSkeletonStartButton,
+        .introSkeletonSmallTitle,
+        .introSkeletonMiniPill,
+        .introSkeletonPhotoCard,
+        .introSkeletonPhoto,
+        .introSkeletonPhotoTitle,
+        .introSkeletonPhotoText,
+        .introSkeletonNavButton {
+          position: relative;
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.085);
+        }
+
+        .introSkeletonPill {
+          width: 92px;
+          height: 32px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.16);
+          margin-bottom: 18px;
+        }
+
+        .introSkeletonTitle {
+          width: min(440px, 78%);
+          height: 44px;
+          border-radius: 16px;
+          margin-bottom: 20px;
+        }
+
+        .introSkeletonText {
+          width: 62%;
+          height: 15px;
+          border-radius: 999px;
+          margin-top: 10px;
+        }
+
+        .introSkeletonText.wide {
+          width: 86%;
+        }
+
+        .introSkeletonTop {
+          display: grid;
+          grid-template-columns: 148px minmax(0, 1fr);
+          gap: 18px;
+          align-items: center;
+        }
+
+        .introSkeletonLogo {
+          width: 148px;
+          height: 148px;
+          border-radius: 28px;
+          background: rgba(238, 224, 197, 0.14);
+        }
+
+        .introSkeletonCopy {
+          min-width: 0;
+        }
+
+        .introSkeletonLine {
+          width: 72%;
+          height: 15px;
+          border-radius: 999px;
+          margin-top: 12px;
+        }
+
+        .introSkeletonLine.wide {
+          width: 92%;
+        }
+
+        .introSkeletonLine.short {
+          width: 48%;
+        }
+
+        .introSkeletonContactRow {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 18px;
+        }
+
+        .introSkeletonButton {
+          height: 42px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.16);
+        }
+
+        .introSkeletonStartButton {
+          width: min(360px, 100%);
+          height: 52px;
+          border-radius: 18px;
+          margin: 20px auto 0;
+          background: rgba(238, 224, 197, 0.22);
+        }
+
+        .introSkeletonHeaderRow {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+          margin-bottom: 14px;
+        }
+
+        .introSkeletonSmallTitle {
+          width: 150px;
+          height: 24px;
+          border-radius: 12px;
+          background: rgba(238, 224, 197, 0.14);
+        }
+
+        .introSkeletonMiniPill {
+          width: 78px;
+          height: 30px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.14);
+        }
+
+        .introSkeletonPhotoGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .introSkeletonPhotoCard {
+          border: 1px solid ${COLORS.line};
+          border-radius: 22px;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.045);
+        }
+
+        .introSkeletonPhoto {
+          width: 100%;
+          aspect-ratio: 4 / 3;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .introSkeletonPhotoTitle {
+          width: 76%;
+          height: 14px;
+          border-radius: 999px;
+          margin-top: 11px;
+        }
+
+        .introSkeletonPhotoText {
+          width: 56%;
+          height: 11px;
+          border-radius: 999px;
+          margin-top: 8px;
+        }
+
+        .introSkeletonBottomNav {
+          position: fixed;
+          left: 50%;
+          bottom: calc(12px + env(safe-area-inset-bottom));
+          z-index: 80;
+          width: min(520px, calc(100% - 24px));
+          transform: translateX(-50%);
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 6px;
+          padding: 8px;
+          border-radius: 22px;
+          border: 1px solid rgba(238, 224, 197, 0.14);
+          background: rgba(8, 6, 62, 0.92);
+          box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+          backdrop-filter: blur(16px);
+        }
+
+        .introSkeletonNavButton {
+          height: 46px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.065);
+        }
+
+        .introSkeletonNavButton.active {
+          background: rgba(238, 224, 197, 0.22);
+        }
+
+        @keyframes introSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
         .pageWrap {
           width: 100%;
           min-height: 100vh;
@@ -2802,6 +3109,71 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
           .pageInner {
             padding: 8px 10px 24px;
+          }
+
+          .introLoadingSkeleton {
+            gap: 12px;
+            padding-bottom: 76px;
+          }
+
+          .introSkeletonHero,
+          .introSkeletonCard,
+          .introSkeletonPortfolio {
+            border-radius: 24px;
+            padding: 18px 16px;
+          }
+
+          .introSkeletonTitle {
+            width: 88%;
+            height: 34px;
+            border-radius: 14px;
+          }
+
+          .introSkeletonText,
+          .introSkeletonText.wide {
+            width: 100%;
+          }
+
+          .introSkeletonTop {
+            grid-template-columns: 1fr;
+            justify-items: center;
+            text-align: center;
+          }
+
+          .introSkeletonLogo {
+            width: 136px;
+            height: 136px;
+            border-radius: 26px;
+          }
+
+          .introSkeletonCopy {
+            width: 100%;
+          }
+
+          .introSkeletonLine,
+          .introSkeletonLine.wide,
+          .introSkeletonLine.short {
+            margin-left: auto;
+            margin-right: auto;
+          }
+
+          .introSkeletonContactRow {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .introSkeletonPhotoGrid {
+            display: flex;
+            gap: 10px;
+            overflow: hidden;
+          }
+
+          .introSkeletonPhotoCard {
+            flex: 0 0 78%;
+            border-radius: 20px;
+          }
+
+          .introSkeletonMiniPill {
+            width: 64px;
           }
 
           .backButton {
