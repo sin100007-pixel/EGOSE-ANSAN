@@ -992,6 +992,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 ) : null}
               </div>
 
+              <p className="applyWarningText">
+                *고화질 이미지를 이용한 시뮬레이션이지만 실물 필름과는 차이가있습니다. 유의해주세요.*
+              </p>
+
               <div className="applyDecisionRow">
                 <button
                   type="button"
@@ -2058,8 +2062,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           cursor: pointer;
         }
 
+        .applyWarningText {
+          margin: 12px 2px 8px;
+          color: #ff4d4d;
+          font-size: 13px;
+          font-weight: 900;
+          line-height: 1.45;
+          word-break: keep-all;
+        }
+
         .applyDecisionRow {
-          margin-top: 12px;
+          margin-top: 8px;
         }
 
         .decisionNextButton {
@@ -2773,8 +2786,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             padding: 8px 10px;
           }
 
+          .applyWarningText {
+            margin: 10px 2px 7px;
+            font-size: 12px;
+            line-height: 1.45;
+          }
+
           .applyDecisionRow {
-            margin-top: 10px;
+            margin-top: 7px;
           }
 
           .decisionNextButton {
