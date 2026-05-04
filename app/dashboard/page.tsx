@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import BottomQuickNav from "@/app/components/BottomQuickNav";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
@@ -7,6 +8,49 @@ import { getCurrentEgoseUser } from "@/lib/server-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type IconOnlyShortcutProps = {
+  href: string;
+  imageSrc: string;
+  label: string;
+};
+
+function IconOnlyShortcut({ href, imageSrc, label }: IconOnlyShortcutProps) {
+  return (
+    <a
+      href={href}
+      aria-label={label}
+      title={label}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 132,
+        borderRadius: 24,
+        textDecoration: "none",
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        boxShadow:
+          "0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04)",
+        padding: 8,
+      }}
+    >
+      <img
+        src={imageSrc}
+        alt={label}
+        style={{
+          display: "block",
+          width: "160%",
+          maxWidth: 210,
+          height: "auto",
+          objectFit: "contain",
+          filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.18))",
+        }}
+      />
+    </a>
+  );
+}
 
 export default async function DashboardPage() {
   const user = await getCurrentEgoseUser();
@@ -26,7 +70,7 @@ export default async function DashboardPage() {
     white: "#FFFFFF",
   };
 
-  const panelStyle: React.CSSProperties = {
+  const panelStyle: CSSProperties = {
     borderRadius: 28,
     border: `1px solid ${COLORS.line}`,
     background: COLORS.panel,
@@ -35,14 +79,14 @@ export default async function DashboardPage() {
     backdropFilter: "blur(8px)",
   };
 
-  const footerTextStyle: React.CSSProperties = {
+  const footerTextStyle: CSSProperties = {
     fontSize: 12,
     lineHeight: "18px",
     color: COLORS.textSoft,
     textAlign: "center",
   };
 
-  const footerButtonStyle: React.CSSProperties = {
+  const footerButtonStyle: CSSProperties = {
     ...footerTextStyle,
     textDecoration: "underline",
     background: "none",
@@ -120,16 +164,8 @@ export default async function DashboardPage() {
           <LondonMarketBanner />
         </header>
 
-        <div
-          style={{
-            marginBottom: 8,
-          }}
-        >
-          <div
-            style={{
-              overflow: "hidden",
-            }}
-          >
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ overflow: "hidden" }}>
             <EgoseBannerCarousel />
           </div>
         </div>
@@ -139,7 +175,7 @@ export default async function DashboardPage() {
           style={{
             ...panelStyle,
             padding: 12,
-            marginBottom: 22,
+            marginBottom: 10,
           }}
         >
           <div style={{ marginBottom: 8 }}>
@@ -169,7 +205,7 @@ export default async function DashboardPage() {
           >
             <div
               style={{
-                maxWidth: 238,
+                maxWidth: 200,
                 margin: "0 auto",
                 borderRadius: 16,
                 overflow: "hidden",
@@ -191,171 +227,33 @@ export default async function DashboardPage() {
         </section>
 
         {canUseSimulator ? (
-        <section
-          style={{
-            ...panelStyle,
-            padding: 14,
-            marginBottom: 18,
-          }}
-        >
-          <a
-            href="/simulator"
+          <section
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              textDecoration: "none",
-              borderRadius: 20,
-              padding: "15px 16px",
-              background: "rgba(238,224,197,0.10)",
-              border: `1px solid ${COLORS.lineStrong}`,
-              color: COLORS.white,
+              ...panelStyle,
+              padding: 10,
+              marginBottom: 18,
             }}
           >
-            <span>
-              <span
-                style={{
-                  display: "block",
-                  color: COLORS.white,
-                  fontSize: 16,
-                  fontWeight: 900,
-                  lineHeight: 1.25,
-                  marginBottom: 4,
-                }}
-              >
-                시뮬레이터
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  color: COLORS.textSoft,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  lineHeight: 1.45,
-                }}
-              >
-                색상팔레트, 유리한필름배치 추가필요.
-              </span>
-            </span>
-            <span
-              aria-hidden="true"
+            <div
               style={{
-                color: "#EEE0C5",
-                fontSize: 22,
-                fontWeight: 900,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
               }}
             >
-              →
-            </span>
-          </a>
+              <IconOnlyShortcut
+                href="/simulator"
+                imageSrc="/simulator-buttons/simubot.png"
+                label="시뮬레이션"
+              />
 
-          <a
-            href="/simulator/links/new"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              textDecoration: "none",
-              borderRadius: 20,
-              padding: "15px 16px",
-              marginTop: 10,
-              background: "rgba(238,224,197,0.10)",
-              border: `1px solid ${COLORS.lineStrong}`,
-              color: COLORS.white,
-            }}
-          >
-            <span>
-              <span
-                style={{
-                  display: "block",
-                  color: COLORS.white,
-                  fontSize: 16,
-                  fontWeight: 900,
-                  lineHeight: 1.25,
-                  marginBottom: 4,
-                }}
-              >
-                시뮬레이터 링크생성기
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  color: COLORS.textSoft,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  lineHeight: 1.45,
-                }}
-              >
-                색상프리셋, 만료연기 추가필요.
-              </span>
-            </span>
-            <span
-              aria-hidden="true"
-              style={{
-                color: "#EEE0C5",
-                fontSize: 22,
-                fontWeight: 900,
-              }}
-            >
-              →
-            </span>
-          </a>
-
-          <a
-            href="/simulator/links/manage"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              textDecoration: "none",
-              borderRadius: 20,
-              padding: "15px 16px",
-              marginTop: 10,
-              background: "rgba(238,224,197,0.10)",
-              border: `1px solid ${COLORS.lineStrong}`,
-              color: COLORS.white,
-            }}
-          >
-            <span>
-              <span
-                style={{
-                  display: "block",
-                  color: COLORS.white,
-                  fontSize: 16,
-                  fontWeight: 900,
-                  lineHeight: 1.25,
-                  marginBottom: 4,
-                }}
-              >
-                링크관리
-              </span>
-              <span
-                style={{
-                  display: "block",
-                  color: COLORS.textSoft,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  lineHeight: 1.45,
-                }}
-              >
-                보낸 링크 확인 / 복사 / 삭제
-              </span>
-            </span>
-            <span
-              aria-hidden="true"
-              style={{
-                color: "#EEE0C5",
-                fontSize: 22,
-                fontWeight: 900,
-              }}
-            >
-              →
-            </span>
-          </a>
-        </section>
+              <IconOnlyShortcut
+                href="/simulator/links/new"
+                imageSrc="/simulator-buttons/simubot-admin.png"
+                label="시뮬레이션 관리"
+              />
+            </div>
+          </section>
         ) : null}
 
         <footer
@@ -379,8 +277,6 @@ export default async function DashboardPage() {
               </button>
             </p>
           </form>
-
-          
         </footer>
       </div>
 
