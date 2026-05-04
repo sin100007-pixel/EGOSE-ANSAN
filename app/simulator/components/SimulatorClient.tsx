@@ -1160,11 +1160,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <div className="decisionActionIcon">2</div>
                   <h3>샘플 안내</h3>
                   <p>
-                    거래처의 매장으로 오시면 샘플을 받아 보실 수 있습니다.
+                    거래처의 매장에 방문하시면, 샘플을 받아 보실 수 있게 준비해놨습니다.
                   </p>
                   <div className="storeInfoBox">
                     <strong>이고세(주)</strong>
-                    <span>경기도 안산시 상록구 안산천서로 237</span>
+                    <span>경기도 안산시 상록구 안산천서로 237 1층 삼성필름 이고세</span>
                     <span>Tel. 031-486-6882</span>
                   </div>
                 </section>
@@ -1173,7 +1173,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <div className="decisionActionIcon">3</div>
                   <h3>카카오톡 문의</h3>
                   <p>
-                    필름 선택이나 샘플 확인이 필요하면 카카오톡으로 문의해주세요.
+                    기타 궁금한게 있으시면 카카오톡으로 문의해주세요.
                   </p>
                   {kakaoHref ? (
                     <a
