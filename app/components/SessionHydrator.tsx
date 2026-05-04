@@ -1,20 +1,29 @@
 // app/components/SessionHydrator.tsx
 "use client";
+
 import { useEffect } from "react";
 
 /**
- * 앱 시작 시 쿠키가 없고 localStorage에만 이름이 남아있다면
- * 복구 API로 쿠키를 재발급.
- * 단, 로그아웃 직후(/logout 또는 justLoggedOut 플래그)에는 동작하지 않음.
+ * 앱 시작 시 기존 session_user 쿠키가 남아 있는 사용자를
+ * 새 egose_session / egose_refresh 방식으로 조용히 승계한다.
+ *
+ * 주의:
+ * HttpOnly 쿠키는 document.cookie로 읽을 수 없으므로
+ * 클라이언트에서 쿠키 존재 여부를 판단하지 않고 서버 API에 맡긴다.
  */
 export default function SessionHydrator() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 0) 로그아웃 페이지에서는 무조건 비활성화
-    if (window.location.pathname === "/logout") return;
+    const pathname = window.location.pathname;
 
-    // 1) 방금 로그아웃했다면(1회용 플래그) 자동복구 건너뜀
+    // 로그아웃 페이지에서는 자동 승계 금지
+    if (pathname === "/logout") return;
+
+    // 고객 공유링크에서는 굳이 승계 시도하지 않음
+    if (pathname.startsWith("/simulator/share")) return;
+
+    // 방금 로그아웃했다면 1회 승계 차단
     try {
       const justLoggedOut = sessionStorage.getItem("justLoggedOut");
       if (justLoggedOut === "1") {
@@ -23,32 +32,34 @@ export default function SessionHydrator() {
       }
     } catch {}
 
-    // 2) 이미 쿠키가 있으면 아무것도 안 함
-    const hasCookie = document.cookie.includes("session_user=");
-    if (hasCookie) return;
+    let cancelled = false;
 
-    // 3) 로컬백업이 없으면 종료
-    const stored = localStorage.getItem("session_user");
-    if (!stored) return;
-
-    // 4) 복구 시도
-    (async () => {
+    async function migrateLegacySession() {
       try {
-        const res = await fetch("/api/restore-session", {
+        const res = await fetch("/api/auth/migrate-legacy", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include", // 쿠키 저장
-          body: JSON.stringify({ name: decodeURIComponent(stored) }),
+          credentials: "include",
           cache: "no-store",
         });
-        // 홈에서 복구되면 대시보드로 안내
-        if (res.ok && location.pathname === "/") {
-          location.replace("/dashboard");
+
+        const body = await res.json().catch(() => null);
+
+        if (cancelled) return;
+
+        // 홈 화면에서 기존 자동로그인이 승계되면 대시보드로 이동
+        if (res.ok && body?.migrated === true && pathname === "/") {
+          window.location.replace("/dashboard");
         }
       } catch {
-        // 네트워크 오류 등은 묵음 처리
+        // 네트워크 오류는 조용히 무시
       }
-    })();
+    }
+
+    migrateLegacySession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return null;

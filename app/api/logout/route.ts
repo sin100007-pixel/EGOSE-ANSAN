@@ -1,29 +1,53 @@
 // app/api/logout/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import {
+  clearAuthCookies,
+  hashRefreshToken,
+  REFRESH_COOKIE_NAME,
+} from "@/lib/auth-tokens";
 
 export const runtime = "nodejs";
 
-/** 공통: 세션 쿠키 삭제 */
-function clearSessionCookie(res: NextResponse) {
-  res.cookies.set("session_user", "", {
-    path: "/",
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: 0, // 즉시 만료
+async function revokeRefreshSession(req: NextRequest) {
+  const refreshToken = req.cookies.get(REFRESH_COOKIE_NAME)?.value;
+  if (!refreshToken) return;
+
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+
+  await prisma.authSession.updateMany({
+    where: {
+      refreshTokenHash,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
   });
 }
 
 /** POST /api/logout -> /logout 로 리다이렉트 */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  try {
+    await revokeRefreshSession(req);
+  } catch (e) {
+    console.error("[logout] revoke failed", e);
+  }
+
   const res = NextResponse.redirect(new URL("/logout", req.url), 302);
-  clearSessionCookie(res);
+  clearAuthCookies(res);
   return res;
 }
 
-/** GET /api/logout -> /logout 로 리다이렉트 (직접 접근도 처리) */
-export async function GET(req: Request) {
+/** GET /api/logout -> /logout 로 리다이렉트 */
+export async function GET(req: NextRequest) {
+  try {
+    await revokeRefreshSession(req);
+  } catch (e) {
+    console.error("[logout] revoke failed", e);
+  }
+
   const res = NextResponse.redirect(new URL("/logout", req.url), 302);
-  clearSessionCookie(res);
+  clearAuthCookies(res);
   return res;
 }

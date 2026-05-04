@@ -11,6 +11,8 @@ export const LEGACY_COOKIE_NAME = "session_user";
 const ACCESS_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7일
 const REFRESH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 180; // 180일
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const secretText = process.env.APP_SECRET;
 
 if (!secretText) {
@@ -96,7 +98,7 @@ export async function issueAuthCookies(
   res.cookies.set(ACCESS_COOKIE_NAME, accessToken, {
     path: "/",
     httpOnly: true,
-    secure: true,
+    secure: isProduction,
     sameSite: "lax",
     maxAge: ACCESS_TOKEN_MAX_AGE_SECONDS,
   });
@@ -104,7 +106,7 @@ export async function issueAuthCookies(
   res.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
     path: "/",
     httpOnly: true,
-    secure: true,
+    secure: isProduction,
     sameSite: "lax",
     maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
   });
@@ -114,7 +116,7 @@ export async function issueAuthCookies(
     res.cookies.set(LEGACY_COOKIE_NAME, encodeURIComponent(payload.name), {
       path: "/",
       httpOnly: true,
-      secure: true,
+      secure: isProduction,
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 30,
     });
@@ -127,7 +129,7 @@ export function clearAuthCookies(res: NextResponse) {
   const cookieOptions = {
     path: "/",
     httpOnly: true,
-    secure: true,
+    secure: isProduction,
     sameSite: "lax" as const,
     maxAge: 0,
   };
