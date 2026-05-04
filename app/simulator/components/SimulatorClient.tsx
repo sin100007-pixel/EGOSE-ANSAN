@@ -396,9 +396,30 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const openFilmSheet = (zoneKey: string) => {
+    const isRestrictedCustomerLink =
+      mode === "customer" &&
+      Boolean(token) &&
+      state.link?.film_scope !== "all";
+
     setActiveZoneKey(zoneKey);
+    setFilmQuery("");
     setFilmError("");
+    setSelectedPaletteMain("");
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+    selectedPaletteMainRef.current = "";
+    selectedPaletteSubRef.current = "";
+    selectedPaletteColorsRef.current = [];
+    setState((prev) => ({ ...prev, films: [] }));
     setIsFilmSheetOpen(true);
+
+    void searchFilms("", {
+      paletteMain: "",
+      paletteSub: "",
+      paletteColors: [],
+      includeFacets: true,
+      recommended: !isRestrictedCustomerLink,
+    });
   };
 
   const closeFilmSheet = () => {
@@ -449,6 +470,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       paletteSub?: string;
       paletteColors?: string[];
       includeFacets?: boolean;
+      recommended?: boolean;
     } = {}
   ) => {
     const q = keyword.trim();
@@ -459,6 +481,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const nextPaletteColors =
       overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColorsRef.current;
     const includeFacets = overrides.includeFacets !== false;
+    const useRecommended = overrides.recommended === true;
     const requestSeq = filmSearchSeqRef.current + 1;
 
     filmSearchSeqRef.current = requestSeq;
@@ -474,6 +497,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (token) params.set("token", token);
+      if (useRecommended) params.set("recommended", "1");
       if (nextPaletteMain) params.set("palette_main", nextPaletteMain);
       if (nextPaletteSub) params.set("palette_sub", nextPaletteSub);
       if (!includeFacets) params.set("skip_facets", "1");

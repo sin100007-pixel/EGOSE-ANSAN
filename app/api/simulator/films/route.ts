@@ -4,6 +4,8 @@ import { requireSimulatorInstaller } from "../../../simulator/auth";
 
 export const dynamic = "force-dynamic";
 
+const DEFAULT_RECOMMENDED_FILM_LIMIT = 24;
+
 const PRODUCT_SELECT = `
   id,
   manufacturer,
@@ -261,6 +263,29 @@ async function readPresetProductIds(
     .filter((value: number) => Number.isFinite(value));
 }
 
+async function readDefaultRecommendedProductIds(supabase: any) {
+  const { data, error } = await supabase
+    .from("simulator_default_recommended_films")
+    .select("product_id, sort_order")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(DEFAULT_RECOMMENDED_FILM_LIMIT);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map(
+      (
+        row: { product_id?: number | string | null; sort_order?: number | string | null },
+        index: number
+      ) => ({
+        productId: Number(row.product_id),
+        sortOrder: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : index + 1,
+      })
+    )
+    .filter((row: { productId: number; sortOrder: number }) => Number.isFinite(row.productId));
+}
+
 async function readPaletteFacets(
   supabase: any,
   options: {
@@ -318,6 +343,7 @@ export async function GET(req: NextRequest) {
   const paletteSub = cleanParam(req.nextUrl.searchParams.get("palette_sub"));
   const paletteColors = cleanPaletteColorParams(req);
   const skipFacets = cleanParam(req.nextUrl.searchParams.get("skip_facets")) === "1";
+  const wantsRecommended = cleanParam(req.nextUrl.searchParams.get("recommended")) === "1";
 
   if (!token) {
     const auth = await requireSimulatorInstaller();
@@ -335,6 +361,8 @@ export async function GET(req: NextRequest) {
     let filmScope: "all" | "custom" | "preset" = "all";
     let presetId = "";
     const hasToken = token.length > 0;
+    let recommendedProductIds: number[] = [];
+    let recommendedOrderMap = new Map<number, number>();
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
@@ -390,6 +418,43 @@ export async function GET(req: NextRequest) {
         }
       }
 
+    const shouldUseDefaultRecommended = wantsRecommended && filmScope === "all";
+
+    if (shouldUseDefaultRecommended) {
+      const recommendedRows = await readDefaultRecommendedProductIds(supabase);
+      recommendedProductIds = recommendedRows.map(
+        (row: { productId: number; sortOrder: number }) => row.productId
+      );
+      recommendedOrderMap = new Map(
+        recommendedRows.map((row: { productId: number; sortOrder: number }) => [
+          row.productId,
+          row.sortOrder,
+        ])
+      );
+
+      if (recommendedProductIds.length === 0) {
+        return NextResponse.json(
+          {
+            items: [],
+            ...(skipFacets
+              ? {}
+              : {
+                  facets: {
+                    palette_mains: [],
+                    palette_subs: [],
+                    palette_colors: [],
+                  },
+                }),
+          },
+          {
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate",
+            },
+          }
+        );
+      }
+    }
+
     const facets = skipFacets
       ? null
       : await readPaletteFacets(supabase, {
@@ -421,6 +486,8 @@ export async function GET(req: NextRequest) {
 
     if (hasToken && filmScope !== "all") {
       query = query.in("id", allowedProductIds);
+    } else if (shouldUseDefaultRecommended) {
+      query = query.in("id", recommendedProductIds);
     }
 
     const { data, error } = await query;
@@ -430,12 +497,19 @@ export async function GET(req: NextRequest) {
       .map((item: ProductRow) => ({ item, score: getScore(item, q) }))
       .filter(({ score }: { item: ProductRow; score: number }) => score > 0)
       .sort((a: { item: ProductRow; score: number }, b: { item: ProductRow; score: number }) => {
+        if (shouldUseDefaultRecommended && recommendedOrderMap.size > 0) {
+          const aOrder = recommendedOrderMap.get(Number(a.item.id)) ?? 9999;
+          const bOrder = recommendedOrderMap.get(Number(b.item.id)) ?? 9999;
+
+          if (aOrder !== bOrder) return aOrder - bOrder;
+        }
+
         if (b.score !== a.score) return b.score - a.score;
         const aName = a.item.full_name || a.item.product_code_1 || "";
         const bName = b.item.full_name || b.item.product_code_1 || "";
         return aName.localeCompare(bName, "ko");
       })
-      .slice(0, 60)
+      .slice(0, shouldUseDefaultRecommended ? DEFAULT_RECOMMENDED_FILM_LIMIT : 60)
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
     return NextResponse.json(
