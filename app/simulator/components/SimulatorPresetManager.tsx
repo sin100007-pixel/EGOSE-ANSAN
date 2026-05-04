@@ -191,6 +191,8 @@ export default function SimulatorPresetManager() {
     return [selectedPaletteMain, selectedPaletteSub].filter(Boolean).length + selectedPaletteColors.length;
   }, [selectedPaletteMain, selectedPaletteSub, selectedPaletteColors.length]);
 
+  const showInitialLoading = loading && presets.length === 0;
+
   const loadPresets = async () => {
     setLoading(true);
     setError("");
@@ -482,6 +484,69 @@ export default function SimulatorPresetManager() {
           </p>
         </section>
 
+        {showInitialLoading ? (
+          <div className="layout">
+            <section className="panel formPanel skeletonPanel">
+              <div className="sectionTitleRow compactTitle">
+                <div>
+                  <h2>새 프리셋 만들기</h2>
+                  <p>프리셋 정보를 불러오는 중입니다.</p>
+                </div>
+                <span>준비 중</span>
+              </div>
+
+              <div className="skeletonField">
+                <div className="skeletonLabel" />
+                <div className="skeletonInput" />
+              </div>
+
+              <div className="skeletonField">
+                <div className="skeletonLabel short" />
+                <div className="skeletonSearchRow">
+                  <div className="skeletonInput" />
+                  <div className="skeletonButton" />
+                </div>
+              </div>
+
+              <div className="skeletonHint">프리셋 화면을 예쁘게 준비하는 중...</div>
+
+              <div className="skeletonFilmGrid">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="skeletonFilmCard">
+                    <div className="skeletonFilmThumb" />
+                    <div className="skeletonFilmLine" />
+                    <div className="skeletonFilmLine short" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="skeletonActionButton" />
+            </section>
+
+            <aside className="panel listPanel skeletonPanel">
+              <div className="sectionTitleRow">
+                <div>
+                  <h2>내 프리셋</h2>
+                  <p>저장된 프리셋을 정리하고 있습니다.</p>
+                </div>
+                <div className="skeletonMiniButton" />
+              </div>
+
+              <div className="skeletonPresetList">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="skeletonPresetCard">
+                    <div className="skeletonPresetTitle" />
+                    <div className="skeletonPresetMeta" />
+                    <div className="skeletonPresetActions">
+                      <div className="skeletonMiniButton" />
+                      <div className="skeletonMiniButton danger" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          </div>
+        ) : (
         <div className="layout">
           <section className="panel formPanel">
             <div className="sectionTitleRow compactTitle">
@@ -666,7 +731,7 @@ export default function SimulatorPresetManager() {
                 </div>
               )}
 
-              <div className="filmList">
+              <div className="filmResultGrid">
                 {filmSearchResults.map((film) => {
                   const active = selectedFilmIds.has(film.id);
                   const thumb = getFilmThumbUrl(film);
@@ -676,9 +741,10 @@ export default function SimulatorPresetManager() {
                       key={film.id}
                       type="button"
                       onClick={() => toggleFilm(film)}
-                      className={`filmRow ${active ? "filmRowActive" : ""}`}
+                      className={`filmResultCard ${active ? "filmResultCardActive" : ""}`}
+                      title={active ? "누르면 프리셋에서 제거" : "누르면 프리셋에 담기"}
                     >
-                      <div className="filmThumb">
+                      <div className="filmResultThumb">
                         {thumb ? (
                           <img
                             src={thumb}
@@ -688,14 +754,8 @@ export default function SimulatorPresetManager() {
                           />
                         ) : null}
                       </div>
-                      <div className="filmInfo">
-                        <div className="filmName">{getFilmName(film)}</div>
-                        <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
-                        <div className="filmPaletteMeta">
-                          {[film.palette_main, film.palette_sub, film.palette_color].filter(Boolean).join(" · ")}
-                        </div>
-                      </div>
-                      <div className="filmAction">{active ? "선택됨" : "담기"}</div>
+                      <div className="filmResultName">{getFilmName(film)}</div>
+                      <div className="filmResultMeta">{getFilmCode(film) || film.manufacturer}</div>
                     </button>
                   );
                 })}
@@ -771,6 +831,7 @@ export default function SimulatorPresetManager() {
             )}
           </aside>
         </div>
+        )}
       </div>
 
       <SimulatorLinkTabs active="presets" />
@@ -1272,87 +1333,69 @@ export default function SimulatorPresetManager() {
           background: rgba(238, 224, 197, 0.1);
         }
 
-        .filmList {
+                .filmResultGrid {
           display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
-          max-height: 560px;
-          overflow: auto;
-          padding-right: 2px;
         }
 
-        .filmRow {
-          width: 100%;
-          display: grid;
-          grid-template-columns: 64px minmax(0, 1fr) 70px;
-          gap: 10px;
-          align-items: center;
+        .filmResultCard {
           border: 1px solid ${COLORS.line};
-          border-radius: 18px;
           background: rgba(255, 255, 255, 0.045);
           color: ${COLORS.white};
           cursor: pointer;
           text-align: left;
-          padding: 8px;
+          border-radius: 16px;
+          padding: 7px;
+          display: block;
         }
 
-        .filmRowActive {
-          border-color: rgba(238, 224, 197, 0.86);
+        .filmResultCardActive {
+          border-color: rgba(238, 224, 197, 0.58);
           background: rgba(238, 224, 197, 0.14);
-          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.14) inset;
+          box-shadow: inset 0 0 0 1px rgba(238, 224, 197, 0.12);
         }
 
-        .filmThumb {
-          width: 64px;
-          height: 64px;
+        .filmResultThumb {
+          width: 100%;
+          aspect-ratio: 1 / 1;
           overflow: hidden;
-          border-radius: 14px;
+          border-radius: 12px;
           border: 1px solid ${COLORS.line};
           background: rgba(255, 255, 255, 0.06);
         }
 
-        .filmThumb img {
+        .filmResultThumb img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
         }
 
-        .filmInfo {
-          min-width: 0;
-        }
-
-        .filmName {
-          color: ${COLORS.cream};
-          font-size: 14px;
+        .filmResultName {
+          margin-top: 8px;
+          font-size: 12px;
+          line-height: 1.25;
           font-weight: 900;
-          line-height: 1.32;
-          word-break: keep-all;
+          color: ${COLORS.cream};
           display: -webkit-box;
-          -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
           overflow: hidden;
+          min-height: 30px;
+          word-break: keep-all;
         }
 
-        .filmMeta,
-        .filmPaletteMeta {
+        .filmResultMeta {
+          margin-top: 4px;
+          font-size: 12px;
+          line-height: 1.2;
           color: ${COLORS.soft};
-          font-size: 11px;
-          margin-top: 3px;
-          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 1;
           overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .filmPaletteMeta {
-          color: rgba(238, 224, 197, 0.74);
-        }
-
-        .filmAction {
-          justify-self: end;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.08);
-          color: ${COLORS.soft};
+        };
           border: 1px solid ${COLORS.line};
           padding: 8px 9px;
           font-size: 12px;
@@ -1422,6 +1465,196 @@ export default function SimulatorPresetManager() {
           margin-top: 12px;
         }
 
+
+        .skeletonPanel,
+        .skeletonLabel,
+        .skeletonInput,
+        .skeletonButton,
+        .skeletonHint,
+        .skeletonFilmCard,
+        .skeletonFilmThumb,
+        .skeletonFilmLine,
+        .skeletonActionButton,
+        .skeletonMiniButton,
+        .skeletonPresetCard,
+        .skeletonPresetTitle,
+        .skeletonPresetMeta {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .skeletonPanel::after,
+        .skeletonLabel::after,
+        .skeletonInput::after,
+        .skeletonButton::after,
+        .skeletonHint::after,
+        .skeletonFilmCard::after,
+        .skeletonFilmThumb::after,
+        .skeletonFilmLine::after,
+        .skeletonActionButton::after,
+        .skeletonMiniButton::after,
+        .skeletonPresetCard::after,
+        .skeletonPresetTitle::after,
+        .skeletonPresetMeta::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: shimmer 1.35s infinite;
+        }
+
+        .skeletonField {
+          display: grid;
+          gap: 8px;
+          margin-top: 14px;
+        }
+
+        .skeletonLabel {
+          width: 108px;
+          height: 14px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .skeletonLabel.short {
+          width: 82px;
+        }
+
+        .skeletonInput {
+          width: 100%;
+          height: 52px;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(238, 224, 197, 0.08);
+        }
+
+        .skeletonSearchRow {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 78px;
+          gap: 10px;
+        }
+
+        .skeletonButton {
+          height: 52px;
+          border-radius: 18px;
+          background: rgba(238, 224, 197, 0.16);
+          border: 1px solid rgba(238, 224, 197, 0.14);
+        }
+
+        .skeletonHint {
+          margin-top: 14px;
+          border-radius: 18px;
+          min-height: 68px;
+          padding: 20px 16px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px dashed rgba(238, 224, 197, 0.18);
+          color: rgba(255, 255, 255, 0.7);
+          font-weight: 800;
+        }
+
+        .skeletonFilmGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 14px;
+        }
+
+        .skeletonFilmCard {
+          border-radius: 18px;
+          padding: 8px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid rgba(238, 224, 197, 0.12);
+        }
+
+        .skeletonFilmThumb {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .skeletonFilmLine {
+          margin-top: 8px;
+          height: 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .skeletonFilmLine.short {
+          width: 68%;
+          height: 10px;
+        }
+
+        .skeletonActionButton {
+          margin-top: 16px;
+          width: 180px;
+          max-width: 100%;
+          height: 54px;
+          border-radius: 18px;
+          background: rgba(238, 224, 197, 0.16);
+          border: 1px solid rgba(238, 224, 197, 0.14);
+        }
+
+        .skeletonPresetList {
+          display: grid;
+          gap: 12px;
+          margin-top: 14px;
+        }
+
+        .skeletonPresetCard {
+          border-radius: 20px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid rgba(238, 224, 197, 0.12);
+        }
+
+        .skeletonPresetTitle {
+          width: 54%;
+          height: 16px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .skeletonPresetMeta {
+          width: 72%;
+          height: 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+          margin-top: 10px;
+        }
+
+        .skeletonPresetActions {
+          display: flex;
+          gap: 8px;
+          margin-top: 14px;
+        }
+
+        .skeletonMiniButton {
+          width: 74px;
+          height: 38px;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(238, 224, 197, 0.12);
+        }
+
+        .skeletonMiniButton.danger {
+          background: rgba(235, 87, 87, 0.12);
+          border-color: rgba(235, 87, 87, 0.22);
+        }
+
+        @keyframes shimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
         button:disabled {
           opacity: 0.58;
           cursor: not-allowed;
@@ -1472,30 +1705,26 @@ export default function SimulatorPresetManager() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
-          .filmList {
-            max-height: 470px;
+          .filmResultGrid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
           }
 
-          .filmRow {
-            grid-template-columns: 54px minmax(0, 1fr) 58px;
-            gap: 8px;
-            padding: 7px;
+          .filmResultCard {
             border-radius: 16px;
+            padding: 7px;
           }
 
-          .filmThumb {
-            width: 54px;
-            height: 54px;
+          .filmResultThumb {
             border-radius: 12px;
           }
 
-          .filmName {
-            font-size: 13px;
-            -webkit-line-clamp: 1;
+          .filmResultName {
+            font-size: 12px;
+            min-height: 28px;
           }
 
-          .filmAction {
-            padding: 7px 7px;
+          .filmResultMeta {
             font-size: 11px;
           }
         }

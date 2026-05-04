@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import type { SimulatorFilm, SimulatorSpace } from "../types";
@@ -19,6 +19,15 @@ type FilmPreset = {
 
 type PresetsResponse = {
   items?: FilmPreset[];
+};
+
+type SearchOptions = {
+  query?: string;
+  silent?: boolean;
+  paletteMain?: string;
+  paletteSub?: string;
+  paletteColors?: string[];
+  updateFacets?: boolean;
 };
 
 type MaskZoneDefinition = {
@@ -74,6 +83,42 @@ const COLORS = {
   white: "#FFFFFF",
 };
 
+const DEFAULT_PALETTE_MAIN_OPTIONS = ["솔리드", "우드", "스톤", "메탈", "페브릭레더"];
+
+const DEFAULT_PALETTE_COLOR_OPTIONS = [
+  "흰색",
+  "아이보리",
+  "베이지",
+  "옐로/골드",
+  "연브라운",
+  "브라운",
+  "진브라운",
+  "다크브라운",
+  "검정/차콜",
+  "회색/실버",
+  "블루",
+  "그린",
+  "레드/핑크",
+  "퍼플",
+];
+
+const PALETTE_COLOR_SWATCH: Record<string, string> = {
+  흰색: "#F8F6EF",
+  아이보리: "#EFE2C8",
+  베이지: "#CDBA99",
+  "옐로/골드": "#C9A04D",
+  연브라운: "#B98252",
+  브라운: "#8A5A35",
+  진브라운: "#5A3926",
+  다크브라운: "#3E2A20",
+  "회색/실버": "#9A9A94",
+  "검정/차콜": "#222222",
+  그린: "#6F8A5B",
+  블루: "#3D65B8",
+  "레드/핑크": "#C95E6D",
+  퍼플: "#7A5A9A",
+};
+
 function getFilmName(film: SimulatorFilm) {
   return film.full_name || film.product_code_1 || film.color_name || "필름";
 }
@@ -84,6 +129,30 @@ function getFilmCode(film: SimulatorFilm) {
 
 function getFilmThumbUrl(film: SimulatorFilm) {
   return film.thumb_url || film.image_url || "";
+}
+
+function orderPaletteValues(values: string[], preferred: string[]) {
+  const orderMap = new Map(preferred.map((value, index) => [value, index]));
+
+  return [...values].sort((a, b) => {
+    const ai = orderMap.has(a) ? orderMap.get(a)! : 999;
+    const bi = orderMap.has(b) ? orderMap.get(b)! : 999;
+
+    if (ai !== bi) return ai - bi;
+    return a.localeCompare(b, "ko");
+  });
+}
+
+function uniqueClean(values: unknown) {
+  if (!Array.isArray(values)) return [];
+
+  return Array.from(
+    new Set(
+      values
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean)
+    )
+  );
 }
 
 function getSpaceThumb(space: SimulatorSpace) {
@@ -149,6 +218,7 @@ function formatDate(value?: string | null) {
 
 export default function SimulatorLinkBuilder() {
   const router = useRouter();
+  const searchRequestRef = useRef(0);
   const [isDashboardMoving, setIsDashboardMoving] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -171,6 +241,14 @@ export default function SimulatorLinkBuilder() {
   const [filmLoading, setFilmLoading] = useState(false);
   const [filmSearchResults, setFilmSearchResults] = useState<SimulatorFilm[]>([]);
   const [selectedFilms, setSelectedFilms] = useState<SimulatorFilm[]>([]);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [selectedPaletteMain, setSelectedPaletteMain] = useState("");
+  const [selectedPaletteSub, setSelectedPaletteSub] = useState("");
+  const [selectedPaletteColors, setSelectedPaletteColors] = useState<string[]>([]);
+  const [paletteMainOptions, setPaletteMainOptions] = useState<string[]>(DEFAULT_PALETTE_MAIN_OPTIONS);
+  const [paletteSubOptions, setPaletteSubOptions] = useState<string[]>([]);
+  const [paletteColorOptions, setPaletteColorOptions] = useState<string[]>(DEFAULT_PALETTE_COLOR_OPTIONS);
 
   const [result, setResult] = useState<LinkResult | null>(null);
 
@@ -206,6 +284,10 @@ export default function SimulatorLinkBuilder() {
     return new Set(selectedFilms.map((film) => film.id));
   }, [selectedFilms]);
 
+  const activePaletteCount = useMemo(() => {
+    return [selectedPaletteMain, selectedPaletteSub].filter(Boolean).length + selectedPaletteColors.length;
+  }, [selectedPaletteMain, selectedPaletteSub, selectedPaletteColors.length]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -239,6 +321,8 @@ export default function SimulatorLinkBuilder() {
         setFilmSearchResults(nextFilms);
         setPresets(nextPresets);
         setSelectedPresetId(nextPresets[0]?.id || "");
+
+        void searchFilms({ query: "", silent: true, updateFacets: true });
       } catch {
         if (!cancelled) {
           setError("링크 생성 정보를 불러오지 못했습니다.");
@@ -275,32 +359,121 @@ export default function SimulatorLinkBuilder() {
     setSelectedFilms((prev) => prev.filter((film) => film.id !== filmId));
   };
 
-  const searchFilms = async () => {
-    const q = filmQuery.trim();
-    setFilmLoading(true);
-    setError("");
+  const updatePaletteFacets = (json: any) => {
+    const mains = uniqueClean(json?.facets?.palette_mains);
+    const subs = uniqueClean(json?.facets?.palette_subs);
+    const colors = uniqueClean(json?.facets?.palette_colors);
+
+    if (mains.length > 0) {
+      setPaletteMainOptions(orderPaletteValues(mains, DEFAULT_PALETTE_MAIN_OPTIONS));
+    }
+
+    setPaletteSubOptions(subs);
+    setPaletteColorOptions(
+      colors.length > 0
+        ? orderPaletteValues(colors, DEFAULT_PALETTE_COLOR_OPTIONS)
+        : DEFAULT_PALETTE_COLOR_OPTIONS
+    );
+  };
+
+  const searchFilms = async (options: SearchOptions = {}) => {
+    const requestId = searchRequestRef.current + 1;
+    searchRequestRef.current = requestId;
+
+    const q = options.query !== undefined ? options.query.trim() : filmQuery.trim();
+    const paletteMain = options.paletteMain !== undefined ? options.paletteMain : selectedPaletteMain;
+    const paletteSub = options.paletteSub !== undefined ? options.paletteSub : selectedPaletteSub;
+    const paletteColors = options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors;
+    const updateFacets = options.updateFacets === true;
+    const silent = options.silent === true;
+
+    if (!silent) {
+      setFilmLoading(true);
+      setError("");
+    }
 
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
-      params.set("skip_facets", "1");
+      if (paletteMain) params.set("palette_main", paletteMain);
+      if (paletteSub) params.set("palette_sub", paletteSub);
+      paletteColors.forEach((color) => params.append("palette_color", color));
+      if (!updateFacets) params.set("skip_facets", "1");
 
       const res = await fetch(`/api/simulator/films?${params.toString()}`, {
         cache: "no-store",
       });
       const json = await res.json();
 
+      if (requestId !== searchRequestRef.current) return;
+
       if (!res.ok) {
-        setError(json.error || "필름 검색 중 오류가 발생했습니다.");
+        if (!silent) setError(json.error || "필름 검색 중 오류가 발생했습니다.");
         return;
       }
 
       setFilmSearchResults(Array.isArray(json.items) ? json.items : []);
+      if (updateFacets) updatePaletteFacets(json);
     } catch {
-      setError("필름 검색 중 오류가 발생했습니다.");
+      if (requestId === searchRequestRef.current && !silent) {
+        setError("필름 검색 중 오류가 발생했습니다.");
+      }
     } finally {
-      setFilmLoading(false);
+      if (requestId === searchRequestRef.current && !silent) {
+        setFilmLoading(false);
+      }
     }
+  };
+
+  const resetPaletteFilters = () => {
+    setSelectedPaletteMain("");
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true });
+  };
+
+  const handlePaletteMainClick = (value: string) => {
+    const nextMain = selectedPaletteMain === value ? "" : value;
+
+    setSelectedPaletteMain(nextMain);
+    setSelectedPaletteSub("");
+    setSelectedPaletteColors([]);
+
+    void searchFilms({
+      paletteMain: nextMain,
+      paletteSub: "",
+      paletteColors: [],
+      updateFacets: true,
+    });
+  };
+
+  const handlePaletteSubClick = (value: string) => {
+    const nextSub = selectedPaletteSub === value ? "" : value;
+
+    setSelectedPaletteSub(nextSub);
+    setSelectedPaletteColors([]);
+
+    void searchFilms({
+      paletteMain: selectedPaletteMain,
+      paletteSub: nextSub,
+      paletteColors: [],
+      updateFacets: true,
+    });
+  };
+
+  const handlePaletteColorClick = (value: string) => {
+    const nextColors = selectedPaletteColors.includes(value)
+      ? selectedPaletteColors.filter((item) => item !== value)
+      : [...selectedPaletteColors, value];
+
+    setSelectedPaletteColors(nextColors);
+
+    void searchFilms({
+      paletteMain: selectedPaletteMain,
+      paletteSub: selectedPaletteSub,
+      paletteColors: nextColors,
+      updateFacets: false,
+    });
   };
 
   const createLink = async () => {
@@ -373,7 +546,7 @@ export default function SimulatorLinkBuilder() {
           <div className="stepBadge">고객 링크 생성</div>
           <h1>시뮬레이션 링크 만들기</h1>
           <p>
-            고객에게 보낼 7일짜리 시뮬레이터 링크를 만듭니다. 공간과 필름 범위를 링크별로 제한할 수 있습니다.
+            고객에게 보낼 1일 / 3일 / 7일짜리 시뮬레이터 링크를 만듭니다. 공간과 필름 범위를 링크별로 제한할 수 있습니다.
           </p>
         </section>
 
@@ -407,10 +580,9 @@ export default function SimulatorLinkBuilder() {
                     value={expiresInDays}
                     onChange={(event) => setExpiresInDays(Number(event.target.value))}
                   >
+                    <option value={1}>1일</option>
                     <option value={3}>3일</option>
                     <option value={7}>7일</option>
-                    <option value={14}>14일</option>
-                    <option value={30}>30일</option>
                   </select>
                 </label>
 
@@ -570,6 +742,129 @@ export default function SimulatorLinkBuilder() {
                       />
                       <button type="submit">{filmLoading ? "검색중" : "검색"}</button>
                     </form>
+
+                    <div className="filterToolbar">
+                      <button
+                        type="button"
+                        onClick={() => setPaletteOpen((prev) => !prev)}
+                        className={`paletteToggle ${activePaletteCount > 0 ? "paletteToggleActive" : ""}`}
+                      >
+                        <span>색상으로 찾기</span>
+                        <strong>{activePaletteCount > 0 ? `${activePaletteCount}개 적용중` : "열기"}</strong>
+                      </button>
+
+                      {activePaletteCount > 0 ? (
+                        <button type="button" onClick={resetPaletteFilters} className="smallResetButton">
+                          색상 초기화
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {activePaletteCount > 0 ? (
+                      <div className="activeFilterList">
+                        {selectedPaletteMain ? (
+                          <button type="button" onClick={() => handlePaletteMainClick(selectedPaletteMain)}>
+                            {selectedPaletteMain} ×
+                          </button>
+                        ) : null}
+                        {selectedPaletteSub ? (
+                          <button type="button" onClick={() => handlePaletteSubClick(selectedPaletteSub)}>
+                            {selectedPaletteSub} ×
+                          </button>
+                        ) : null}
+                        {selectedPaletteColors.map((color) => (
+                          <button key={color} type="button" onClick={() => handlePaletteColorClick(color)}>
+                            {color} ×
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {paletteOpen ? (
+                      <div className="palettePanel">
+                        <div className="palettePanelHeader">
+                          <div>
+                            <strong>색상 팔레트</strong>
+                            <p>필요할 때만 열어서 고르고, 결과 목록은 넓게 유지합니다.</p>
+                          </div>
+                          <button type="button" onClick={() => setPaletteOpen(false)}>
+                            접기
+                          </button>
+                        </div>
+
+                        <div className="paletteGroup">
+                          <div className="paletteLabelRow">
+                            <span>1차 분류</span>
+                          </div>
+                          <div className="paletteChipRow">
+                            {paletteMainOptions.map((item) => (
+                              <button
+                                key={item}
+                                type="button"
+                                onClick={() => handlePaletteMainClick(item)}
+                                className={`paletteChip ${selectedPaletteMain === item ? "paletteChipActive" : ""}`}
+                              >
+                                {item}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {selectedPaletteMain ? (
+                          <div className="paletteGroup">
+                            <div className="paletteLabelRow">
+                              <span>2차 분류</span>
+                              <em>선택사항</em>
+                            </div>
+                            <div className="paletteChipRow">
+                              <button
+                                type="button"
+                                onClick={() => handlePaletteSubClick("")}
+                                className={`paletteChip ${!selectedPaletteSub ? "paletteChipActive" : ""}`}
+                              >
+                                전체
+                              </button>
+                              {paletteSubOptions.map((item) => (
+                                <button
+                                  key={item}
+                                  type="button"
+                                  onClick={() => handlePaletteSubClick(item)}
+                                  className={`paletteChip ${selectedPaletteSub === item ? "paletteChipActive" : ""}`}
+                                >
+                                  {item}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="paletteGroup">
+                          <div className="paletteLabelRow">
+                            <span>색상</span>
+                            <em>{selectedPaletteColors.length > 0 ? selectedPaletteColors.join(", ") : "전체"}</em>
+                          </div>
+                          <div className="paletteColorGrid">
+                            {paletteColorOptions.map((item) => {
+                              const active = selectedPaletteColors.includes(item);
+
+                              return (
+                                <button
+                                  key={item}
+                                  type="button"
+                                  onClick={() => handlePaletteColorClick(item)}
+                                  className={`paletteColorChip ${active ? "paletteColorChipActive" : ""}`}
+                                  aria-pressed={active}
+                                >
+                                  <i style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }} />
+                                  <span>{item}</span>
+                                  {active ? <b aria-hidden="true">✓</b> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
 
                     {selectedFilms.length > 0 ? (
                       <div className="selectedFilmList">
@@ -1033,7 +1328,9 @@ export default function SimulatorLinkBuilder() {
         .searchRow button,
         .createButton,
         .resultActions button,
-        .resultActions a {
+        .resultActions a,
+        .smallResetButton,
+        .palettePanelHeader button {
           border: none;
           border-radius: 15px;
           padding: 0 15px;
@@ -1047,6 +1344,234 @@ export default function SimulatorLinkBuilder() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+        }
+
+
+        .smallResetButton,
+        .palettePanelHeader button {
+          background: rgba(255, 255, 255, 0.08);
+          color: ${COLORS.white};
+          border: 1px solid ${COLORS.line};
+        }
+
+        .filterToolbar {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 8px;
+          align-items: stretch;
+          margin-bottom: 10px;
+        }
+
+        .paletteToggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 17px;
+          background: rgba(255, 255, 255, 0.055);
+          color: ${COLORS.white};
+          padding: 12px 13px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .paletteToggle span {
+          color: ${COLORS.cream};
+          font-size: 14px;
+          font-weight: 900;
+        }
+
+        .paletteToggle strong {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .paletteToggleActive {
+          border-color: rgba(238, 224, 197, 0.72);
+          background: rgba(238, 224, 197, 0.12);
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.12) inset;
+        }
+
+        .activeFilterList {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+          margin-bottom: 10px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .activeFilterList button {
+          flex: 0 0 auto;
+          border: 1px solid rgba(238, 224, 197, 0.48);
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.16);
+          color: ${COLORS.cream};
+          padding: 8px 11px;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+          max-width: 220px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .palettePanel {
+          border-radius: 20px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(238, 224, 197, 0.2);
+          display: grid;
+          gap: 12px;
+          margin-bottom: 10px;
+        }
+
+        .palettePanelHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .palettePanelHeader strong {
+          color: ${COLORS.cream};
+          font-size: 15px;
+        }
+
+        .palettePanelHeader p {
+          margin: 4px 0 0;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.45;
+          word-break: keep-all;
+        }
+
+        .palettePanelHeader button {
+          flex-shrink: 0;
+          padding: 8px 11px;
+          border-radius: 999px;
+          font-size: 12px;
+        }
+
+        .paletteGroup {
+          display: grid;
+          gap: 7px;
+        }
+
+        .paletteLabelRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .paletteLabelRow span {
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .paletteLabelRow em {
+          color: ${COLORS.soft};
+          font-size: 11px;
+          font-style: normal;
+          font-weight: 800;
+        }
+
+        .paletteChipRow {
+          display: flex;
+          gap: 6px;
+          overflow-x: auto;
+          padding-bottom: 1px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .paletteChip {
+          flex: 0 0 auto;
+          border: 1px solid ${COLORS.line};
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+          padding: 8px 11px;
+        }
+
+        .paletteChipActive {
+          border-color: rgba(238, 224, 197, 0.92);
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.22), 0 8px 16px rgba(0, 0, 0, 0.22);
+        }
+
+        .paletteColorGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 7px;
+        }
+
+        .paletteColorChip {
+          position: relative;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          border: 1px solid ${COLORS.line};
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.06);
+          color: ${COLORS.white};
+          padding: 8px 9px;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .paletteColorChip i {
+          flex: 0 0 auto;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.42);
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+        }
+
+        .paletteColorChip span {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .paletteColorChip b {
+          position: absolute;
+          right: 6px;
+          top: 5px;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: ${COLORS.bg};
+          color: ${COLORS.cream};
+          font-size: 11px;
+        }
+
+        .paletteColorChipActive {
+          border-color: rgba(238, 224, 197, 0.92);
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.18) inset;
+        }
+
+        .paletteColorChipActive i {
+          border: 2px solid ${COLORS.bg};
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), inset 0 0 0 1px rgba(0, 0, 0, 0.10);
         }
 
         .selectedFilmList {
@@ -1235,7 +1760,8 @@ export default function SimulatorLinkBuilder() {
 
           .fieldGrid,
           .scopeRow,
-          .resultActions {
+          .resultActions,
+          .filterToolbar {
             grid-template-columns: 1fr;
           }
 

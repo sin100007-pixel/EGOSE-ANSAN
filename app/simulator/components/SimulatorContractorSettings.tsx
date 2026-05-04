@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 
@@ -84,6 +85,8 @@ function toPhoto(row: ContractorPhotoRow, index: number): ContractorPhoto {
 }
 
 export default function SimulatorContractorSettings() {
+  const router = useRouter();
+  const [isDashboardMoving, setIsDashboardMoving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,6 +107,34 @@ export default function SimulatorContractorSettings() {
     emptyPhoto(2),
     emptyPhoto(3),
   ]);
+
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    const idle = window.setTimeout(() => {
+      router.prefetch("/dashboard");
+    }, 250);
+
+    return () => {
+      window.clearTimeout(idle);
+    };
+  }, [router]);
+
+  const paintThenNavigateToDashboard = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        router.push("/dashboard");
+      });
+    });
+  };
+
+  const goToDashboard = () => {
+    if (isDashboardMoving) return;
+
+    setIsDashboardMoving(true);
+    router.prefetch("/dashboard");
+    paintThenNavigateToDashboard();
+  };
+
 
   const visiblePhotos = useMemo(() => {
     return photos.filter((photo) => photo.image_url.trim() && photo.is_visible);
@@ -308,6 +339,16 @@ export default function SimulatorContractorSettings() {
 
   return (
     <main className="settingsPage">
+      {isDashboardMoving ? (
+        <div className="routeOverlay" aria-live="polite">
+          대시보드로 이동 중...
+        </div>
+      ) : null}
+
+      <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
+        ← 대시보드
+      </button>
+
       <section className="heroCard">
         <div>
           <span className="stepPill">시공자 설정</span>
@@ -584,6 +625,29 @@ export default function SimulatorContractorSettings() {
           font-size: 20px;
           font-weight: 900;
           backdrop-filter: blur(10px);
+        }
+
+        .backButton {
+          width: fit-content;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid ${COLORS.line};
+          border-radius: 999px;
+          padding: 10px 14px;
+          background: ${COLORS.panelStrong};
+          color: ${COLORS.cream};
+          font-size: 14px;
+          font-weight: 900;
+          text-decoration: none;
+          cursor: pointer;
+          margin: 0 auto 14px;
+          appearance: none;
+        }
+
+        .backButton:disabled {
+          opacity: 0.58;
+          cursor: wait;
         }
 
         .heroCard,
@@ -1294,6 +1358,10 @@ export default function SimulatorContractorSettings() {
             padding: 14px 12px 124px;
           }
 
+          .backButton {
+            margin-bottom: 14px;
+          }
+
           .heroCard,
           .panel,
           .notice {
@@ -1499,15 +1567,18 @@ export default function SimulatorContractorSettings() {
             width: 100%;
           }
 
+          .portfolioGrid {
+            padding-bottom: 8px;
+          }
+
           .footerActions {
-            position: sticky;
-            bottom: calc(78px + env(safe-area-inset-bottom));
-            z-index: 10;
-            margin: 16px -4px 0;
-            padding: 10px;
-            border-radius: 18px;
-            background: rgba(5, 2, 59, 0.92);
-            backdrop-filter: blur(14px);
+            position: static;
+            z-index: auto;
+            margin: 22px 0 0;
+            padding: 0;
+            border-radius: 0;
+            background: transparent;
+            backdrop-filter: none;
             flex-direction: column-reverse;
           }
 
