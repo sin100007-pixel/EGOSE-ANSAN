@@ -1,21 +1,35 @@
 // app/api/restore-session/route.ts
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
-  try {
-    const { name } = await req.json();
-    if (!name) return NextResponse.json({ ok: false }, { status: 400 });
+export const runtime = "nodejs";
 
-    const res = NextResponse.json({ ok: true });
-    res.cookies.set("session_user", encodeURIComponent(name), {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-    return res;
-  } catch (e) {
-    return NextResponse.json({ ok: false }, { status: 500 });
-  }
+const isProduction = process.env.NODE_ENV === "production";
+
+function disabledRestoreSession() {
+  const res = NextResponse.json(
+    {
+      ok: false,
+      message: "restore-session is disabled. Please use normal login.",
+    },
+    { status: 410 }
+  );
+
+  // 혹시 남아 있는 유예기간 쿠키도 이 경로를 호출하면 제거한다.
+  res.cookies.set("session_user", "", {
+    path: "/",
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
+    maxAge: 0,
+  });
+
+  return res;
+}
+
+export async function POST() {
+  return disabledRestoreSession();
+}
+
+export async function GET() {
+  return disabledRestoreSession();
 }

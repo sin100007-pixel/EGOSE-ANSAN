@@ -1,7 +1,11 @@
 // app/api/auth/migrate-legacy/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { issueAuthCookies, LEGACY_COOKIE_NAME } from "@/lib/auth-tokens";
+import {
+  clearAuthCookies,
+  issueAuthCookies,
+  LEGACY_COOKIE_NAME,
+} from "@/lib/auth-tokens";
 
 export const runtime = "nodejs";
 
@@ -45,6 +49,19 @@ export async function POST(req: NextRequest) {
         migrated: false,
         reason: "USER_NOT_FOUND",
       });
+    }
+
+    // 보안상 ADMIN 계정은 기존 session_user만으로 승계하지 않는다.
+    // ADMIN은 비밀번호 로그인을 한 번 해서 egose_session/egose_refresh를 새로 받아야 한다.
+    if ((user.role ?? "USER") === "ADMIN") {
+      const res = NextResponse.json({
+        ok: true,
+        migrated: false,
+        reason: "ADMIN_RELOGIN_REQUIRED",
+      });
+
+      clearAuthCookies(res);
+      return res;
     }
 
     const res = NextResponse.json({

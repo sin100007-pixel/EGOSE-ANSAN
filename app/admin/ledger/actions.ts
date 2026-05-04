@@ -1,6 +1,9 @@
 'use server';
 
 import * as https from 'https';
+import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
+import { ACCESS_COOKIE_NAME, verifyAccessToken } from '@/lib/auth-tokens';
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
   .replace(/[\r\n]+/g, '')
@@ -10,6 +13,27 @@ const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
 const SERVICE_ROLE = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '')
   .replace(/[\r\n]+/g, '')
   .trim();
+
+
+async function requireAdminByAccessToken() {
+  const token = cookies().get(ACCESS_COOKIE_NAME)?.value;
+  if (!token) throw new Error('관리자 권한이 필요합니다.');
+
+  const session = await verifyAccessToken(token);
+  if (!session || session.role !== 'ADMIN') {
+    throw new Error('관리자 권한이 필요합니다.');
+  }
+
+  // 토큰만 믿지 않고 DB의 현재 role도 한 번 더 확인한다.
+  const user = await prisma.user.findUnique({
+    where: { id: session.uid },
+    select: { role: true },
+  });
+
+  if (user?.role !== 'ADMIN') {
+    throw new Error('관리자 권한이 필요합니다.');
+  }
+}
 
 // Supabase REST에 DELETE 호출 (Service Role; 브라우저에 노출되지 않음)
 function httpsDelete(urlStr: string, headers: Record<string, string>) {
@@ -45,6 +69,8 @@ async function deleteLedgerEntries(params: {
   date_to?: string;
   customer_name?: string;
 }) {
+  await requireAdminByAccessToken();
+
   if (!SUPABASE_URL || !SERVICE_ROLE) throw new Error('ENV missing');
 
   const base = `${SUPABASE_URL}/rest/v1/ledger_entries`;
