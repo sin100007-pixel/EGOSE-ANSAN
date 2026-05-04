@@ -153,7 +153,25 @@ export default function Page() {
                 style={{ objectFit: "contain" }}
               />
             </div>
-          </header>
+           </header>
+
+             <div
+              role="alert"
+              style={{
+              margin: "0 0 14px",
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: "rgba(239, 68, 68, 0.12)",
+              border: "1px solid rgba(239, 68, 68, 0.45)",
+              color: "#ff3b3b",
+              fontSize: 15,
+              fontWeight: 800,
+              lineHeight: 1.45,
+              wordBreak: "keep-all",
+            }}
+          >
+            보안패치 적용으로 자동 로그인에 문제가 있을 수 있습니다. 문제가 있으시면 매장으로 전화주세요.
+          </div>
 
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12, color: "#fff" }}>
             런던마켓으로 로그인
