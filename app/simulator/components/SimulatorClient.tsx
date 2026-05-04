@@ -870,7 +870,26 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 </div>
               </section>
             ) : (
-              <section style={noticeStyle()}>시뮬레이터 정보를 불러오는 중...</section>
+              <section className="spaceLoadingSkeleton" aria-live="polite">
+                <div className="spaceSkeletonHeader">
+                  <div>
+                    <div className="spaceSkeletonPill" />
+                    <div className="spaceSkeletonTitle" />
+                    <div className="spaceSkeletonText" />
+                  </div>
+                  <div className="spaceSkeletonCount" />
+                </div>
+
+                <div className="spaceSkeletonGrid">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={`space-skeleton-${index}`} className="spaceSkeletonCard" aria-hidden="true">
+                      <div className="spaceSkeletonThumb" />
+                      <div className="spaceSkeletonName" />
+                      <div className="spaceSkeletonDesc" />
+                    </div>
+                  ))}
+                </div>
+              </section>
             )
           ) : state.expired ? (
             <section style={noticeStyle("danger")}>
@@ -1678,6 +1697,131 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         @keyframes introSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
+        .spaceLoadingSkeleton {
+          border: 1px solid ${COLORS.line};
+          border-radius: 28px;
+          padding: 20px;
+          background: ${COLORS.panel};
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+          overflow: hidden;
+        }
+
+        .spaceSkeletonHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 18px;
+        }
+
+        .spaceSkeletonPill,
+        .spaceSkeletonTitle,
+        .spaceSkeletonText,
+        .spaceSkeletonCount,
+        .spaceSkeletonCard,
+        .spaceSkeletonThumb,
+        .spaceSkeletonName,
+        .spaceSkeletonDesc {
+          position: relative;
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .spaceSkeletonPill::after,
+        .spaceSkeletonTitle::after,
+        .spaceSkeletonText::after,
+        .spaceSkeletonCount::after,
+        .spaceSkeletonCard::after,
+        .spaceSkeletonThumb::after,
+        .spaceSkeletonName::after,
+        .spaceSkeletonDesc::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.17) 50%,
+            transparent 100%
+          );
+          animation: spaceSkeletonShimmer 1.35s infinite;
+        }
+
+        .spaceSkeletonPill {
+          width: 132px;
+          height: 34px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.15);
+        }
+
+        .spaceSkeletonTitle {
+          width: 220px;
+          max-width: 70vw;
+          height: 34px;
+          border-radius: 999px;
+          margin-top: 14px;
+          background: rgba(255, 255, 255, 0.11);
+        }
+
+        .spaceSkeletonText {
+          width: 320px;
+          max-width: 74vw;
+          height: 16px;
+          border-radius: 999px;
+          margin-top: 13px;
+        }
+
+        .spaceSkeletonCount {
+          flex: 0 0 auto;
+          width: 82px;
+          height: 38px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.13);
+        }
+
+        .spaceSkeletonGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        .spaceSkeletonCard {
+          border: 1px solid ${COLORS.line};
+          border-radius: 24px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.045);
+        }
+
+        .spaceSkeletonThumb {
+          width: 100%;
+          aspect-ratio: 4 / 3;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .spaceSkeletonName {
+          width: 48%;
+          height: 18px;
+          border-radius: 999px;
+          margin-top: 12px;
+          background: rgba(238, 224, 197, 0.12);
+        }
+
+        .spaceSkeletonDesc {
+          width: 72%;
+          height: 13px;
+          border-radius: 999px;
+          margin-top: 9px;
+        }
+
+        @keyframes spaceSkeletonShimmer {
           100% {
             transform: translateX(100%);
           }
@@ -3049,6 +3193,52 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           .introSkeletonPhoto {
             min-height: 178px;
             grid-row: auto;
+          }
+
+          .spaceLoadingSkeleton {
+            border-radius: 22px;
+            padding: 14px;
+          }
+
+          .spaceSkeletonHeader {
+            gap: 10px;
+            margin-bottom: 14px;
+          }
+
+          .spaceSkeletonPill {
+            width: 112px;
+            height: 30px;
+          }
+
+          .spaceSkeletonTitle {
+            width: 180px;
+            height: 30px;
+            margin-top: 12px;
+          }
+
+          .spaceSkeletonText {
+            width: 240px;
+            height: 14px;
+            margin-top: 10px;
+          }
+
+          .spaceSkeletonCount {
+            display: none;
+          }
+
+          .spaceSkeletonGrid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+
+          .spaceSkeletonCard {
+            border-radius: 20px;
+            padding: 10px;
+          }
+
+          .spaceSkeletonThumb {
+            border-radius: 16px;
+            aspect-ratio: 4 / 3;
           }
 
           .pageWrap {
