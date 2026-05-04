@@ -218,6 +218,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const router = useRouter();
   const filmSearchSeqRef = useRef(0);
   const filmSearchAbortRef = useRef<AbortController | null>(null);
+  const initialSheetFilmsRef = useRef<SimulatorFilm[]>([]);
+  const initialSheetRequestKeyRef = useRef("");
   const selectedPaletteMainRef = useRef("");
   const selectedPaletteSubRef = useRef("");
   const selectedPaletteColorsRef = useRef<string[]>([]);
@@ -410,16 +412,24 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     selectedPaletteMainRef.current = "";
     selectedPaletteSubRef.current = "";
     selectedPaletteColorsRef.current = [];
-    setState((prev) => ({ ...prev, films: [] }));
+
+    const cachedInitialFilms = initialSheetFilmsRef.current;
+    setState((prev) => ({
+      ...prev,
+      films: cachedInitialFilms.length > 0 ? cachedInitialFilms : [],
+    }));
+
     setIsFilmSheetOpen(true);
 
-    void searchFilms("", {
-      paletteMain: "",
-      paletteSub: "",
-      paletteColors: [],
-      includeFacets: true,
-      recommended: !isRestrictedCustomerLink,
-    });
+    if (!filmLoading) {
+      void searchFilms("", {
+        paletteMain: "",
+        paletteSub: "",
+        paletteColors: [],
+        includeFacets: true,
+        recommended: !isRestrictedCustomerLink,
+      });
+    }
   };
 
   const closeFilmSheet = () => {
@@ -482,6 +492,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColorsRef.current;
     const includeFacets = overrides.includeFacets !== false;
     const useRecommended = overrides.recommended === true;
+    const isInitialSheetRequest =
+      q.length === 0 &&
+      !nextPaletteMain &&
+      !nextPaletteSub &&
+      nextPaletteColors.length === 0;
     const requestSeq = filmSearchSeqRef.current + 1;
 
     filmSearchSeqRef.current = requestSeq;
@@ -523,6 +538,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       if (json.facets) {
         updatePaletteFacets(json);
       }
+      if (isInitialSheetRequest) {
+        initialSheetFilmsRef.current = nextFilms;
+      }
+
       setState((prev) => ({ ...prev, films: nextFilms }));
     } catch (error: any) {
       if (error?.name === "AbortError") {
@@ -540,6 +559,35 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
     }
   };
+
+  useEffect(() => {
+    if (state.loading || step !== "apply") return;
+
+    const isRestrictedCustomerLink =
+      mode === "customer" &&
+      Boolean(token) &&
+      state.link?.film_scope !== "all";
+
+    const requestKey = [
+      mode,
+      token || "installer",
+      state.link?.film_scope || "all",
+      state.link?.token || "",
+    ].join(":");
+
+    if (initialSheetRequestKeyRef.current === requestKey) return;
+
+    initialSheetRequestKeyRef.current = requestKey;
+
+    void searchFilms("", {
+      paletteMain: "",
+      paletteSub: "",
+      paletteColors: [],
+      includeFacets: true,
+      recommended: !isRestrictedCustomerLink,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, state.loading, mode, token, state.link?.film_scope, state.link?.token]);
 
   const handlePaletteMainClick = (value: string) => {
     const nextMain = selectedPaletteMainRef.current === value ? "" : value;
@@ -1290,8 +1338,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 </button>
               </form>
 
-              {filmLoading ? (
-                <div style={{ color: COLORS.cream, fontSize: 14, marginBottom: 10 }}>필름 검색 중...</div>
+              {filmLoading && state.films.length > 0 ? (
+                <div className="sheetLoadingText">필름 목록 업데이트 중...</div>
               ) : null}
 
               {filmError ? (
@@ -1331,6 +1379,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                       </button>
                     );
                   })
+                ) : filmLoading ? (
+                  Array.from({ length: 8 }).map((_, index) => (
+                    <div key={`sheet-film-skeleton-${index}`} className="sheetFilmSkeletonItem" aria-hidden="true">
+                      <div className="sheetFilmSkeletonThumb" />
+                      <div className="sheetFilmSkeletonLine" />
+                      <div className="sheetFilmSkeletonLine short" />
+                    </div>
+                  ))
                 ) : (
                   <div className="emptyFilmBox">표시할 필름이 없습니다.</div>
                 )}
@@ -2542,6 +2598,69 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           min-height: 36px;
         }
 
+        .sheetLoadingText {
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 900;
+          margin: 0 0 10px;
+        }
+
+        .sheetFilmSkeletonItem,
+        .sheetFilmSkeletonThumb,
+        .sheetFilmSkeletonLine {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .sheetFilmSkeletonItem::after,
+        .sheetFilmSkeletonThumb::after,
+        .sheetFilmSkeletonLine::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: sheetShimmer 1.25s infinite;
+        }
+
+        .sheetFilmSkeletonItem {
+          border: 1px solid ${COLORS.line};
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.045);
+          padding: 8px;
+        }
+
+        .sheetFilmSkeletonThumb {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .sheetFilmSkeletonLine {
+          height: 12px;
+          margin-top: 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .sheetFilmSkeletonLine.short {
+          width: 62%;
+          height: 10px;
+        }
+
+        @keyframes sheetShimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
         .sheetFilmGrid {
           flex: 1;
           min-height: 0;
@@ -3000,9 +3119,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             gap: 8px;
           }
 
-          .sheetFilmItem {
+          .sheetFilmItem,
+          .sheetFilmSkeletonItem {
             border-radius: 16px;
             padding: 7px;
+          }
+
+          .sheetFilmSkeletonThumb {
+            border-radius: 12px;
           }
 
           .sheetFilmThumb {
