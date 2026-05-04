@@ -1072,7 +1072,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                       className={`zoneApplyButton ${active ? "zoneApplyButtonActive" : ""}`}
                     >
                       <span>{zone.label}</span>
-                      <strong>{film ? getFilmName(film) : "필름 선택"}</strong>
+                      <strong className={!film ? "zoneFilmPrompt" : undefined}>
+                        {film ? getFilmName(film) : "이곳을 눌러 필름선택"}
+                      </strong>
                     </button>
                   );
                 })}
@@ -1099,7 +1101,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               </div>
 
               <p className="applyWarningText">
-                *고화질 이미지를 이용한 시뮬레이션이지만 실물 필름과는 차이가있습니다. 유의해주세요.*
+                *실물 필름과는 차이가있습니다. 유의해주세요.*
               </p>
 
               <div className="applyDecisionRow">
@@ -1160,11 +1162,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <div className="decisionActionIcon">2</div>
                   <h3>샘플 안내</h3>
                   <p>
-                    거래처의 매장에 방문하시면, 샘플을 받아 보실 수 있게 준비해놨습니다.
+                    거래처의 매장에 방문하시면 필름 실물을 보실수 있고, 샘플 받을 수있도록 준비해놨습니다.
                   </p>
                   <div className="storeInfoBox">
                     <strong>이고세(주)</strong>
-                    <span>경기도 안산시 상록구 안산천서로 237 1층 삼성필름 이고세</span>
+                    <span>경기도 안산시 상록구 안산천서로 237 1층 안산이고세</span>
                     <span>Tel. 031-486-6882</span>
                   </div>
                 </section>
@@ -1173,7 +1175,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <div className="decisionActionIcon">3</div>
                   <h3>카카오톡 문의</h3>
                   <p>
-                    기타 궁금한게 있으시면 카카오톡으로 문의해주세요.
+                    궁금하신게 있으시면 카카오톡으로 연락주세요.
                   </p>
                   {kakaoHref ? (
                     <a
@@ -2318,6 +2320,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
+        }
+
+        .zoneApplyButton strong.zoneFilmPrompt {
+          color: #ff4d4d;
+          font-weight: 1000;
         }
 
         .applyActionRow {
