@@ -28,6 +28,7 @@ type SearchOptions = {
   paletteSub?: string;
   paletteColors?: string[];
   updateFacets?: boolean;
+  recommended?: boolean;
 };
 
 type MaskZoneDefinition = {
@@ -322,7 +323,7 @@ export default function SimulatorLinkBuilder() {
         setPresets(nextPresets);
         setSelectedPresetId(nextPresets[0]?.id || "");
 
-        void searchFilms({ query: "", silent: true, updateFacets: true });
+        void searchFilms({ query: "", silent: false, updateFacets: true, recommended: true });
       } catch {
         if (!cancelled) {
           setError("링크 생성 정보를 불러오지 못했습니다.");
@@ -386,6 +387,7 @@ export default function SimulatorLinkBuilder() {
     const paletteColors = options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors;
     const updateFacets = options.updateFacets === true;
     const silent = options.silent === true;
+    const useRecommended = options.recommended === true;
 
     if (!silent) {
       setFilmLoading(true);
@@ -395,6 +397,7 @@ export default function SimulatorLinkBuilder() {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      if (useRecommended) params.set("recommended", "1");
       if (paletteMain) params.set("palette_main", paletteMain);
       if (paletteSub) params.set("palette_sub", paletteSub);
       paletteColors.forEach((color) => params.append("palette_color", color));
@@ -425,11 +428,26 @@ export default function SimulatorLinkBuilder() {
     }
   };
 
+  const openCustomFilmScope = () => {
+    setFilmScope("custom");
+
+    if (filmSearchResults.length === 0 && !filmLoading) {
+      void searchFilms({
+        query: "",
+        paletteMain: "",
+        paletteSub: "",
+        paletteColors: [],
+        updateFacets: true,
+        recommended: true,
+      });
+    }
+  };
+
   const resetPaletteFilters = () => {
     setSelectedPaletteMain("");
     setSelectedPaletteSub("");
     setSelectedPaletteColors([]);
-    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true });
+    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true, recommended: true });
   };
 
   const handlePaletteMainClick = (value: string) => {
@@ -551,7 +569,63 @@ export default function SimulatorLinkBuilder() {
         </section>
 
         {loading ? (
-          <section className="panel">정보를 불러오는 중...</section>
+          <div className="layout">
+            <section className="panel formPanel pageSkeletonPanel">
+              <div className="sectionTitleRow">
+                <div>
+                  <h2>링크 정보 준비 중</h2>
+                  <p>공간과 필름 설정을 불러오고 있습니다.</p>
+                </div>
+                <span>준비 중</span>
+              </div>
+
+              <div className="skeletonFieldGrid">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={`link-field-skeleton-${index}`} className="skeletonFieldBlock">
+                    <div className="skeletonLabel" />
+                    <div className="skeletonInput" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="skeletonSection">
+                <div className="skeletonSectionTitle" />
+                <div className="skeletonSpaceGrid">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <div key={`space-skeleton-${index}`} className="skeletonSpaceCard">
+                      <div className="skeletonWideThumb" />
+                      <div className="skeletonLine" />
+                      <div className="skeletonLine short" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="skeletonSection">
+                <div className="skeletonSectionTitle" />
+                <div className="skeletonScopeStack">
+                  <div className="skeletonScopeButton" />
+                  <div className="skeletonScopeButton" />
+                  <div className="skeletonScopeButton active" />
+                </div>
+              </div>
+            </section>
+
+            <aside className="panel resultPanel pageSkeletonPanel">
+              <h2>생성 결과</h2>
+              <p className="expiresText">링크 생성 화면을 준비하는 중입니다.</p>
+              <div className="skeletonResultBox" />
+              <div className="skeletonResultActions">
+                <div className="skeletonMiniButton" />
+                <div className="skeletonMiniButton" />
+              </div>
+              <div className="skeletonSummaryRows">
+                <div />
+                <div />
+                <div />
+              </div>
+            </aside>
+          </div>
         ) : (
           <div className="layout">
             <section className="panel formPanel">
@@ -688,7 +762,7 @@ export default function SimulatorLinkBuilder() {
 
                   <button
                     type="button"
-                    onClick={() => setFilmScope("custom")}
+                    onClick={openCustomFilmScope}
                     className={filmScope === "custom" ? "scopeActive" : ""}
                   >
                     직접 선택
@@ -885,31 +959,41 @@ export default function SimulatorLinkBuilder() {
                     )}
 
                     <div className="filmGrid">
-                      {filmSearchResults.map((film) => {
-                        const active = selectedFilmIds.has(film.id);
+                      {filmSearchResults.length > 0 ? (
+                        filmSearchResults.map((film) => {
+                          const active = selectedFilmIds.has(film.id);
 
-                        return (
-                          <button
-                            key={film.id}
-                            type="button"
-                            onClick={() => addFilm(film)}
-                            className={`filmCard ${active ? "filmCardActive" : ""}`}
-                          >
-                            <div className="filmThumb">
-                              {getFilmThumbUrl(film) ? (
-                                <img
-                                  src={getFilmThumbUrl(film)}
-                                  alt={getFilmName(film)}
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                              ) : null}
-                            </div>
-                            <div className="filmName">{getFilmName(film)}</div>
-                            <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
-                          </button>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={film.id}
+                              type="button"
+                              onClick={() => addFilm(film)}
+                              className={`filmCard ${active ? "filmCardActive" : ""}`}
+                            >
+                              <div className="filmThumb">
+                                {getFilmThumbUrl(film) ? (
+                                  <img
+                                    src={getFilmThumbUrl(film)}
+                                    alt={getFilmName(film)}
+                                    loading="lazy"
+                                    decoding="async"
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="filmName">{getFilmName(film)}</div>
+                              <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
+                            </button>
+                          );
+                        })
+                      ) : filmLoading ? (
+                        Array.from({ length: 9 }).map((_, index) => (
+                          <div key={`film-skeleton-${index}`} className="filmSkeletonCard" aria-hidden="true">
+                            <div className="filmSkeletonThumb" />
+                            <div className="filmSkeletonLine" />
+                            <div className="filmSkeletonLine short" />
+                          </div>
+                        ))
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
@@ -1090,6 +1174,173 @@ export default function SimulatorLinkBuilder() {
           grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
           gap: 18px;
           align-items: start;
+        }
+
+        .pageSkeletonPanel,
+        .skeletonLabel,
+        .skeletonInput,
+        .skeletonSectionTitle,
+        .skeletonSpaceCard,
+        .skeletonWideThumb,
+        .skeletonLine,
+        .skeletonScopeButton,
+        .skeletonResultBox,
+        .skeletonMiniButton,
+        .skeletonSummaryRows div {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .pageSkeletonPanel::after,
+        .skeletonLabel::after,
+        .skeletonInput::after,
+        .skeletonSectionTitle::after,
+        .skeletonSpaceCard::after,
+        .skeletonWideThumb::after,
+        .skeletonLine::after,
+        .skeletonScopeButton::after,
+        .skeletonResultBox::after,
+        .skeletonMiniButton::after,
+        .skeletonSummaryRows div::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: pageSkeletonShimmer 1.35s infinite;
+        }
+
+        .skeletonFieldGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .skeletonFieldBlock {
+          display: grid;
+          gap: 8px;
+        }
+
+        .skeletonLabel {
+          width: 92px;
+          height: 14px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .skeletonInput {
+          height: 52px;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(238, 224, 197, 0.08);
+        }
+
+        .skeletonSection {
+          margin-top: 22px;
+          display: grid;
+          gap: 12px;
+        }
+
+        .skeletonSectionTitle {
+          width: 140px;
+          height: 22px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.13);
+        }
+
+        .skeletonSpaceGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .skeletonSpaceCard {
+          border-radius: 20px;
+          padding: 8px;
+          border: 1px solid rgba(238, 224, 197, 0.12);
+          background: rgba(255, 255, 255, 0.045);
+        }
+
+        .skeletonWideThumb {
+          width: 100%;
+          aspect-ratio: 1536 / 1024;
+          border-radius: 15px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .skeletonLine {
+          height: 12px;
+          margin-top: 9px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .skeletonLine.short {
+          width: 64%;
+          height: 10px;
+        }
+
+        .skeletonScopeStack {
+          display: grid;
+          gap: 8px;
+        }
+
+        .skeletonScopeButton {
+          height: 48px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.07);
+          border: 1px solid rgba(238, 224, 197, 0.1);
+        }
+
+        .skeletonScopeButton.active {
+          background: rgba(238, 224, 197, 0.13);
+        }
+
+        .skeletonResultBox {
+          height: 88px;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px dashed rgba(238, 224, 197, 0.18);
+          margin-top: 14px;
+        }
+
+        .skeletonResultActions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin-top: 14px;
+        }
+
+        .skeletonMiniButton {
+          height: 42px;
+          border-radius: 14px;
+          background: rgba(238, 224, 197, 0.13);
+          border: 1px solid rgba(238, 224, 197, 0.12);
+        }
+
+        .skeletonSummaryRows {
+          display: grid;
+          gap: 8px;
+          margin-top: 16px;
+        }
+
+        .skeletonSummaryRows div {
+          height: 42px;
+          border-radius: 15px;
+          background: rgba(255, 255, 255, 0.055);
+          border: 1px solid rgba(238, 224, 197, 0.08);
+        }
+
+        @keyframes pageSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
+          }
         }
 
         .panel {
@@ -1601,6 +1852,62 @@ export default function SimulatorLinkBuilder() {
           padding-right: 4px;
         }
 
+        .filmSkeletonCard,
+        .filmSkeletonThumb,
+        .filmSkeletonLine {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .filmSkeletonCard::after,
+        .filmSkeletonThumb::after,
+        .filmSkeletonLine::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: filmSkeletonShimmer 1.25s infinite;
+        }
+
+        .filmSkeletonCard {
+          border: 1px solid ${COLORS.line};
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.045);
+          padding: 7px;
+        }
+
+        .filmSkeletonThumb {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .filmSkeletonLine {
+          height: 11px;
+          margin-top: 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .filmSkeletonLine.short {
+          width: 64%;
+          height: 9px;
+        }
+
+        @keyframes filmSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
         .filmCard {
           border-radius: 16px;
           padding: 7px;
@@ -1761,7 +2068,10 @@ export default function SimulatorLinkBuilder() {
           .fieldGrid,
           .scopeRow,
           .resultActions,
-          .filterToolbar {
+          .filterToolbar,
+          .skeletonFieldGrid,
+          .skeletonSpaceGrid,
+          .skeletonResultActions {
             grid-template-columns: 1fr;
           }
 

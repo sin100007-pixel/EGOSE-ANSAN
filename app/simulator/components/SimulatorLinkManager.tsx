@@ -209,7 +209,30 @@ export default function SimulatorLinkManager() {
           {copyMessage ? <div className="copyBox">{copyMessage}</div> : null}
 
           {loading ? (
-            <div className="emptyBox">링크 목록을 불러오는 중...</div>
+            <div className="linkSkeletonList" aria-label="링크 목록 로딩 중">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <article key={`link-skeleton-${index}`} className="linkSkeletonCard">
+                  <div className="linkSkeletonTop">
+                    <div>
+                      <div className="linkSkeletonTitle" />
+                      <div className="linkSkeletonSub" />
+                    </div>
+                    <div className="linkSkeletonBadge" />
+                  </div>
+                  <div className="linkSkeletonUrl" />
+                  <div className="linkSkeletonMeta">
+                    <div />
+                    <div />
+                    <div />
+                  </div>
+                  <div className="linkSkeletonActions">
+                    <div />
+                    <div />
+                    <div />
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : items.length === 0 ? (
             <div className="emptyBox">
               아직 만든 고객 링크가 없습니다. 하단의 <b>링크 생성</b>에서 새 링크를 만들어보세요.
@@ -436,6 +459,116 @@ export default function SimulatorLinkManager() {
           cursor: pointer;
         }
 
+        .linkSkeletonList {
+          display: grid;
+          gap: 12px;
+        }
+
+        .linkSkeletonCard,
+        .linkSkeletonTitle,
+        .linkSkeletonSub,
+        .linkSkeletonBadge,
+        .linkSkeletonUrl,
+        .linkSkeletonMeta div,
+        .linkSkeletonActions div {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .linkSkeletonCard::after,
+        .linkSkeletonTitle::after,
+        .linkSkeletonSub::after,
+        .linkSkeletonBadge::after,
+        .linkSkeletonUrl::after,
+        .linkSkeletonMeta div::after,
+        .linkSkeletonActions div::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: linkSkeletonShimmer 1.35s infinite;
+        }
+
+        .linkSkeletonCard {
+          border: 1px solid ${COLORS.line};
+          border-radius: 22px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.045);
+        }
+
+        .linkSkeletonTop {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+        }
+
+        .linkSkeletonTitle {
+          width: 150px;
+          height: 19px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.13);
+        }
+
+        .linkSkeletonSub {
+          width: 110px;
+          height: 12px;
+          margin-top: 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .linkSkeletonBadge {
+          width: 76px;
+          height: 32px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.13);
+          border: 1px solid rgba(238, 224, 197, 0.1);
+        }
+
+        .linkSkeletonUrl {
+          height: 48px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px dashed rgba(238, 224, 197, 0.16);
+          margin-top: 16px;
+        }
+
+        .linkSkeletonMeta {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        .linkSkeletonMeta div,
+        .linkSkeletonActions div {
+          height: 38px;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(238, 224, 197, 0.1);
+        }
+
+        .linkSkeletonActions {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        @keyframes linkSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
         .linkList {
           display: grid;
           gap: 12px;
@@ -601,7 +734,9 @@ export default function SimulatorLinkManager() {
             width: 100%;
           }
 
-          .actionRow {
+          .actionRow,
+          .linkSkeletonMeta,
+          .linkSkeletonActions {
             grid-template-columns: 1fr;
           }
 

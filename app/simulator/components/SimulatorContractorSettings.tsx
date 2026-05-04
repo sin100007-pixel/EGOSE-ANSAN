@@ -1,53 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
-import SimulatorIntroOverview from "./SimulatorIntroOverview";
 
-type ContractorProfile = {
-  id?: string;
-  installer_name?: string | null;
-  display_name?: string | null;
-  logo_url?: string | null;
-  greeting?: string | null;
-  phone?: string | null;
-  kakao_url?: string | null;
-  brand_color?: string | null;
-  is_active?: boolean | null;
-};
-
-type ContractorPhoto = {
-  id?: string;
-  image_url: string;
-  title: string;
-  description: string;
-  sort_order: number;
-  is_representative: boolean;
-  is_visible: boolean;
-};
-
-type ContractorPhotoRow = {
-  id?: string;
-  image_url?: string | null;
-  title?: string | null;
-  description?: string | null;
-  sort_order?: number | null;
-  is_representative?: boolean | null;
-  is_visible?: boolean | null;
-};
-
-type ApiResponse = {
-  installer_name?: string;
-  profile?: ContractorProfile | null;
-  photos?: ContractorPhotoRow[];
-  error?: string;
-  message?: string;
-};
-
-type UploadResponse = {
-  url?: string;
-  error?: string;
+type ManagedLink = {
+  id: string;
+  token: string;
+  installer_name: string | null;
+  customer_name: string | null;
+  memo: string | null;
+  expires_at: string;
+  created_at: string;
+  is_active: boolean;
+  is_expired: boolean;
+  film_scope: "all" | "custom" | "preset";
+  preset_name: string | null;
+  space_count: number;
+  film_count: number;
+  url: string;
+  query_url: string;
 };
 
 const COLORS = {
@@ -59,54 +31,42 @@ const COLORS = {
   line: "rgba(238,224,197,0.16)",
   soft: "rgba(255,255,255,0.70)",
   white: "#FFFFFF",
-  danger: "#ff7a7a",
-  ok: "#9DF2C7",
 };
 
-const emptyPhoto = (sortOrder: number): ContractorPhoto => ({
-  image_url: "",
-  title: "",
-  description: "",
-  sort_order: sortOrder,
-  is_representative: sortOrder === 1,
-  is_visible: true,
-});
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
 
-function toPhoto(row: ContractorPhotoRow, index: number): ContractorPhoto {
-  return {
-    id: row?.id,
-    image_url: row?.image_url || "",
-    title: row?.title || "",
-    description: row?.description || "",
-    sort_order: Number(row?.sort_order || index + 1),
-    is_representative: row?.is_representative ?? index === 0,
-    is_visible: row?.is_visible ?? true,
-  };
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-export default function SimulatorContractorSettings() {
+function getStatus(link: ManagedLink) {
+  if (!link.is_active) return "비활성";
+  if (link.is_expired) return "만료";
+  return "사용 가능";
+}
+
+function getStatusClass(link: ManagedLink) {
+  if (!link.is_active || link.is_expired) return "statusExpired";
+  return "statusActive";
+}
+
+export default function SimulatorLinkManager() {
   const router = useRouter();
   const [isDashboardMoving, setIsDashboardMoving] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploadingTarget, setUploadingTarget] = useState<"logo" | number | null>(null);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
-  const [installerName, setInstallerName] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [greeting, setGreeting] = useState("");
-  const [phone, setPhone] = useState("");
-  const [kakaoUrl, setKakaoUrl] = useState("");
-  const [brandColor, setBrandColor] = useState("#11104a");
-  const [isActive, setIsActive] = useState(true);
-  const [photos, setPhotos] = useState<ContractorPhoto[]>([
-    emptyPhoto(1),
-    emptyPhoto(2),
-    emptyPhoto(3),
-  ]);
+  const [items, setItems] = useState<ManagedLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deactivatingId, setDeactivatingId] = useState("");
+  const [error, setError] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+
 
   useEffect(() => {
     router.prefetch("/dashboard");
@@ -135,1491 +95,653 @@ export default function SimulatorContractorSettings() {
     paintThenNavigateToDashboard();
   };
 
+  const loadLinks = async () => {
+    setLoading(true);
+    setError("");
 
-  const visiblePhotos = useMemo(() => {
-    return photos.filter((photo) => photo.image_url.trim() && photo.is_visible);
-  }, [photos]);
+    try {
+      const res = await fetch("/api/simulator/links", {
+        cache: "no-store",
+      });
+      const json = await res.json();
 
-  const previewName = displayName || installerName || "시공자";
+      if (!res.ok) {
+        setError(json.error || "링크 목록을 불러오지 못했습니다.");
+        return;
+      }
 
-  const renderCustomerPreview = () => (
-  <SimulatorIntroOverview
-    contractorName={previewName}
-    logoUrl={logoUrl}
-    greeting={greeting}
-    phone={phone}
-    showKakao={Boolean(kakaoUrl)}
-    photos={visiblePhotos}
-    customerName="최진규"
-    expiresAt="2026. 05. 05. 오전 08:11"
-    brandColor={brandColor}
-    showHero={false}
-    showBottomNav
-    showStartButton={false}
-  />
-);
-
-  const applyResponse = (json: ApiResponse) => {
-    const profile = json.profile || null;
-    const nextInstallerName = json.installer_name || profile?.installer_name || "";
-
-    setInstallerName(nextInstallerName || "");
-    setDisplayName(profile?.display_name || nextInstallerName || "");
-    setLogoUrl(profile?.logo_url || "");
-    setGreeting(profile?.greeting || "");
-    setPhone(profile?.phone || "");
-    setKakaoUrl(profile?.kakao_url || "");
-    setBrandColor(profile?.brand_color || "#11104a");
-    setIsActive(profile?.is_active ?? true);
-
-    const rows = Array.isArray(json.photos) ? json.photos : [];
-    const nextPhotos = rows.map((row, index) => toPhoto(row, index));
-
-    while (nextPhotos.length < 3) {
-      nextPhotos.push(emptyPhoto(nextPhotos.length + 1));
+      setItems(Array.isArray(json.items) ? json.items : []);
+    } catch {
+      setError("링크 목록을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
     }
-
-    setPhotos(nextPhotos);
   };
 
   useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      setError("");
-      setMessage("");
-
-      try {
-        const res = await fetch("/api/simulator/contractor-profile", {
-          cache: "no-store",
-        });
-        const json = (await res.json()) as ApiResponse;
-
-        if (cancelled) return;
-
-        if (!res.ok) {
-          setError(json.error || "설정을 불러오지 못했습니다.");
-          return;
-        }
-
-        applyResponse(json);
-      } catch {
-        if (!cancelled) {
-          setError("설정을 불러오지 못했습니다.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
+    void loadLinks();
   }, []);
 
-  const updatePhoto = (index: number, patch: Partial<ContractorPhoto>) => {
-    setPhotos((prev) => {
-      return prev.map((photo, photoIndex) => {
-        if (photoIndex !== index) return photo;
-        return { ...photo, ...patch };
-      });
-    });
-  };
-
-  const markRepresentative = (index: number) => {
-    setPhotos((prev) => {
-      return prev.map((photo, photoIndex) => ({
-        ...photo,
-        is_representative: photoIndex === index,
-      }));
-    });
-  };
-
-  const addPhotoSlot = () => {
-    setPhotos((prev) => [...prev, emptyPhoto(prev.length + 1)]);
-  };
-
-  const removePhotoSlot = (index: number) => {
-    setPhotos((prev) => {
-      const next = prev.filter((_, photoIndex) => photoIndex !== index);
-      return next.length > 0
-        ? next.map((photo, photoIndex) => ({ ...photo, sort_order: photoIndex + 1 }))
-        : [emptyPhoto(1)];
-    });
-  };
-
-  const uploadImage = async (file: File | undefined, type: "logo" | "portfolio", photoIndex?: number) => {
-    if (!file) return;
-
-    const target = type === "logo" ? "logo" : photoIndex ?? 0;
-    setUploadingTarget(target);
-    setError("");
-    setMessage("");
+  const copyLink = async (url: string) => {
+    setCopyMessage("");
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", type);
-
-      const res = await fetch("/api/simulator/contractor-upload", {
-        method: "POST",
-        body: formData,
-      });
-      const json = (await res.json()) as UploadResponse;
-
-      if (!res.ok || !json.url) {
-        setError(json.error || "이미지를 업로드하지 못했습니다.");
-        return;
-      }
-
-      if (type === "logo") {
-        setLogoUrl(json.url);
-      } else if (typeof photoIndex === "number") {
-        updatePhoto(photoIndex, { image_url: json.url });
-      }
-
-      setMessage("이미지를 업로드했습니다. 마지막에 설정 저장을 눌러 반영해주세요.");
+      await navigator.clipboard.writeText(url);
+      setCopyMessage("링크를 복사했습니다.");
     } catch {
-      setError("이미지를 업로드하지 못했습니다.");
-    } finally {
-      setUploadingTarget(null);
+      setCopyMessage("복사에 실패했습니다. 링크를 직접 선택해서 복사해주세요.");
     }
   };
 
-  const save = async () => {
-    setSaving(true);
+  const deactivateLink = async (link: ManagedLink) => {
+    const ok = window.confirm(
+      `${link.customer_name || "고객명 없음"} 링크를 비활성화할까요?\n비활성화하면 고객이 더 이상 이 링크로 접속할 수 없습니다.`
+    );
+
+    if (!ok) return;
+
+    setDeactivatingId(link.id);
     setError("");
-    setMessage("");
+    setCopyMessage("");
 
     try {
-      const payload = {
-        display_name: displayName,
-        logo_url: logoUrl,
-        greeting,
-        phone,
-        kakao_url: kakaoUrl,
-        brand_color: brandColor,
-        is_active: isActive,
-        photos: photos
-          .map((photo, index) => ({
-            ...photo,
-            sort_order: index + 1,
-            image_url: photo.image_url.trim(),
-            title: photo.title.trim(),
-            description: photo.description.trim(),
-          }))
-          .filter((photo) => photo.image_url.length > 0),
-      };
-
-      const res = await fetch("/api/simulator/contractor-profile", {
-        method: "POST",
+      const res = await fetch("/api/simulator/links", {
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ id: link.id }),
       });
-      const json = (await res.json()) as ApiResponse;
+
+      const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || "저장하지 못했습니다.");
+        setError(json.error || "링크를 비활성화하지 못했습니다.");
         return;
       }
 
-      applyResponse(json);
-      setMessage(json.message || "저장했습니다.");
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === link.id ? { ...item, is_active: false } : item
+        )
+      );
     } catch {
-      setError("저장하지 못했습니다.");
+      setError("링크를 비활성화하지 못했습니다.");
     } finally {
-      setSaving(false);
+      setDeactivatingId("");
     }
   };
 
   return (
-    <main className="settingsPage">
-      {isDashboardMoving ? (
-        <div className="routeOverlay" aria-live="polite">
-          대시보드로 이동 중...
-        </div>
-      ) : null}
+    <main className="page">
+      <div className="pageInner">
 
-      <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
-        ← 대시보드
-      </button>
+        {isDashboardMoving ? (
+          <div className="dashboardMoveOverlay" aria-live="polite">
+            <div className="dashboardMoveToast">대시보드로 이동 중...</div>
+          </div>
+        ) : null}
+        <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
+          ← 대시보드
+        </button>
 
-      <section className="heroCard">
-        <div>
-          <span className="stepPill">시공자 설정</span>
-          <h1>고객용 시뮬레이터 소개 화면</h1>
-          <p>고객 링크 첫 화면에 보일 로고, 인삿말, 연락처, 대표 시공사진을 관리합니다.</p>
-        </div>
-        <div className="heroActions">
-          <button type="button" onClick={() => setIsPreviewOpen(true)} disabled={loading}>
-            미리보기
-          </button>
-        </div>
-      </section>
+        <section className="heroCard">
+          <div className="stepBadge">고객 링크 관리</div>
+          <h1>보낸 링크 내역</h1>
+          <p>
+            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 확인하고 비활성화할 수 있습니다.
+          </p>
+        </section>
 
-      {loading ? (
-        <section className="panel loadingPanel">설정을 불러오는 중...</section>
-      ) : (
-        <>
-          {error ? <div className="notice errorNotice">{error}</div> : null}
-          {message ? <div className="notice successNotice">{message}</div> : null}
-
-          <section className="gridLayout">
-            <div className="panel formPanel">
-              <div className="sectionHeader">
-                <span>기본 정보</span>
-                <strong>{installerName ? `${installerName} 계정` : "현재 계정"}</strong>
-              </div>
-
-              <label>
-                <span>고객에게 보일 이름</span>
-                <input
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  placeholder="예: 신원철"
-                />
-              </label>
-
-              <label>
-                <span>로고 이미지 URL</span>
-                <input
-                  value={logoUrl}
-                  onChange={(event) => setLogoUrl(event.target.value)}
-                  placeholder="로고를 업로드하면 자동으로 입력됩니다."
-                />
-              </label>
-
-              <div className="uploadRow">
-                <label className="uploadButton">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={uploadingTarget !== null}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      void uploadImage(file, "logo");
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  <span>{uploadingTarget === "logo" ? "로고 업로드 중..." : "로고 이미지 업로드"}</span>
-                </label>
-                <small>JPG, PNG, WEBP / 8MB 이하</small>
-              </div>
-
-              <label>
-                <span>인삿말</span>
-                <textarea
-                  value={greeting}
-                  onChange={(event) => setGreeting(event.target.value)}
-                  placeholder="고객에게 보여줄 짧은 인삿말을 입력하세요."
-                  rows={5}
-                />
-              </label>
-
-              <div className="twoCols">
-                <label>
-                  <span>전화번호</span>
-                  <input
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="010-0000-0000"
-                  />
-                </label>
-
-                <label>
-                  <span>브랜드 색상</span>
-                  <input
-                    value={brandColor}
-                    onChange={(event) => setBrandColor(event.target.value)}
-                    placeholder="#11104a"
-                  />
-                </label>
-              </div>
-
-              <label>
-                <span>카카오 문의 링크</span>
-                <input
-                  value={kakaoUrl}
-                  onChange={(event) => setKakaoUrl(event.target.value)}
-                  placeholder="예: https://pf.kakao.com/.../chat"
-                />
-              </label>
-
-              <label className="checkRow">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(event) => setIsActive(event.target.checked)}
-                />
-                <span>고객 링크에 시공자 소개 화면 노출</span>
-              </label>
+        <section className="panel">
+          <div className="listHeader">
+            <div>
+              <h2>링크 목록</h2>
+              <p>최근 생성한 링크부터 표시됩니다.</p>
             </div>
 
-            <div className="panel previewPanel">
-              <div className="sectionHeader">
-                <span>미리보기</span>
-                <strong>고객 첫 화면</strong>
-              </div>
+            <button type="button" onClick={() => void loadLinks()} className="refreshButton">
+              새로고침
+            </button>
+          </div>
 
-              <div className="introPreview introPreviewFrame" style={{ borderColor: `${brandColor}88` }}>
-                {renderCustomerPreview()}
-              </div>
-            </div>
-          </section>
+          {error ? <div className="errorBox">{error}</div> : null}
+          {copyMessage ? <div className="copyBox">{copyMessage}</div> : null}
 
-          <section className="panel photoPanel">
-            <div className="sectionHeader">
-              <span>대표 시공사진</span>
-              <strong>최대 12장 저장 가능</strong>
-            </div>
-
-            <div className="photoList">
-              {photos.map((photo, index) => (
-                <article className="photoItem" key={index}>
-                  <div className="photoThumb">
-                    {photo.image_url ? <img src={photo.image_url} alt="시공사진 미리보기" /> : <span>{index + 1}</span>}
+          {loading ? (
+            <div className="linkSkeletonList" aria-label="링크 목록 로딩 중">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <article key={`link-skeleton-${index}`} className="linkSkeletonCard">
+                  <div className="linkSkeletonTop">
+                    <div>
+                      <div className="linkSkeletonTitle" />
+                      <div className="linkSkeletonSub" />
+                    </div>
+                    <div className="linkSkeletonBadge" />
                   </div>
-
-                  <div className="photoFields">
-                    <label>
-                      <span>사진 URL</span>
-                      <input
-                        value={photo.image_url}
-                        onChange={(event) => updatePhoto(index, { image_url: event.target.value })}
-                        placeholder="사진을 업로드하면 자동으로 입력됩니다."
-                      />
-                    </label>
-
-                    <div className="uploadRow compactUploadRow">
-                      <label className="uploadButton">
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          disabled={uploadingTarget !== null}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            void uploadImage(file, "portfolio", index);
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                        <span>{uploadingTarget === index ? "사진 업로드 중..." : "시공사진 업로드"}</span>
-                      </label>
-                      <small>업로드 후 URL이 자동 입력됩니다.</small>
-                    </div>
-
-                    <div className="twoCols">
-                      <label>
-                        <span>제목</span>
-                        <input
-                          value={photo.title}
-                          onChange={(event) => updatePhoto(index, { title: event.target.value })}
-                          placeholder="예: 싱크대 필름 시공"
-                        />
-                      </label>
-
-                      <label>
-                        <span>설명</span>
-                        <input
-                          value={photo.description}
-                          onChange={(event) => updatePhoto(index, { description: event.target.value })}
-                          placeholder="예: 화이트 계열 상하부장 시공"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="photoOptions">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={photo.is_visible}
-                          onChange={(event) => updatePhoto(index, { is_visible: event.target.checked })}
-                        />
-                        <span>공개</span>
-                      </label>
-
-                      <label>
-                        <input
-                          type="radio"
-                          name="representative-photo"
-                          checked={photo.is_representative}
-                          onChange={() => markRepresentative(index)}
-                        />
-                        <span>대표</span>
-                      </label>
-
-                      <button type="button" onClick={() => removePhotoSlot(index)}>삭제</button>
-                    </div>
+                  <div className="linkSkeletonUrl" />
+                  <div className="linkSkeletonMeta">
+                    <div />
+                    <div />
+                    <div />
+                  </div>
+                  <div className="linkSkeletonActions">
+                    <div />
+                    <div />
+                    <div />
                   </div>
                 </article>
               ))}
             </div>
-
-            <div className="footerActions">
-              <button type="button" className="subButton" onClick={addPhotoSlot}>사진 입력칸 추가</button>
-              <button type="button" className="saveButton" onClick={save} disabled={saving || uploadingTarget !== null}>
-                {saving ? "저장 중..." : uploadingTarget !== null ? "업로드 중..." : "설정 저장"}
-              </button>
+          ) : items.length === 0 ? (
+            <div className="emptyBox">
+              아직 만든 고객 링크가 없습니다. 하단의 <b>링크 생성</b>에서 새 링크를 만들어보세요.
             </div>
-          </section>
-        </>
-      )}
+          ) : (
+            <div className="linkList">
+              {items.map((link) => (
+                <article key={link.id} className="linkCard">
+                  <div className="cardTop">
+                    <div>
+                      <div className="customerName">
+                        {link.customer_name || "고객명 없음"}
+                      </div>
+                      <div className="memoText">
+                        {link.memo || "메모 없음"}
+                      </div>
+                    </div>
 
-      {isPreviewOpen ? (
-        <div className="previewBubbleBackdrop" role="presentation" onClick={() => setIsPreviewOpen(false)}>
-          <div className="previewBubble" role="dialog" aria-modal="true" aria-label="고객 첫 화면 미리보기" onClick={(event) => event.stopPropagation()}>
-            <div className="previewBubbleHeader">
-              <div>
-                <span>미리보기</span>
-                <strong>고객 첫 화면</strong>
-              </div>
-              <button type="button" onClick={() => setIsPreviewOpen(false)}>닫기</button>
+                    <span className={`statusBadge ${getStatusClass(link)}`}>
+                      {getStatus(link)}
+                    </span>
+                  </div>
+
+                  <div className="infoGrid">
+                    <div>
+                      <span>생성일</span>
+                      <strong>{formatDate(link.created_at)}</strong>
+                    </div>
+                    <div>
+                      <span>유효기간</span>
+                      <strong>{formatDate(link.expires_at)}</strong>
+                    </div>
+                    <div>
+                      <span>허용 공간</span>
+                      <strong>{link.space_count}개</strong>
+                    </div>
+                    <div>
+                      <span>필름 범위</span>
+                      <strong>
+                        {link.film_scope === "all"
+                          ? "삼성필름 전체"
+                          : link.film_scope === "preset"
+                            ? `${link.preset_name || "프리셋"} · ${link.film_count}개`
+                            : `선택 필름 ${link.film_count}개`}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="urlBox">{link.url}</div>
+
+                  <div className="actionRow">
+                    <button type="button" onClick={() => copyLink(link.url)}>
+                      링크 복사
+                    </button>
+
+                    <a href={link.url} target="_blank" rel="noreferrer">
+                      열어보기
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => deactivateLink(link)}
+                      disabled={deactivatingId === link.id || !link.is_active}
+                      className="deleteButton"
+                    >
+                      {!link.is_active
+                        ? "비활성됨"
+                        : deactivatingId === link.id
+                          ? "처리 중"
+                          : "비활성화"}
+                    </button>
+                  </div>
+                </article>
+              ))}
             </div>
+          )}
+        </section>
+      </div>
 
-            <div className="introPreview introPreviewFrame" style={{ borderColor: `${brandColor}88` }}>
-              {renderCustomerPreview()}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <SimulatorLinkTabs active="settings" />
+      <SimulatorLinkTabs active="manage" />
 
       <style jsx>{`
-        :global(html),
-        :global(body) {
-          max-width: 100%;
-          overflow-x: hidden;
-        }
-
-        :global(*) {
-          box-sizing: border-box;
-        }
-
-        .settingsPage {
-          width: 100%;
-          max-width: 100vw;
+        .page {
           min-height: 100vh;
-          overflow-x: hidden;
-          padding: 28px 22px 142px;
+          padding-bottom: 96px;
+          box-sizing: border-box;
           background:
-            radial-gradient(circle at 16% 0%, rgba(238, 224, 197, 0.13), transparent 32%),
-            ${COLORS.bg};
+            radial-gradient(circle at top left, rgba(238, 224, 197, 0.1), transparent 24%),
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 20%),
+            linear-gradient(180deg, #060241 0%, ${COLORS.bg} 100%);
           color: ${COLORS.white};
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
-        .routeOverlay {
+
+        .dashboardMoveOverlay {
           position: fixed;
           inset: 0;
-          z-index: 200;
+          z-index: 9999;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(5, 2, 59, 0.76);
-          color: ${COLORS.cream};
-          font-size: 20px;
+          background: rgba(7, 6, 27, 0.30);
+          backdrop-filter: blur(2px);
+          pointer-events: none;
+        }
+
+        .dashboardMoveToast {
+          padding: 14px 18px;
+          border-radius: 999px;
+          background: rgba(10, 8, 72, 0.94);
+          color: #fff;
+          border: 1px solid rgba(255,255,255,0.18);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.28);
+          font-size: 14px;
           font-weight: 900;
-          backdrop-filter: blur(10px);
+          letter-spacing: -0.02em;
+        }
+
+        .pageInner {
+          width: min(980px, 100%);
+          margin: 0 auto;
+          padding: 18px 16px 56px;
+          box-sizing: border-box;
         }
 
         .backButton {
-          width: fit-content;
           display: inline-flex;
           align-items: center;
-          justify-content: center;
           border: 1px solid ${COLORS.line};
           border-radius: 999px;
           padding: 10px 14px;
           background: ${COLORS.panelStrong};
           color: ${COLORS.cream};
-          font-size: 14px;
-          font-weight: 900;
           text-decoration: none;
           cursor: pointer;
-          margin: 0 auto 14px;
           appearance: none;
-        }
-
-        .backButton:disabled {
-          opacity: 0.58;
-          cursor: wait;
+          font-size: 14px;
+          font-weight: 900;
+          margin-bottom: 14px;
         }
 
         .heroCard,
         .panel,
-        .notice {
-          width: min(1120px, 100%);
-          max-width: 100%;
-          margin: 0 auto;
+        .linkCard {
           border: 1px solid ${COLORS.line};
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
           background: ${COLORS.panel};
-          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
-          backdrop-filter: blur(18px);
         }
 
         .heroCard {
-          display: flex;
-          justify-content: space-between;
-          gap: 20px;
-          align-items: flex-end;
-          border-radius: 28px;
-          padding: 30px;
-        }
-
-        .stepPill {
-          display: inline-flex;
-          border-radius: 999px;
-          padding: 9px 14px;
-          background: rgba(238, 224, 197, 0.16);
-          color: ${COLORS.cream};
-          font-size: 13px;
-          font-weight: 900;
-        }
-
-        h1 {
-          margin: 16px 0 8px;
-          font-size: clamp(32px, 6vw, 56px);
-          line-height: 1.04;
-          letter-spacing: -0.05em;
-          word-break: keep-all;
-          overflow-wrap: anywhere;
-        }
-
-        p {
-          margin: 0;
-          color: ${COLORS.soft};
-          font-weight: 700;
-          line-height: 1.65;
-          white-space: pre-line;
-        }
-
-        .heroActions {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-        }
-
-        .heroActions button,
-        .subButton,
-        .saveButton,
-        .photoOptions button {
-          border: 1px solid rgba(238, 224, 197, 0.24);
-          border-radius: 16px;
-          padding: 12px 16px;
-          font-weight: 900;
-          cursor: pointer;
-          text-decoration: none;
-        }
-
-        .heroActions button,
-        .subButton,
-        .photoOptions button {
-          background: rgba(255, 255, 255, 0.06);
-          color: ${COLORS.cream};
-        }
-        .heroActions button:disabled {
-          opacity: 0.5;
-          cursor: wait;
-        }
-
-        .previewBubbleBackdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 180;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 18px;
-          background: rgba(5, 2, 59, 0.74);
-          backdrop-filter: blur(10px);
-        }
-
-        .previewBubble {
-          width: min(560px, 100%);
-          max-height: min(720px, calc(100dvh - 36px));
-          overflow-y: auto;
-          border: 1px solid rgba(238, 224, 197, 0.24);
-          border-radius: 26px;
-          padding: 16px;
-          background: rgba(8, 6, 62, 0.96);
-          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
-        }
-
-        .previewBubbleHeader {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: center;
-          margin-bottom: 12px;
-          color: ${COLORS.cream};
-        }
-
-        .previewBubbleHeader span,
-        .previewBubbleHeader strong {
-          display: block;
-          font-weight: 1000;
-        }
-
-        .previewBubbleHeader span {
-          font-size: 13px;
-          color: ${COLORS.soft};
-        }
-
-        .previewBubbleHeader button {
-          border: 1px solid rgba(238, 224, 197, 0.24);
-          border-radius: 999px;
-          padding: 10px 14px;
-          background: rgba(255, 255, 255, 0.08);
-          color: ${COLORS.cream};
-          font-weight: 1000;
-          cursor: pointer;
-        }
-
-
-        .gridLayout {
-          width: min(1120px, 100%);
-          max-width: 100%;
-          margin: 18px auto 0;
-          display: grid;
-          grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
-          gap: 18px;
-        }
-
-        .panel {
-          min-width: 0;
-          border-radius: 26px;
-          padding: 22px;
-        }
-
-        .loadingPanel {
-          margin-top: 18px;
-          color: ${COLORS.cream};
-          font-weight: 900;
-        }
-
-        .notice {
-          margin-top: 14px;
-          border-radius: 18px;
-          padding: 14px 18px;
-          font-weight: 900;
-        }
-
-        .errorNotice {
-          color: ${COLORS.danger};
-        }
-
-        .successNotice {
-          color: ${COLORS.ok};
-        }
-
-        .sectionHeader {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: center;
+          border-radius: 30px;
+          padding: 22px 18px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
           margin-bottom: 18px;
-          color: ${COLORS.cream};
         }
 
-        .sectionHeader span {
-          font-size: 14px;
-          font-weight: 900;
-        }
-
-        .sectionHeader strong {
-          font-size: 13px;
-          color: ${COLORS.soft};
-        }
-
-        label {
-          display: grid;
-          gap: 8px;
-          margin-bottom: 14px;
-        }
-
-        label span {
-          font-size: 13px;
-          color: ${COLORS.cream};
-          font-weight: 900;
-        }
-
-        input,
-        textarea {
-          width: 100%;
-          border: 1px solid ${COLORS.line};
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.06);
-          color: ${COLORS.white};
-          padding: 13px 14px;
-          font-size: 16px;
-          font-weight: 800;
-          min-height: 52px;
-          outline: none;
-          min-width: 0;
-        }
-
-        textarea {
-          resize: vertical;
-          min-height: 140px;
-          line-height: 1.6;
-          padding-top: 14px;
-        }
-
-        input::placeholder,
-        textarea::placeholder {
-          color: rgba(255, 255, 255, 0.34);
-        }
-
-        .uploadRow {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin: -4px 0 16px;
-        }
-
-        .compactUploadRow {
-          margin-top: -6px;
-        }
-
-        .uploadButton {
+        .stepBadge {
           display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: fit-content;
-          margin: 0;
-          border: 1px solid rgba(238, 224, 197, 0.28);
-          border-radius: 15px;
-          background: rgba(238, 224, 197, 0.12);
-          color: ${COLORS.cream};
-          padding: 11px 14px;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 1000;
-        }
-
-        .uploadButton input {
-          display: none;
-        }
-
-        .uploadButton span {
-          color: ${COLORS.cream};
-          font-size: 13px;
-        }
-
-        .uploadRow small {
-          color: ${COLORS.soft};
-          font-weight: 800;
-        }
-
-        .twoCols {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-
-        .checkRow,
-        .photoOptions label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin: 0;
-          color: ${COLORS.soft};
-          font-weight: 900;
-        }
-
-        .checkRow input,
-        .photoOptions input {
-          width: auto;
-        }
-
-        .introPreview {
-          border: 1px solid rgba(238, 224, 197, 0.2);
-          border-radius: 24px;
-          padding: 10px;
-          background: ${COLORS.panelStrong};
-        }
-
-        .introPreviewFrame {
-          overflow: hidden;
-        }
-
-        .customerPreviewPage {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .customerPreviewHeroCard,
-        .customerPreviewIntroCard,
-        .customerPreviewPortfolioBlock {
-          border: 1px solid ${COLORS.line};
-          border-radius: 24px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
-          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
-        }
-
-        .customerPreviewHeroCard {
-          padding: 16px;
-        }
-
-        .customerPreviewStepBadge {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
           border-radius: 999px;
           padding: 7px 11px;
           background: rgba(238, 224, 197, 0.1);
           color: ${COLORS.cream};
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 900;
-          margin-bottom: 10px;
-        }
-
-        .customerPreviewTitle {
-          margin: 0;
-          color: ${COLORS.white};
-          font-size: 30px;
-          line-height: 1.08;
-          letter-spacing: -0.04em;
-          word-break: keep-all;
-        }
-
-        .customerPreviewHeroText {
-          margin: 10px 0 0;
-          color: ${COLORS.soft};
-          font-size: 14px;
-          line-height: 1.65;
-          word-break: keep-all;
-        }
-
-        .customerPreviewLinkCard {
-          margin-top: 14px;
-          border-radius: 20px;
-          padding: 14px 16px;
-          background: rgba(238, 224, 197, 0.1);
-          border: 1px solid ${COLORS.line};
-          color: ${COLORS.white};
-          font-size: 14px;
-          line-height: 1.7;
-          font-weight: 800;
-        }
-
-        .customerPreviewIntroCard {
-          padding: 16px;
-        }
-
-        .customerPreviewLogoBox {
-          width: min(340px, 100%);
-          min-height: 0;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          align-self: center;
-          margin: 0 auto;
-          background: transparent;
-          border: 0;
-          border-radius: 0;
-          color: ${COLORS.cream};
-          font-size: 72px;
-          font-weight: 1000;
-        }
-
-        .customerPreviewLogoBox img {
-          width: 100%;
-          max-width: 340px;
-          height: auto;
-          max-height: 136px;
-          object-fit: contain;
-          object-position: center center;
-          display: block;
-        }
-
-        .customerPreviewTextBox {
-          margin-top: 14px;
-        }
-
-        .customerPreviewTextBox p {
-          margin: 0;
-          color: ${COLORS.soft};
-          font-size: 15px;
-          line-height: 1.72;
-          white-space: pre-line;
-          word-break: keep-all;
-        }
-
-        .customerPreviewContactRow {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-          margin-top: 16px;
-        }
-
-        .customerPreviewContactButton {
-          min-height: 46px;
-          border-radius: 999px;
-          padding: 0 15px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          background: rgba(238, 224, 197, 0.1);
-          border: 1px solid rgba(238, 224, 197, 0.2);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 24px rgba(0, 0, 0, 0.18);
-          color: ${COLORS.cream};
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 1000;
-          white-space: nowrap;
-          word-break: keep-all;
-        }
-
-        .customerPreviewContactIcon {
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex: 0 0 auto;
-          background: rgba(238, 224, 197, 0.16);
-          color: ${COLORS.cream};
-        }
-
-        .customerPreviewContactIcon svg {
-          width: 14px;
-          height: 14px;
-          display: block;
-          fill: currentColor;
-        }
-
-        .customerPreviewContactIcon.kakao svg {
-          width: 15px;
-          height: 15px;
-        }
-
-        .customerPreviewPortfolioBlock {
-          padding: 14px;
-        }
-
-        .customerPreviewPortfolioHeader {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 10px;
           margin-bottom: 12px;
         }
 
-        .customerPreviewSectionLabel {
-          color: ${COLORS.cream};
-          font-size: 13px;
-          font-weight: 900;
-          margin-bottom: 6px;
+        h1 {
+          margin: 0;
+          font-size: clamp(28px, 5vw, 44px);
+          line-height: 1.08;
+          letter-spacing: -0.04em;
         }
 
-        .customerPreviewPortfolioHeader h3 {
-          margin: 0;
-          color: ${COLORS.white};
-          font-size: 20px;
-          letter-spacing: -0.03em;
-          line-height: 1.3;
+        .heroCard p {
+          margin: 12px 0 0;
+          color: ${COLORS.soft};
+          font-size: 15px;
+          line-height: 1.7;
           word-break: keep-all;
         }
 
-        .customerPreviewPortfolioHeader > span {
-          flex-shrink: 0;
-          border-radius: 999px;
-          padding: 7px 10px;
-          background: rgba(238, 224, 197, 0.1);
-          color: ${COLORS.cream};
-          font-size: 12px;
-          font-weight: 900;
+        .panel {
+          border-radius: 28px;
+          padding: 18px;
         }
 
-        .customerPreviewPhotoGrid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 10px;
-        }
-
-        .customerPreviewPhotoCard {
-          position: relative;
-          min-height: 210px;
-          margin: 0;
-          border-radius: 20px;
-          overflow: hidden;
-          background: rgba(238, 224, 197, 0.08);
-          border: 1px solid ${COLORS.line};
-        }
-
-        .customerPreviewPhotoCard img,
-        .photoPreview img,
-        .photoThumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-
-        .customerPreviewPhotoCard figcaption {
-          position: absolute;
-          left: 10px;
-          right: 10px;
-          bottom: 10px;
-          border-radius: 14px;
-          padding: 9px 10px;
-          background: rgba(7, 5, 58, 0.76);
-          backdrop-filter: blur(10px);
-        }
-
-        .customerPreviewPhotoCard strong,
-        .customerPreviewPhotoCard span {
-          display: block;
-        }
-
-        .customerPreviewPhotoCard strong {
-          font-size: 13px;
-          color: ${COLORS.white};
-        }
-
-        .customerPreviewPhotoCard span {
-          margin-top: 3px;
-          font-size: 12px;
-          color: ${COLORS.soft};
-        }
-
-        .customerPreviewBottomNav {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 6px;
-          border-radius: 22px;
-          padding: 6px;
-          background: rgba(8, 6, 62, 0.96);
-          border: 1px solid ${COLORS.line};
-          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
-        }
-
-        .customerPreviewBottomButton {
-          min-height: 44px;
-          border: 0;
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.05);
-          color: ${COLORS.soft};
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 900;
-        }
-
-        .customerPreviewBottomButton span {
-          width: 20px;
-          height: 20px;
-          border-radius: 999px;
-          background: rgba(238, 224, 197, 0.18);
-          color: ${COLORS.cream};
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-        }
-
-        .customerPreviewBottomButtonActive {
-          background: rgba(238, 224, 197, 0.14);
-          color: ${COLORS.cream};
-          box-shadow: inset 0 0 0 1px rgba(238, 224, 197, 0.24);
-        }
-
-        .photoPreviewGrid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 10px;
-        }
-
-        .photoPreview {
-          position: relative;
-          overflow: hidden;
-          min-height: 150px;
-          border-radius: 18px;
-          border: 1px solid ${COLORS.line};
-          background: rgba(255, 255, 255, 0.06);
-        }
-
-        .photoPreview div {
-          position: absolute;
-          left: 10px;
-          right: 10px;
-          bottom: 10px;
-          border-radius: 14px;
-          padding: 10px;
-          background: rgba(7, 5, 58, 0.76);
-          backdrop-filter: blur(10px);
-        }
-
-        .photoPreview strong,
-        .photoPreview span {
-          display: block;
-        }
-
-        .photoPreview strong {
-          font-size: 13px;
-          color: ${COLORS.white};
-        }
-
-        .photoPreview span {
-          margin-top: 3px;
-          font-size: 12px;
-          color: ${COLORS.soft};
-        }
-
-        .emptyPreview {
-          border: 1px dashed rgba(238, 224, 197, 0.28);
-          border-radius: 18px;
-          padding: 28px 16px;
-          text-align: center;
-          color: ${COLORS.soft};
-          font-weight: 900;
-        }
-
-        .photoPanel {
-          margin-top: 18px;
-        }
-
-        .photoList {
-          display: grid;
-          gap: 14px;
-        }
-
-        .photoItem {
-          display: grid;
-          grid-template-columns: 160px 1fr;
-          gap: 14px;
-          padding: 14px;
-          border: 1px solid ${COLORS.line};
-          border-radius: 22px;
-          background: rgba(255, 255, 255, 0.035);
-        }
-
-        .photoThumb {
-          min-height: 130px;
-          border-radius: 18px;
-          overflow: hidden;
-          border: 1px solid ${COLORS.line};
-          display: grid;
-          place-items: center;
-          background: rgba(238, 224, 197, 0.1);
-          color: ${COLORS.cream};
-          font-size: 34px;
-          font-weight: 1000;
-        }
-
-        .photoOptions {
+        .listHeader {
           display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .listHeader h2 {
+          margin: 0;
+          color: ${COLORS.cream};
+          font-size: 22px;
+          letter-spacing: -0.03em;
+        }
+
+        .listHeader p {
+          margin: 6px 0 0;
+          color: ${COLORS.soft};
+          font-size: 13px;
+        }
+
+        .refreshButton,
+        .actionRow button,
+        .actionRow a {
+          border: none;
+          border-radius: 14px;
+          min-height: 40px;
+          padding: 0 13px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 13px;
+          font-weight: 900;
+          text-decoration: none;
+          display: inline-flex;
           align-items: center;
-          gap: 14px;
-          flex-wrap: wrap;
+          justify-content: center;
+          cursor: pointer;
         }
 
-        .photoOptions button {
-          margin-left: auto;
-          padding: 9px 12px;
-          color: ${COLORS.danger};
+        .linkSkeletonList {
+          display: grid;
+          gap: 12px;
         }
 
-        .footerActions {
-          margin-top: 18px;
+        .linkSkeletonCard,
+        .linkSkeletonTitle,
+        .linkSkeletonSub,
+        .linkSkeletonBadge,
+        .linkSkeletonUrl,
+        .linkSkeletonMeta div,
+        .linkSkeletonActions div {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .linkSkeletonCard::after,
+        .linkSkeletonTitle::after,
+        .linkSkeletonSub::after,
+        .linkSkeletonBadge::after,
+        .linkSkeletonUrl::after,
+        .linkSkeletonMeta div::after,
+        .linkSkeletonActions div::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: linkSkeletonShimmer 1.35s infinite;
+        }
+
+        .linkSkeletonCard {
+          border: 1px solid ${COLORS.line};
+          border-radius: 22px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.045);
+        }
+
+        .linkSkeletonTop {
           display: flex;
           justify-content: space-between;
           gap: 12px;
-          flex-wrap: wrap;
+          align-items: flex-start;
         }
 
-        .saveButton {
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
-          min-width: 180px;
+        .linkSkeletonTitle {
+          width: 150px;
+          height: 19px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.13);
         }
 
-        .saveButton:disabled {
-          opacity: 0.58;
-          cursor: wait;
+        .linkSkeletonSub {
+          width: 110px;
+          height: 12px;
+          margin-top: 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
         }
 
-        @media (max-width: 820px) {
-          .settingsPage {
-            padding: 14px 12px 124px;
+        .linkSkeletonBadge {
+          width: 76px;
+          height: 32px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.13);
+          border: 1px solid rgba(238, 224, 197, 0.1);
+        }
+
+        .linkSkeletonUrl {
+          height: 48px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px dashed rgba(238, 224, 197, 0.16);
+          margin-top: 16px;
+        }
+
+        .linkSkeletonMeta {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        .linkSkeletonMeta div,
+        .linkSkeletonActions div {
+          height: 38px;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(238, 224, 197, 0.1);
+        }
+
+        .linkSkeletonActions {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        @keyframes linkSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
           }
+        }
 
-          .backButton {
-            margin-bottom: 14px;
+        .linkList {
+          display: grid;
+          gap: 12px;
+        }
+
+        .linkCard {
+          border-radius: 22px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.045);
+        }
+
+        .cardTop {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .customerName {
+          color: ${COLORS.cream};
+          font-size: 18px;
+          font-weight: 900;
+          line-height: 1.3;
+        }
+
+        .memoText {
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.45;
+          margin-top: 4px;
+        }
+
+        .statusBadge {
+          flex-shrink: 0;
+          border-radius: 999px;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .statusActive {
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          border: 1px solid rgba(238, 224, 197, 0.35);
+        }
+
+        .statusExpired {
+          background: rgba(255, 96, 96, 0.12);
+          color: #ffd6d6;
+          border: 1px solid rgba(255, 96, 96, 0.28);
+        }
+
+        .infoGrid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .infoGrid div {
+          border-radius: 15px;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid ${COLORS.line};
+          min-width: 0;
+        }
+
+        .infoGrid span {
+          display: block;
+          color: ${COLORS.soft};
+          font-size: 11px;
+          margin-bottom: 4px;
+        }
+
+        .infoGrid strong {
+          display: block;
+          color: ${COLORS.white};
+          font-size: 12px;
+          line-height: 1.35;
+          word-break: keep-all;
+        }
+
+        .urlBox {
+          border-radius: 15px;
+          padding: 11px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.45;
+          word-break: break-all;
+          margin-bottom: 10px;
+        }
+
+        .actionRow {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+        }
+
+        .actionRow .deleteButton {
+          background: rgba(255, 255, 255, 0.06);
+          color: #ffd6d6;
+          border: 1px solid rgba(255, 96, 96, 0.24);
+        }
+
+        .actionRow button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .emptyBox,
+        .errorBox,
+        .copyBox {
+          border-radius: 16px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.6;
+          margin-bottom: 12px;
+        }
+
+        .errorBox {
+          color: #ffd6d6;
+          background: rgba(120, 20, 20, 0.22);
+        }
+
+        .copyBox {
+          color: ${COLORS.cream};
+          background: rgba(238, 224, 197, 0.1);
+        }
+
+        @media (max-width: 720px) {
+          .infoGrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 640px) {
+          .pageInner {
+            padding: 12px 10px 36px;
           }
 
           .heroCard,
-          .panel,
-          .notice {
-            border-radius: 22px;
-          }
-
-          .heroCard {
-            padding: 18px 16px;
-            align-items: stretch;
-            flex-direction: column;
-            gap: 16px;
-          }
-
-          h1 {
-            margin-top: 12px;
-            font-size: 28px;
-            line-height: 1.08;
-            letter-spacing: -0.04em;
-          }
-
-          p {
-            font-size: 14px;
-            line-height: 1.58;
-          }
-
-          .heroActions {
-            display: grid;
-            grid-template-columns: 1fr;
-            justify-content: stretch;
-            width: 100%;
-          }
-
-          .heroActions button,
-          .subButton,
-          .saveButton,
-          .photoOptions button {
-            min-height: 48px;
-            justify-content: center;
-            text-align: center;
-            padding: 12px 14px;
-          }
-
-          .gridLayout {
-            margin-top: 14px;
-            grid-template-columns: minmax(0, 1fr);
-            gap: 14px;
-          }
-
-          .previewPanel {
-            display: none;
-          }
-
           .panel {
-            padding: 16px 14px;
-          }
-
-          .sectionHeader {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 4px;
-            margin-bottom: 14px;
-          }
-
-          label {
-            margin-bottom: 12px;
-          }
-
-          .twoCols {
-            grid-template-columns: 1fr;
-            gap: 0;
-          }
-
-          .uploadRow {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 8px;
-          }
-
-          .uploadButton {
-            width: 100%;
-            min-height: 48px;
-          }
-
-          .uploadRow small {
-            display: block;
-            width: 100%;
-            font-size: 12px;
-            line-height: 1.5;
-          }
-
-          .checkRow {
-            align-items: flex-start;
-          }
-
-          .introPreview {
-            padding: 8px;
-            border-radius: 20px;
-          }
-
-          .customerPreviewPage {
-            gap: 10px;
-          }
-
-          .customerPreviewHeroCard,
-          .customerPreviewIntroCard,
-          .customerPreviewPortfolioBlock {
-            border-radius: 20px;
-          }
-
-          .customerPreviewHeroCard,
-          .customerPreviewIntroCard {
+            border-radius: 22px;
             padding: 14px;
-          }
-
-          .customerPreviewTitle {
-            font-size: 24px;
-          }
-
-          .customerPreviewHeroText,
-          .customerPreviewTextBox p {
-            font-size: 13px;
-            line-height: 1.6;
-          }
-
-          .customerPreviewLogoBox {
-            width: min(280px, 100%);
-            font-size: 34px;
-          }
-
-          .customerPreviewLogoBox img {
-            max-width: 280px;
-            max-height: 112px;
-          }
-
-          .customerPreviewContactRow {
-            grid-template-columns: 1fr;
-          }
-
-          .customerPreviewBottomNav {
-            gap: 4px;
-          }
-
-          .customerPreviewBottomButton {
-            min-height: 40px;
-            font-size: 11px;
-          }
-
-          .customerPreviewBottomButton span {
-            width: 18px;
-            height: 18px;
-            font-size: 10px;
-          }
-
-          .photoPreview {
-            min-height: 180px;
-          }
-
-          .photoPreview div {
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
-            padding: 9px;
-          }
-
-          .photoPanel {
-            margin-top: 14px;
-          }
-
-          .photoList {
-            gap: 12px;
-          }
-
-          .photoItem {
-            grid-template-columns: 1fr;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 18px;
-          }
-
-          .photoThumb {
-            min-height: 180px;
-            border-radius: 16px;
-          }
-
-          .photoFields {
-            min-width: 0;
-          }
-
-          .photoOptions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px 12px;
-            align-items: center;
-          }
-
-          .photoOptions label {
-            min-height: 40px;
-          }
-
-          .photoOptions button {
-            margin-left: 0;
-            grid-column: 1 / -1;
-            width: 100%;
-          }
-
-          .portfolioGrid {
-            padding-bottom: 8px;
-          }
-
-          .footerActions {
-            position: static;
-            z-index: auto;
-            margin: 22px 0 0;
-            padding: 0;
-            border-radius: 0;
-            background: transparent;
-            backdrop-filter: none;
-            flex-direction: column-reverse;
-          }
-
-          .subButton,
-          .saveButton {
-            width: 100%;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .settingsPage {
-            padding-left: 10px;
-            padding-right: 10px;
           }
 
           h1 {
-            font-size: 24px;
+            font-size: 27px;
           }
 
-          .heroActions {
-            grid-template-columns: 1fr;
+          .listHeader {
+            align-items: stretch;
+            flex-direction: column;
           }
 
-          .stepPill {
-            padding: 8px 12px;
-            font-size: 12px;
-          }
-
-          .customerPreviewContactButton {
+          .refreshButton {
             width: 100%;
           }
 
-          .previewBubbleBackdrop {
-            padding: 10px;
-            align-items: flex-end;
+          .actionRow,
+          .linkSkeletonMeta,
+          .linkSkeletonActions {
+            grid-template-columns: 1fr;
           }
 
-          .previewBubble {
-            max-height: calc(100dvh - 24px);
-            border-radius: 22px 22px 18px 18px;
-            padding: 14px;
+          .customerName {
+            font-size: 16px;
           }
         }
       `}</style>

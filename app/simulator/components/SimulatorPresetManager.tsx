@@ -26,6 +26,7 @@ type SearchOptions = {
   paletteSub?: string;
   paletteColors?: string[];
   updateFacets?: boolean;
+  recommended?: boolean;
 };
 
 const COLORS = {
@@ -241,6 +242,7 @@ export default function SimulatorPresetManager() {
     const paletteColors = options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors;
     const updateFacets = options.updateFacets === true;
     const silent = options.silent === true;
+    const useRecommended = options.recommended === true;
 
     if (!silent) {
       setFilmLoading(true);
@@ -250,6 +252,7 @@ export default function SimulatorPresetManager() {
     try {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      if (useRecommended) params.set("recommended", "1");
       if (paletteMain) params.set("palette_main", paletteMain);
       if (paletteSub) params.set("palette_sub", paletteSub);
       paletteColors.forEach((color) => params.append("palette_color", color));
@@ -282,7 +285,7 @@ export default function SimulatorPresetManager() {
 
   useEffect(() => {
     void loadPresets();
-    void searchFilms({ query: "", silent: true, updateFacets: true });
+    void searchFilms({ query: "", silent: false, updateFacets: true, recommended: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -318,7 +321,7 @@ export default function SimulatorPresetManager() {
     setSelectedPaletteMain("");
     setSelectedPaletteSub("");
     setSelectedPaletteColors([]);
-    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true });
+    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true, recommended: true });
   };
 
   const handlePaletteMainClick = (value: string) => {
@@ -732,33 +735,43 @@ export default function SimulatorPresetManager() {
               )}
 
               <div className="filmResultGrid">
-                {filmSearchResults.map((film) => {
-                  const active = selectedFilmIds.has(film.id);
-                  const thumb = getFilmThumbUrl(film);
+                {filmSearchResults.length > 0 ? (
+                  filmSearchResults.map((film) => {
+                    const active = selectedFilmIds.has(film.id);
+                    const thumb = getFilmThumbUrl(film);
 
-                  return (
-                    <button
-                      key={film.id}
-                      type="button"
-                      onClick={() => toggleFilm(film)}
-                      className={`filmResultCard ${active ? "filmResultCardActive" : ""}`}
-                      title={active ? "누르면 프리셋에서 제거" : "누르면 프리셋에 담기"}
-                    >
-                      <div className="filmResultThumb">
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt={getFilmName(film)}
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        ) : null}
-                      </div>
-                      <div className="filmResultName">{getFilmName(film)}</div>
-                      <div className="filmResultMeta">{getFilmCode(film) || film.manufacturer}</div>
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={film.id}
+                        type="button"
+                        onClick={() => toggleFilm(film)}
+                        className={`filmResultCard ${active ? "filmResultCardActive" : ""}`}
+                        title={active ? "누르면 프리셋에서 제거" : "누르면 프리셋에 담기"}
+                      >
+                        <div className="filmResultThumb">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={getFilmName(film)}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="filmResultName">{getFilmName(film)}</div>
+                        <div className="filmResultMeta">{getFilmCode(film) || film.manufacturer}</div>
+                      </button>
+                    );
+                  })
+                ) : filmLoading ? (
+                  Array.from({ length: 9 }).map((_, index) => (
+                    <div key={`preset-film-skeleton-${index}`} className="filmResultSkeletonCard" aria-hidden="true">
+                      <div className="filmResultSkeletonThumb" />
+                      <div className="filmResultSkeletonLine" />
+                      <div className="filmResultSkeletonLine short" />
+                    </div>
+                  ))
+                ) : null}
               </div>
             </div>
 
@@ -1337,6 +1350,62 @@ export default function SimulatorPresetManager() {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
+        }
+
+        .filmResultSkeletonCard,
+        .filmResultSkeletonThumb,
+        .filmResultSkeletonLine {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .filmResultSkeletonCard::after,
+        .filmResultSkeletonThumb::after,
+        .filmResultSkeletonLine::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 35%,
+            rgba(255, 255, 255, 0.16) 50%,
+            transparent 100%
+          );
+          animation: filmResultSkeletonShimmer 1.25s infinite;
+        }
+
+        .filmResultSkeletonCard {
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.045);
+          border-radius: 16px;
+          padding: 7px;
+        }
+
+        .filmResultSkeletonThumb {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .filmResultSkeletonLine {
+          height: 11px;
+          margin-top: 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.09);
+        }
+
+        .filmResultSkeletonLine.short {
+          width: 64%;
+          height: 9px;
+        }
+
+        @keyframes filmResultSkeletonShimmer {
+          100% {
+            transform: translateX(100%);
+          }
         }
 
         .filmResultCard {
