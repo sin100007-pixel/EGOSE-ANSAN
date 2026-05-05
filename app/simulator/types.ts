@@ -23,6 +23,7 @@ export type SimulatorFilm = {
   palette_color?: string | null;
   image_url: string | null;
   thumb_url?: string | null;
+  sample_url?: string | null;
 };
 
 export type SimulatorLinkInfo = {
