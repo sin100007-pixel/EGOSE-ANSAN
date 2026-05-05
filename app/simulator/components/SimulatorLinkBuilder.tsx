@@ -242,6 +242,7 @@ export default function SimulatorLinkBuilder() {
   const [filmLoading, setFilmLoading] = useState(false);
   const [filmSearchResults, setFilmSearchResults] = useState<SimulatorFilm[]>([]);
   const [selectedFilms, setSelectedFilms] = useState<SimulatorFilm[]>([]);
+  const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedPaletteMain, setSelectedPaletteMain] = useState("");
@@ -358,6 +359,12 @@ export default function SimulatorLinkBuilder() {
 
   const removeFilm = (filmId: number) => {
     setSelectedFilms((prev) => prev.filter((film) => film.id !== filmId));
+  };
+
+  const toggleSamplePreview = (film: SimulatorFilm) => {
+    if (!film.sample_url) return;
+
+    setPreviewSampleFilm((prev) => (prev?.id === film.id ? null : film));
   };
 
   const updatePaletteFacets = (json: any) => {
@@ -964,25 +971,40 @@ export default function SimulatorLinkBuilder() {
                           const active = selectedFilmIds.has(film.id);
 
                           return (
-                            <button
+                            <div
                               key={film.id}
-                              type="button"
-                              onClick={() => addFilm(film)}
                               className={`filmCard ${active ? "filmCardActive" : ""}`}
                             >
-                              <div className="filmThumb">
-                                {getFilmThumbUrl(film) ? (
-                                  <img
-                                    src={getFilmThumbUrl(film)}
-                                    alt={getFilmName(film)}
-                                    loading="lazy"
-                                    decoding="async"
-                                  />
-                                ) : null}
+                              <button
+                                type="button"
+                                onClick={() => addFilm(film)}
+                                className="filmSelectButton"
+                                title={active ? "이미 선택된 필름입니다" : "누르면 링크 제한 필름에 담깁니다"}
+                              >
+                                <div className="filmThumb">
+                                  {getFilmThumbUrl(film) ? (
+                                    <img
+                                      src={getFilmThumbUrl(film)}
+                                      alt={getFilmName(film)}
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
+                                  ) : null}
+                                </div>
+                                <div className="filmName">{getFilmName(film)}</div>
+                              </button>
+
+                              <div className="filmActionRow">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSamplePreview(film)}
+                                  className={`filmSampleButton ${previewSampleFilm?.id === film.id ? "filmSampleButtonActive" : ""}`}
+                                  disabled={!film.sample_url}
+                                >
+                                  {film.sample_url ? "샘플사진 보기" : "샘플 준비중"}
+                                </button>
                               </div>
-                              <div className="filmName">{getFilmName(film)}</div>
-                              <div className="filmMeta">{getFilmCode(film) || film.manufacturer}</div>
-                            </button>
+                            </div>
                           );
                         })
                       ) : filmLoading ? (
@@ -995,6 +1017,40 @@ export default function SimulatorLinkBuilder() {
                         ))
                       ) : null}
                     </div>
+
+                    {previewSampleFilm?.sample_url ? (
+                      <div className="sampleBubbleBackdrop" onClick={() => setPreviewSampleFilm(null)}>
+                        <div className="sampleBubble" onClick={(event) => event.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewSampleFilm(null)}
+                            className="sampleBubbleClose"
+                          >
+                            닫기
+                          </button>
+
+                          <div className="sampleBubbleLabel">필름봇 샘플사진</div>
+                          <div className="sampleBubbleTitle">{getFilmName(previewSampleFilm)}</div>
+
+                          {getFilmCode(previewSampleFilm) ? (
+                            <div className="sampleBubbleCode">{getFilmCode(previewSampleFilm)}</div>
+                          ) : null}
+
+                          <div className="sampleBubbleImageWrap">
+                            <img
+                              src={previewSampleFilm.sample_url}
+                              alt={`${getFilmName(previewSampleFilm)} 샘플사진`}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+
+                          <p className="sampleBubbleText">
+                            실제 확대 질감을 참고할 수 있도록 필름봇용 샘플사진을 보여드리고 있어요.
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -1911,6 +1967,22 @@ export default function SimulatorLinkBuilder() {
         .filmCard {
           border-radius: 16px;
           padding: 7px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          cursor: default;
+        }
+
+        .filmSelectButton {
+          appearance: none;
+          width: 100%;
+          border: 0;
+          border-radius: 0;
+          padding: 0;
+          background: transparent;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
         }
 
         .filmThumb {
@@ -1935,13 +2007,124 @@ export default function SimulatorLinkBuilder() {
           -webkit-box-orient: vertical;
         }
 
-        .filmMeta {
-          color: ${COLORS.soft};
+        .filmActionRow {
+          margin-top: auto;
+        }
+
+        .filmSampleButton {
+          width: 100%;
+          min-height: 30px;
+          border-radius: 11px;
+          border: 1px solid rgba(238, 224, 197, 0.24);
+          background: rgba(238, 224, 197, 0.10);
+          color: ${COLORS.cream};
           font-size: 10px;
-          margin-top: 3px;
-          white-space: nowrap;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          cursor: pointer;
+          padding: 0 6px;
+        }
+
+        .filmSampleButtonActive {
+          background: rgba(238, 224, 197, 0.18);
+          border-color: rgba(238, 224, 197, 0.42);
+        }
+
+        .filmSampleButton:disabled {
+          color: rgba(255, 255, 255, 0.42);
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.08);
+          cursor: default;
+        }
+
+        .sampleBubbleBackdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 10020;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(5, 2, 35, 0.34);
+          backdrop-filter: blur(3px);
+        }
+
+        .sampleBubble {
+          width: min(320px, calc(100vw - 40px));
+          max-height: calc(100dvh - 36px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          border-radius: 24px;
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          background: linear-gradient(180deg, rgba(14, 12, 82, 0.98) 0%, rgba(8, 6, 64, 0.98) 100%);
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+          padding: 18px;
+          position: relative;
+        }
+
+        .sampleBubbleClose {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          border: 0;
+          background: rgba(255, 255, 255, 0.08);
+          color: ${COLORS.white};
+          border-radius: 999px;
+          min-width: 54px;
+          min-height: 32px;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+          padding: 0 12px;
+        }
+
+        .sampleBubbleLabel {
+          color: rgba(238, 224, 197, 0.82);
+          font-size: 11px;
+          font-weight: 800;
+          margin-bottom: 6px;
+        }
+
+        .sampleBubbleTitle {
+          color: ${COLORS.cream};
+          font-size: 16px;
+          line-height: 1.35;
+          font-weight: 900;
+          padding-right: 60px;
+        }
+
+        .sampleBubbleCode {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.35;
+          margin-top: 4px;
+          margin-bottom: 12px;
+        }
+
+        .sampleBubbleImageWrap {
+          width: 100%;
+          height: min(58dvh, 520px);
+          border-radius: 18px;
           overflow: hidden;
-          text-overflow: ellipsis;
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          background: rgba(255, 255, 255, 0.04);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sampleBubbleImageWrap img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+        }
+
+        .sampleBubbleText {
+          margin: 10px 2px 0;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.5;
         }
 
         .hintBox,
@@ -2090,6 +2273,30 @@ export default function SimulatorLinkBuilder() {
 
           .searchRow button {
             padding: 0 13px;
+          }
+
+          .filmSampleButton {
+            min-height: 28px;
+            font-size: 10px;
+          }
+
+          .sampleBubble {
+            width: min(300px, calc(100vw - 28px));
+            max-height: calc(100dvh - 24px);
+            padding: 16px;
+            border-radius: 20px;
+          }
+
+          .sampleBubbleImageWrap {
+            height: min(54dvh, 460px);
+          }
+
+          .sampleBubbleTitle {
+            font-size: 15px;
+          }
+
+          .sampleBubbleText {
+            font-size: 11px;
           }
         }
       `}</style>
