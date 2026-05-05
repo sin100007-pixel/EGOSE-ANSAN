@@ -251,6 +251,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [zoneFilmMap, setZoneFilmMap] = useState<Record<string, SimulatorFilm | null>>({});
   const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
+  const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
   const [decisionMessage, setDecisionMessage] = useState("");
   const [isDashboardMoving, setIsDashboardMoving] = useState(false);
 
@@ -419,6 +420,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       films: cachedInitialFilms.length > 0 ? cachedInitialFilms : [],
     }));
 
+    setPreviewSampleFilm(null);
     setIsFilmSheetOpen(true);
 
     if (!filmLoading) {
@@ -434,6 +436,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const closeFilmSheet = () => {
     setIsFilmSheetOpen(false);
+    setPreviewSampleFilm(null);
   };
 
   const selectSpaceAndGoApply = (spaceId: string) => {
@@ -682,12 +685,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       applyFilmToZone(targetZoneKey, film);
+      setPreviewSampleFilm(null);
       closeFilmSheet();
     } catch {
       setFilmError("이미지를 불러오지 못했습니다. 다시 선택해주세요.");
     } finally {
       setApplyingFilmId(null);
     }
+  };
+
+  const toggleSamplePreview = (film: SimulatorFilm) => {
+    if (!film.sample_url) return;
+
+    setPreviewSampleFilm((prev) => (prev?.id === film.id ? null : film));
   };
 
   const buildDecisionText = () => {
@@ -1409,31 +1419,41 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                     const active = selectedFilm?.id === film.id;
 
                     return (
-                      <button
+                      <div
                         key={film.id}
-                        type="button"
-                        onClick={() => void handleFilmClick(film)}
-                        disabled={applyingFilmId !== null}
                         className={`sheetFilmItem ${active ? "sheetFilmItemActive" : ""}`}
                       >
-                        <div className="sheetFilmThumb">
-                          {getFilmThumbUrl(film) ? (
-                            <img
-                              src={getFilmThumbUrl(film)}
-                              alt={getFilmName(film)}
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : null}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleFilmClick(film)}
+                          disabled={applyingFilmId !== null}
+                          className="sheetFilmSelectButton"
+                        >
+                          <div className="sheetFilmThumb">
+                            {getFilmThumbUrl(film) ? (
+                              <img
+                                src={getFilmThumbUrl(film)}
+                                alt={getFilmName(film)}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : null}
+                          </div>
 
-                        <div className="sheetFilmName">{getFilmName(film)}</div>
-                        <div className="sheetFilmMeta">
-                          {applyingFilmId === film.id
-                            ? "적용 중..."
-                            : getFilmCode(film) || film.manufacturer || "삼성필름"}
+                          <div className="sheetFilmName">{getFilmName(film)}</div>
+                        </button>
+
+                        <div className="sheetFilmActionRow">
+                          <button
+                            type="button"
+                            onClick={() => toggleSamplePreview(film)}
+                            className={`sheetFilmSampleButton ${previewSampleFilm?.id === film.id ? "sheetFilmSampleButtonActive" : ""}`}
+                            disabled={!film.sample_url}
+                          >
+                            {film.sample_url ? "샘플사진 보기" : "샘플 준비중"}
+                          </button>
                         </div>
-                      </button>
+                      </div>
                     );
                   })
                 ) : filmLoading ? (
@@ -1448,6 +1468,40 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <div className="emptyFilmBox">표시할 필름이 없습니다.</div>
                 )}
               </div>
+
+              {previewSampleFilm?.sample_url ? (
+                <div className="sheetSampleBubbleBackdrop" onClick={() => setPreviewSampleFilm(null)}>
+                  <div className="sheetSampleBubble" onClick={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewSampleFilm(null)}
+                      className="sheetSampleBubbleClose"
+                    >
+                      닫기
+                    </button>
+
+                    <div className="sheetSampleBubbleLabel">필름봇 샘플사진</div>
+                    <div className="sheetSampleBubbleTitle">{getFilmName(previewSampleFilm)}</div>
+
+                    {getFilmCode(previewSampleFilm) ? (
+                      <div className="sheetSampleBubbleCode">{getFilmCode(previewSampleFilm)}</div>
+                    ) : null}
+
+                    <div className="sheetSampleBubbleImageWrap">
+                      <img
+                        src={previewSampleFilm.sample_url}
+                        alt={`${getFilmName(previewSampleFilm)} 샘플사진`}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+
+                    <p className="sheetSampleBubbleText">
+                      실제 확대 질감을 참고할 수 있도록 필름봇용 샘플사진을 보여드리고 있어요.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </section>
           </div>
         ) : null}
@@ -3022,13 +3076,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .sheetFilmItem {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
           border: 1px solid ${COLORS.line};
           border-radius: 18px;
           background: rgba(255, 255, 255, 0.045);
           color: ${COLORS.white};
           padding: 8px;
           text-align: left;
-          cursor: pointer;
           align-self: start;
           height: auto;
         }
@@ -3038,7 +3095,18 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           background: rgba(238, 224, 197, 0.14);
         }
 
-        .sheetFilmItem:disabled {
+        .sheetFilmSelectButton {
+          appearance: none;
+          width: 100%;
+          border: 0;
+          background: transparent;
+          padding: 0;
+          text-align: left;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        .sheetFilmSelectButton:disabled {
           opacity: 0.72;
           cursor: wait;
         }
@@ -3073,14 +3141,122 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           word-break: keep-all;
         }
 
-        .sheetFilmMeta {
-          color: ${COLORS.soft};
+        .sheetFilmActionRow {
+          margin-top: auto;
+        }
+
+        .sheetFilmSampleButton {
+          width: 100%;
+          min-height: 32px;
+          border-radius: 11px;
+          border: 1px solid rgba(238, 224, 197, 0.24);
+          background: rgba(238, 224, 197, 0.10);
+          color: ${COLORS.cream};
           font-size: 11px;
-          line-height: 1.3;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          cursor: pointer;
+        }
+
+        .sheetFilmSampleButtonActive {
+          background: rgba(238, 224, 197, 0.18);
+          border-color: rgba(238, 224, 197, 0.42);
+        }
+
+        .sheetFilmSampleButton:disabled {
+          color: rgba(255, 255, 255, 0.42);
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.08);
+          cursor: default;
+        }
+
+        .sheetSampleBubbleBackdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 10020;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(5, 2, 35, 0.34);
+          backdrop-filter: blur(3px);
+        }
+
+        .sheetSampleBubble {
+          width: min(320px, calc(100vw - 40px));
+          max-height: calc(100dvh - 36px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          border-radius: 24px;
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          background: linear-gradient(180deg, rgba(14, 12, 82, 0.98) 0%, rgba(8, 6, 64, 0.98) 100%);
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+          padding: 18px;
+          position: relative;
+        }
+
+        .sheetSampleBubbleClose {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          border: 0;
+          background: rgba(255, 255, 255, 0.08);
+          color: ${COLORS.white};
+          border-radius: 999px;
+          min-width: 54px;
+          min-height: 32px;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .sheetSampleBubbleLabel {
+          color: rgba(238, 224, 197, 0.82);
+          font-size: 11px;
+          font-weight: 800;
+          margin-bottom: 6px;
+        }
+
+        .sheetSampleBubbleTitle {
+          color: ${COLORS.cream};
+          font-size: 16px;
+          line-height: 1.35;
+          font-weight: 900;
+          padding-right: 60px;
+        }
+
+        .sheetSampleBubbleCode {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.35;
           margin-top: 4px;
+          margin-bottom: 12px;
+        }
+
+        .sheetSampleBubbleImageWrap {
+          width: 100%;
+          height: min(58dvh, 520px);
+          border-radius: 18px;
           overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          background: rgba(255, 255, 255, 0.04);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sheetSampleBubbleImageWrap img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+        }
+
+        .sheetSampleBubbleText {
+          margin: 10px 2px 0;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.5;
         }
 
         .emptyFilmBox {
@@ -3584,8 +3760,28 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             min-height: 29px;
           }
 
-          .sheetFilmMeta {
+          .sheetFilmSampleButton {
+            min-height: 30px;
             font-size: 10px;
+          }
+
+          .sheetSampleBubble {
+            width: min(300px, calc(100vw - 28px));
+            max-height: calc(100dvh - 24px);
+            padding: 16px;
+            border-radius: 20px;
+          }
+
+          .sheetSampleBubbleImageWrap {
+            height: min(56dvh, 460px);
+          }
+
+          .sheetSampleBubbleTitle {
+            font-size: 15px;
+          }
+
+          .sheetSampleBubbleText {
+            font-size: 11px;
           }
         }
       `}</style>

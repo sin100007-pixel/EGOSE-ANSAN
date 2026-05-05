@@ -182,6 +182,7 @@ function normalizeFilm(item: ProductRow) {
     thumb_url: toPublicImageUrl(
       simulation_thumb_path || simulation_image_path || image_path
     ),
+    sample_url: toPublicImageUrl(image_path),
   };
 }
 
