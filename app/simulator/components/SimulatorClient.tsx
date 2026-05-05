@@ -3184,6 +3184,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         .sheetSampleBubble {
           width: min(320px, calc(100vw - 40px));
+          max-height: calc(100dvh - 36px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
           border-radius: 24px;
           border: 1px solid rgba(238, 224, 197, 0.18);
           background: linear-gradient(180deg, rgba(14, 12, 82, 0.98) 0%, rgba(8, 6, 64, 0.98) 100%);
@@ -3231,15 +3234,20 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         }
 
         .sheetSampleBubbleImageWrap {
+          width: 100%;
+          height: min(58dvh, 520px);
           border-radius: 18px;
           overflow: hidden;
           border: 1px solid rgba(238, 224, 197, 0.18);
           background: rgba(255, 255, 255, 0.04);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .sheetSampleBubbleImageWrap img {
           width: 100%;
-          height: auto;
+          height: 100%;
           display: block;
           object-fit: contain;
         }
@@ -3759,8 +3767,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
           .sheetSampleBubble {
             width: min(300px, calc(100vw - 28px));
+            max-height: calc(100dvh - 24px);
             padding: 16px;
             border-radius: 20px;
+          }
+
+          .sheetSampleBubbleImageWrap {
+            height: min(56dvh, 460px);
           }
 
           .sheetSampleBubbleTitle {
