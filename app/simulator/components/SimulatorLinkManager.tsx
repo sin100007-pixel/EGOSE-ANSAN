@@ -46,14 +46,23 @@ function formatDate(value: string) {
   });
 }
 
+function isVisibleLink(link: ManagedLink) {
+  if (!link.is_active || link.is_expired) return false;
+
+  const expiresTime = new Date(link.expires_at).getTime();
+  if (Number.isNaN(expiresTime)) return false;
+
+  return Date.now() <= expiresTime;
+}
+
 function getStatus(link: ManagedLink) {
   if (!link.is_active) return "비활성";
-  if (link.is_expired) return "만료";
+  if (!isVisibleLink(link)) return "만료";
   return "사용 가능";
 }
 
 function getStatusClass(link: ManagedLink) {
-  if (!link.is_active || link.is_expired) return "statusExpired";
+  if (!isVisibleLink(link)) return "statusExpired";
   return "statusActive";
 }
 
@@ -110,7 +119,7 @@ export default function SimulatorLinkManager() {
         return;
       }
 
-      setItems(Array.isArray(json.items) ? json.items : []);
+      setItems(Array.isArray(json.items) ? json.items.filter(isVisibleLink) : []);
     } catch {
       setError("링크 목록을 불러오지 못했습니다.");
     } finally {
@@ -120,6 +129,14 @@ export default function SimulatorLinkManager() {
 
   useEffect(() => {
     void loadLinks();
+
+    const expireTimer = window.setInterval(() => {
+      setItems((prev) => prev.filter(isVisibleLink));
+    }, 30000);
+
+    return () => {
+      window.clearInterval(expireTimer);
+    };
   }, []);
 
   const copyLink = async (url: string) => {
@@ -135,7 +152,7 @@ export default function SimulatorLinkManager() {
 
   const deactivateLink = async (link: ManagedLink) => {
     const ok = window.confirm(
-      `${link.customer_name || "고객명 없음"} 링크를 비활성화할까요?\n비활성화하면 고객이 더 이상 이 링크로 접속할 수 없습니다.`
+      `${link.customer_name || "고객명 없음"} 링크를 삭제 및 비활성화할까요?\n목록에서 사라지고 고객이 더 이상 이 링크로 접속할 수 없습니다.`
     );
 
     if (!ok) return;
@@ -156,17 +173,14 @@ export default function SimulatorLinkManager() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || "링크를 비활성화하지 못했습니다.");
+        setError(json.error || "링크를 삭제 및 비활성화하지 못했습니다.");
         return;
       }
 
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === link.id ? { ...item, is_active: false } : item
-        )
-      );
+      setItems((prev) => prev.filter((item) => item.id !== link.id));
+      setCopyMessage("링크를 목록에서 제거했습니다.");
     } catch {
-      setError("링크를 비활성화하지 못했습니다.");
+      setError("링크를 삭제 및 비활성화하지 못했습니다.");
     } finally {
       setDeactivatingId("");
     }
@@ -189,7 +203,7 @@ export default function SimulatorLinkManager() {
           <div className="stepBadge">고객 링크 관리</div>
           <h1>보낸 링크 내역</h1>
           <p>
-            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 확인하고 비활성화할 수 있습니다.
+            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 확인하고 삭제 및 비활성화할 수 있습니다.
           </p>
         </section>
 
@@ -197,7 +211,7 @@ export default function SimulatorLinkManager() {
           <div className="listHeader">
             <div>
               <h2>링크 목록</h2>
-              <p>최근 생성한 링크부터 표시됩니다.</p>
+              <p>사용 가능한 링크만 최근 생성순으로 표시됩니다.</p>
             </div>
 
             <button type="button" onClick={() => void loadLinks()} className="refreshButton">
@@ -235,7 +249,7 @@ export default function SimulatorLinkManager() {
             </div>
           ) : items.length === 0 ? (
             <div className="emptyBox">
-              아직 만든 고객 링크가 없습니다. 하단의 <b>링크 생성</b>에서 새 링크를 만들어보세요.
+              표시할 고객 링크가 없습니다. 하단의 <b>링크 생성</b>에서 새 링크를 만들어보세요.
             </div>
           ) : (
             <div className="linkList">
@@ -302,7 +316,7 @@ export default function SimulatorLinkManager() {
                         ? "비활성됨"
                         : deactivatingId === link.id
                           ? "처리 중"
-                          : "비활성화"}
+                          : "삭제 및 비활성화"}
                     </button>
                   </div>
                 </article>

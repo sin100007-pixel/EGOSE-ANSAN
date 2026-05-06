@@ -227,12 +227,16 @@ export async function GET(req: NextRequest) {
   const sessionName = auth.name;
 
   try {
+    const nowIso = new Date().toISOString();
+
     const { data, error } = await supabase
       .from("simulator_links")
       .select(
         "id, token, installer_name, customer_name, memo, expires_at, is_active, film_scope, preset_id, created_at"
       )
       .eq("installer_name", sessionName)
+      .eq("is_active", true)
+      .gt("expires_at", nowIso)
       .order("created_at", { ascending: false })
       .limit(100);
 
