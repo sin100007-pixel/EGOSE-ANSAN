@@ -14,7 +14,6 @@ const KAKAO_NO_STORE_HEADERS = {
   Pragma: "no-cache",
   Expires: "0",
   Vary: "Cookie, Authorization, User-Agent",
-  "Access-Control-Allow-Origin": "*",
 };
 
 function jsonNoStore(body: unknown, init: ResponseInit = {}) {

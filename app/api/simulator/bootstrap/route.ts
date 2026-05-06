@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { readFile } from "fs/promises";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
 
@@ -14,7 +16,6 @@ const KAKAO_NO_STORE_HEADERS = {
   Pragma: "no-cache",
   Expires: "0",
   Vary: "Cookie, Authorization, User-Agent",
-  "Access-Control-Allow-Origin": "*",
 };
 
 function jsonNoStore(body: unknown, init: ResponseInit = {}) {
@@ -25,6 +26,145 @@ function jsonNoStore(body: unknown, init: ResponseInit = {}) {
       ...(init.headers || {}),
     },
   });
+}
+
+
+const LOCAL_SIMULATOR_IMAGE_DATA_URI_VERSION = "20260507-inline-space-assets-1";
+const localImageDataUriCache = new Map<string, string>();
+
+function getImageContentType(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".svg") return "image/svg+xml";
+
+  return "application/octet-stream";
+}
+
+function cleanLocalImagePath(src: string | null | undefined) {
+  const value = String(src || "").trim();
+  if (!value || /^(data:|blob:|file:|javascript:|https?:\/\/)/i.test(value)) return "";
+
+  try {
+    const url = new URL(value, "https://egose.local");
+    return decodeURIComponent(url.pathname).replace(/^\/+/, "");
+  } catch {
+    return value.split("?")[0].split("#")[0].replace(/^\/+/, "");
+  }
+}
+
+function getLocalImagePathCandidates(src: string | null | undefined, spaceName = "") {
+  const cleaned = cleanLocalImagePath(src);
+  if (!cleaned || !cleaned.startsWith("simulator/")) return [];
+
+  const candidates = new Set<string>();
+  candidates.add(cleaned);
+
+  // 예전 DB 경로가 cabinet으로 남아있어도 최신 public/cabinet2 이미지로 복구합니다.
+  if (cleaned.startsWith("simulator/cabinet/")) {
+    candidates.add(cleaned.replace("simulator/cabinet/cabinet-", "simulator/cabinet2/cabinet2-"));
+  }
+
+  // 신발장 공간은 과거 cabinet/cabinet2 이름이 섞여 저장된 경우가 있어 강제 후보를 둡니다.
+  if (spaceName.includes("신발장") || spaceName.toLowerCase().includes("cabinet")) {
+    if (cleaned.includes("mask")) {
+      candidates.add("simulator/cabinet2/cabinet2-wall-mask.png");
+      candidates.add("simulator/cabinet/cabinet-wall-mask.png");
+    } else {
+      candidates.add("simulator/cabinet2/cabinet2-overlay.png");
+      candidates.add("simulator/cabinet/cabinet-overlay.png");
+    }
+  }
+
+  return Array.from(candidates);
+}
+
+async function readLocalPublicImageAsDataUri(src: string | null | undefined, spaceName = "") {
+  const candidates = getLocalImagePathCandidates(src, spaceName);
+
+  for (const candidate of candidates) {
+    const cacheKey = `${LOCAL_SIMULATOR_IMAGE_DATA_URI_VERSION}:${candidate}`;
+    const cached = localImageDataUriCache.get(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const absolutePath = path.join(process.cwd(), "public", candidate);
+      const fileBuffer = await readFile(absolutePath);
+      const dataUri = `data:${getImageContentType(candidate)};base64,${fileBuffer.toString("base64")}`;
+      localImageDataUriCache.set(cacheKey, dataUri);
+      return dataUri;
+    } catch {
+      // 다음 후보를 시도합니다.
+    }
+  }
+
+  return null;
+}
+
+async function inlineLocalSimulatorImage(src: string | null | undefined, spaceName = "") {
+  const value = String(src || "").trim();
+  if (!value || /^(data:|blob:|https?:\/\/)/i.test(value)) return value || null;
+
+  const dataUri = await readLocalPublicImageAsDataUri(value, spaceName);
+  return dataUri || value;
+}
+
+async function inlineLocalSimulatorSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpaceRow> {
+  const spaceName = space.name || "";
+  const maskConfig = space.mask_config;
+  let nextMaskConfig = maskConfig;
+
+  if (maskConfig && typeof maskConfig === "object") {
+    const zones = Array.isArray(maskConfig["zones"])
+      ? await Promise.all(
+          (maskConfig["zones"] as any[]).map(async (zone) => {
+            if (!zone || typeof zone !== "object") return zone;
+
+            return {
+              ...zone,
+              mask_url: await inlineLocalSimulatorImage(zone.mask_url, spaceName),
+            };
+          })
+        )
+      : maskConfig["zones"];
+
+    nextMaskConfig = { ...maskConfig, zones };
+  }
+
+  const overlayImageUrl = await inlineLocalSimulatorImage(space.overlay_image_url, spaceName);
+  const baseImageUrl = await inlineLocalSimulatorImage(space.base_image_url, spaceName);
+  const thumbnailUrl = await inlineLocalSimulatorImage(
+    space.thumbnail_url || space.overlay_image_url || space.base_image_url,
+    spaceName
+  );
+
+  return {
+    ...space,
+    thumbnail_url: thumbnailUrl,
+    base_image_url: baseImageUrl,
+    overlay_image_url: overlayImageUrl,
+    mask_config: nextMaskConfig,
+  };
+}
+
+async function inlineLocalSimulatorSpaces(spaces: SimulatorSpaceRow[]) {
+  return Promise.all(spaces.map((space) => inlineLocalSimulatorSpaceAssets(space)));
+}
+
+function isProblemBrowserRequest(req: NextRequest) {
+  const ua = req.headers.get("user-agent") || "";
+  return /KAKAOTALK|SamsungBrowser|Whale|NAVER|FB_IAB|Instagram/i.test(ua);
+}
+
+async function maybeInlineLocalSimulatorSpaces(req: NextRequest, spaces: SimulatorSpaceRow[]) {
+  if (req.nextUrl.searchParams.get("__inline_simulator_assets") === "1" || isProblemBrowserRequest(req)) {
+    return inlineLocalSimulatorSpaces(spaces);
+  }
+
+  return spaces;
 }
 
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
@@ -92,6 +232,29 @@ async function proxyKakaoImage(req: NextRequest) {
     });
   }
 
+  const sameOriginLocalSimulatorImage =
+    targetUrl.origin === req.nextUrl.origin && targetUrl.pathname.startsWith("/simulator/");
+
+  if (sameOriginLocalSimulatorImage) {
+    const dataUri = await readLocalPublicImageAsDataUri(targetUrl.pathname);
+    if (dataUri) {
+      const [meta, base64Data] = dataUri.split(",");
+      const contentType = meta.match(/^data:([^;]+);base64$/)?.[1] || "application/octet-stream";
+      const body = Buffer.from(base64Data || "", "base64");
+
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          ...KAKAO_NO_STORE_HEADERS,
+          "Content-Type": contentType,
+          "Content-Length": String(body.byteLength),
+          "X-Content-Type-Options": "nosniff",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+  }
+
   try {
     const upstream = await fetch(targetUrl.toString(), {
       cache: "no-store",
@@ -119,7 +282,7 @@ async function proxyKakaoImage(req: NextRequest) {
         "Content-Type": contentType,
         "Content-Length": String(body.byteLength),
         "X-Content-Type-Options": "nosniff",
-        "Content-Disposition": "inline",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch {
@@ -511,7 +674,7 @@ export async function GET(req: NextRequest) {
         message:
           "Supabase 환경변수 NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 없습니다.",
         contractor: null,
-        spaces: LOCAL_FALLBACK_SPACES,
+        spaces: await maybeInlineLocalSimulatorSpaces(req, LOCAL_FALLBACK_SPACES),
         films: [],
       },
       {
@@ -697,7 +860,7 @@ export async function GET(req: NextRequest) {
           expired: false,
           link: linkInfo,
           contractor: contractorProfile,
-          spaces: resolvedSpaces,
+          spaces: await maybeInlineLocalSimulatorSpaces(req, resolvedSpaces),
           films: [],
         },
         {
@@ -732,7 +895,7 @@ export async function GET(req: NextRequest) {
         expired: false,
         link: linkInfo,
         contractor: contractorProfile,
-        spaces: resolvedSpaces,
+        spaces: await maybeInlineLocalSimulatorSpaces(req, resolvedSpaces),
         films: ((products || []) as ProductRow[]).map((item: ProductRow) =>
           normalizeFilm(item)
         ),
@@ -761,7 +924,7 @@ export async function GET(req: NextRequest) {
           : message || "시뮬레이터 정보를 불러오지 못했습니다.",
         link: null,
         contractor: null,
-        spaces: LOCAL_FALLBACK_SPACES,
+        spaces: await maybeInlineLocalSimulatorSpaces(req, LOCAL_FALLBACK_SPACES),
         films: [],
       },
       {
