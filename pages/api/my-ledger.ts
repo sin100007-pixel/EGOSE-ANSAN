@@ -195,6 +195,40 @@ function buildLedgerUrl(args: {
   return url.toString();
 }
 
+async function fetchLatestLedgerSnapshot() {
+  const headers = {
+    apikey: SERVICE_ROLE,
+    Authorization: `Bearer ${SERVICE_ROLE}`,
+  } as Record<string, string>;
+
+  const attempts = [
+    "tx_date.desc,row_no.desc",
+    "tx_date.desc",
+  ];
+
+  for (const order of attempts) {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/ledger_entries`);
+    url.searchParams.set("select", "tx_date,uploaded_at,created_at");
+    url.searchParams.set("order", order);
+    url.searchParams.set("limit", "1");
+
+    const resp = await httpsGet(url.toString(), headers);
+    if (resp.status < 200 || resp.status >= 300) continue;
+
+    const rawRows = JSON.parse(resp.text || "[]");
+    const raw = Array.isArray(rawRows) ? rawRows[0] : null;
+    if (!raw) continue;
+
+    const row = normalizeRow(raw);
+    return {
+      latestUploadedDate: row.tx_date || "",
+      latestUploadedAt: row.uploaded_at || row.created_at || "",
+    };
+  }
+
+  return { latestUploadedDate: "", latestUploadedAt: "" };
+}
+
 async function fetchRows(loginName: string, dateFrom: string, dateTo: string, limit: number, offset: number) {
   const headers = {
     apikey: SERVICE_ROLE,
@@ -361,8 +395,18 @@ export default async function handler(
     );
 
     const latestRow = rows.find((row) => row.tx_date || row.uploaded_at || row.created_at);
-    const latestUploadedDate = latestRow?.tx_date || "";
-    const latestUploadedAt = latestRow?.uploaded_at || latestRow?.created_at || "";
+    const rowLatestUploadedDate = latestRow?.tx_date || "";
+    const rowLatestUploadedAt = latestRow?.uploaded_at || latestRow?.created_at || "";
+
+    // 거래내역이 0건인 시공자도 전체 원장 기준의 최신 업로드 상태를 볼 수 있게 한다.
+    // 새 API를 만들지 않고 기존 /api/my-ledger 응답에 함께 실어 보낸다.
+    const latestSnapshot = await fetchLatestLedgerSnapshot().catch(() => ({
+      latestUploadedDate: "",
+      latestUploadedAt: "",
+    }));
+
+    const latestUploadedDate = latestSnapshot.latestUploadedDate || rowLatestUploadedDate;
+    const latestUploadedAt = latestSnapshot.latestUploadedAt || rowLatestUploadedAt;
 
     return res.status(200).json({
       ok: true,
