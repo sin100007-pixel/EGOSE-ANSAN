@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import { toPng } from "html-to-image";
 import type { ContractorProfile, SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 
@@ -170,6 +171,16 @@ function getFilmCode(film: SimulatorFilm) {
   return [film.product_code_1, film.product_code_2].filter(Boolean).join(" / ");
 }
 
+function isFabricFilm(film: SimulatorFilm | null | undefined) {
+  if (!film) return false;
+
+  const categoryValues = [film.category_main, film.category_sub, film.palette_main]
+    .filter(Boolean)
+    .map((value) => String(value));
+
+  return categoryValues.some((value) => /(패브릭|페브릭|fabric)/i.test(value));
+}
+
 function readMaskZones(space: SimulatorSpace | null): MaskZoneDefinition[] {
   const rawZones = space?.mask_config?.["zones"];
 
@@ -260,6 +271,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const selectedPaletteMainRef = useRef("");
   const selectedPaletteSubRef = useRef("");
   const selectedPaletteColorsRef = useRef<string[]>([]);
+  const decisionExportRef = useRef<HTMLDivElement | null>(null);
 
   const [state, setState] = useState<BootstrapState>({
     loading: true,
@@ -290,6 +302,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
   const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
   const [decisionMessage, setDecisionMessage] = useState("");
+  const [isDecisionSharing, setIsDecisionSharing] = useState(false);
   const [isDashboardMoving, setIsDashboardMoving] = useState(false);
   const [activeGuideStep, setActiveGuideStep] = useState<CustomerGuideStep | null>(null);
   const [seenGuideSteps, setSeenGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
@@ -320,6 +333,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     if (applyingFilmId === null) return null;
     return state.films.find((film) => film.id === applyingFilmId) || null;
   }, [applyingFilmId, state.films]);
+
+  const selectedDecisionFilms = useMemo(() => {
+    return maskZones
+      .map((zone) => zoneFilmMap[zone.key] || null)
+      .filter((film): film is SimulatorFilm => Boolean(film));
+  }, [maskZones, zoneFilmMap]);
+
+  const hasFabricWarning = useMemo(() => {
+    return selectedDecisionFilms.some((film) => isFabricFilm(film));
+  }, [selectedDecisionFilms]);
 
   const getTargetZoneKey = () => {
     return activeZoneKey || activeZone?.key || maskZones[0]?.key || "";
@@ -836,33 +859,92 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }),
     ].filter(Boolean);
 
+    if (hasFabricWarning) {
+      lines.push(
+        "",
+        '선택된 필름에 패브릭필름이 있습니다. 시뮬레이션상 불가피하게 왜곡이 심한 종류이므로 주의 부탁드립니다.',
+      );
+    }
+
     return lines.join("\n");
+  };
+
+  const downloadDataUrl = (dataUrl: string, fileName: string) => {
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const createDecisionResultImage = async () => {
+    if (!decisionExportRef.current) {
+      throw new Error("이미지로 저장할 영역을 찾을 수 없습니다.");
+    }
+
+    return toPng(decisionExportRef.current, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: COLORS.bg,
+    });
   };
 
   const shareDecisionResult = async () => {
     const text = buildDecisionText();
+    const fileName = `simulation-result-${new Date().toISOString().slice(0, 10)}.png`;
 
     setDecisionMessage("");
+    setIsDecisionSharing(true);
 
     try {
+      const dataUrl = await createDecisionResultImage();
+
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], fileName, { type: "image/png" });
+
+        if (
+          typeof navigator !== "undefined" &&
+          "share" in navigator &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [file] })
+        ) {
+          await navigator.share({
+            files: [file],
+            title: "필름 시뮬레이션 결정 결과",
+            text,
+          });
+          setDecisionMessage("결정 결과 이미지와 내용을 전송했습니다.");
+          return;
+        }
+      } catch {
+        // 파일 공유가 되지 않으면 아래 텍스트 공유/복사 흐름으로 진행합니다.
+      }
+
       if (navigator.share) {
         await navigator.share({
           title: "필름 시뮬레이션 결정 결과",
           text,
         });
-        setDecisionMessage("결정 결과를 전송했습니다.");
+        downloadDataUrl(dataUrl, fileName);
+        setDecisionMessage("결정 결과 문구를 전송했고, 이미지는 파일로 저장했습니다.");
         return;
       }
 
       await navigator.clipboard.writeText(text);
-      setDecisionMessage("결정 결과를 복사했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
+      downloadDataUrl(dataUrl, fileName);
+      setDecisionMessage("결정 결과를 복사했고, 이미지는 파일로 저장했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
     } catch {
       try {
         await navigator.clipboard.writeText(text);
-        setDecisionMessage("결정 결과를 복사했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
+        setDecisionMessage("결정 결과를 복사했습니다. 이미지는 저장하지 못했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
       } catch {
         setDecisionMessage("전송에 실패했습니다. 화면의 결과를 캡쳐해서 보내주세요.");
       }
+    } finally {
+      setIsDecisionSharing(false);
     }
   };
 
@@ -1316,6 +1398,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                     );
                   })}
                 </div>
+
+                {hasFabricWarning ? (
+                  <div className="decisionFabricWarning">
+                    선택된 필름에 패브릭필름이 있습니다. 시뮬레이션상 불가피하게 왜곡이 심한 종류이므로 주의 부탁드립니다.
+                  </div>
+                ) : null}
               </div>
 
               <div className="decisionActionGrid">
@@ -1325,8 +1413,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   <p>
                     선택한 구역별 필름 결과를 보낼 수 있습니다. 휴대폰에서는 공유창이 열리고, 지원하지 않는 경우 결과가 복사됩니다.
                   </p>
-                  <button type="button" onClick={() => void shareDecisionResult()} className="primaryDecisionButton">
-                    시뮬레이션 결과 전송
+                  <button
+                    type="button"
+                    onClick={() => void shareDecisionResult()}
+                    className="primaryDecisionButton"
+                    disabled={isDecisionSharing}
+                  >
+                    {isDecisionSharing ? "전송 준비 중..." : "시뮬레이션 결과 전송"}
                   </button>
                   {decisionMessage ? <div className="decisionMessage">{decisionMessage}</div> : null}
                 </section>
@@ -1687,6 +1780,98 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             </section>
           </div>
         ) : null}
+      </div>
+
+      <div className="decisionExportStage" aria-hidden="true">
+        <div ref={decisionExportRef} className="decisionExportCard">
+          <div className="decisionExportHeader">
+            <div className="decisionExportBadge">필름 시뮬레이션 결과</div>
+            <h2>{selectedSpace?.name || "선택 공간"}</h2>
+            {state.link?.installer_name ? <p>시공자: {state.link.installer_name}</p> : null}
+          </div>
+
+          <div className="decisionExportPreview">
+            <div
+              className="previewViewport decisionExportViewport"
+              style={{
+                aspectRatio: previewAspectRatio,
+              }}
+            >
+              {previewHasRealSpace ? (
+                <div className="sceneStage">
+                  {maskZones.map((zone) => {
+                    const film = zoneFilmMap[zone.key];
+
+                    if (film?.image_url) {
+                      return (
+                        <div
+                          key={`export-${zone.key}`}
+                          aria-hidden="true"
+                          className="maskedFilmLayer"
+                          style={{
+                            backgroundImage: `url("${film.image_url}")`,
+                            backgroundSize: `${zone.patternSize || 220}px auto`,
+                            WebkitMaskImage: `url("${zone.mask_url}")`,
+                            maskImage: `url("${zone.mask_url}")`,
+                          }}
+                        />
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={`export-${zone.key}`}
+                        aria-hidden="true"
+                        className="maskedTransparencyLayer"
+                        style={{
+                          WebkitMaskImage: `url("${zone.mask_url}")`,
+                          maskImage: `url("${zone.mask_url}")`,
+                        }}
+                      />
+                    );
+                  })}
+
+                  {selectedSpace?.base_image_url ? (
+                    <img src={selectedSpace.base_image_url} alt="공간 원본" className="sceneBaseImage" />
+                  ) : null}
+
+                  {selectedSpace?.overlay_image_url ? (
+                    <img src={selectedSpace.overlay_image_url} alt="공간 오버레이" className="sceneOverlayImage" />
+                  ) : null}
+                </div>
+              ) : (
+                <div className="emptyPreviewWrap">
+                  <div className="emptyPreviewBox">
+                    <div className="emptyPreviewInner">
+                      <div style={{ color: COLORS.cream, fontWeight: 900, marginBottom: 6 }}>
+                        공간 이미지 등록 전 테스트 화면
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="decisionExportList">
+            {maskZones.map((zone) => {
+              const film = zoneFilmMap[zone.key] || null;
+
+              return (
+                <div key={`export-row-${zone.key}`} className="decisionExportRow">
+                  <span>{zone.label}</span>
+                  <strong>{film ? getFilmName(film) : "미선택"}</strong>
+                </div>
+              );
+            })}
+          </div>
+
+          {hasFabricWarning ? (
+            <div className="decisionExportWarning">
+              선택된 필름에 패브릭필름이 있습니다. 시뮬레이션상 불가피하게 왜곡이 심한 종류이므로 주의 부탁드립니다.
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <style jsx>{`
@@ -2870,6 +3055,131 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           line-height: 1.45;
         }
 
+        .decisionFabricWarning {
+          margin-top: 10px;
+          border-radius: 15px;
+          padding: 11px 12px;
+          background: rgba(255, 207, 102, 0.11);
+          border: 1px solid rgba(255, 207, 102, 0.24);
+          color: #ffe1a3;
+          font-size: 12px;
+          line-height: 1.55;
+          word-break: keep-all;
+        }
+
+        .primaryDecisionButton:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+
+        .decisionExportStage {
+          position: fixed;
+          left: -10000px;
+          top: 0;
+          width: 1080px;
+          pointer-events: none;
+          opacity: 1;
+          z-index: -1;
+        }
+
+        .decisionExportCard {
+          width: 1080px;
+          padding: 40px;
+          border-radius: 32px;
+          background:
+            radial-gradient(circle at top left, rgba(255, 255, 255, 0.12), transparent 34%),
+            ${COLORS.bg};
+          color: ${COLORS.white};
+          box-sizing: border-box;
+        }
+
+        .decisionExportHeader {
+          margin-bottom: 24px;
+        }
+
+        .decisionExportBadge {
+          display: inline-flex;
+          align-items: center;
+          min-height: 34px;
+          border-radius: 999px;
+          padding: 0 14px;
+          background: rgba(238, 224, 197, 0.12);
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          color: ${COLORS.cream};
+          font-size: 16px;
+          font-weight: 900;
+          margin-bottom: 14px;
+        }
+
+        .decisionExportHeader h2 {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: 42px;
+          line-height: 1.18;
+          letter-spacing: -0.04em;
+        }
+
+        .decisionExportHeader p {
+          margin: 10px 0 0;
+          color: ${COLORS.soft};
+          font-size: 20px;
+        }
+
+        .decisionExportPreview {
+          margin-bottom: 20px;
+        }
+
+        .decisionExportViewport {
+          border-radius: 28px;
+          overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .decisionExportList {
+          display: grid;
+          gap: 10px;
+        }
+
+        .decisionExportRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          border-radius: 18px;
+          padding: 14px 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid ${COLORS.line};
+        }
+
+        .decisionExportRow span {
+          color: ${COLORS.soft};
+          font-size: 18px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .decisionExportRow strong {
+          color: ${COLORS.white};
+          font-size: 20px;
+          line-height: 1.4;
+          text-align: right;
+          word-break: keep-all;
+        }
+
+        .decisionExportWarning {
+          margin-top: 18px;
+          border-radius: 20px;
+          padding: 16px 18px;
+          background: rgba(255, 207, 102, 0.12);
+          border: 1px solid rgba(255, 207, 102, 0.24);
+          color: #ffe1a3;
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1.6;
+          word-break: keep-all;
+        }
+
         .storeInfoBox {
           display: grid;
           gap: 4px;
@@ -3921,6 +4231,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
           .decisionMessage {
             margin-top: 7px;
+            font-size: 11.5px;
+          }
+
+          .decisionFabricWarning {
+            margin-top: 8px;
+            border-radius: 14px;
+            padding: 10px;
             font-size: 11.5px;
           }
 
