@@ -4,6 +4,27 @@ import { requireSimulatorInstaller } from "../../../simulator/auth";
 
 export const dynamic = "force-dynamic";
 
+const KAKAO_NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+  "Surrogate-Control": "no-store",
+  Pragma: "no-cache",
+  Expires: "0",
+  Vary: "Cookie, Authorization, User-Agent",
+};
+
+function jsonNoStore(body: unknown, init: ResponseInit = {}) {
+  return NextResponse.json(body, {
+    ...init,
+    headers: {
+      ...KAKAO_NO_STORE_HEADERS,
+      ...(init.headers || {}),
+    },
+  });
+}
+
+
 const DEFAULT_RECOMMENDED_FILM_LIMIT = 24;
 
 const PRODUCT_SELECT = `
@@ -155,22 +176,39 @@ function getCleanSupabaseUrl() {
   return rawUrl.replace(/\s+/g, "").replace(/\/+$/, "");
 }
 
+function encodeStoragePath(pathValue: string) {
+  return pathValue
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
 function toPublicImageUrl(imagePath: string | null | undefined) {
   if (!imagePath) return null;
 
   const baseUrl = getCleanSupabaseUrl();
   if (!baseUrl) return null;
 
-  if (/^https?:\/\//i.test(imagePath)) {
-    return imagePath.replace(/\s+/g, "");
+  const cleaned = String(imagePath).trim().replace(/\s+/g, "");
+
+  if (/^https?:\/\//i.test(cleaned)) {
+    try {
+      const url = new URL(cleaned);
+      url.pathname = url.pathname
+        .split("/")
+        .map((part) => (part ? encodeURIComponent(decodeURIComponent(part)) : part))
+        .join("/");
+      return url.toString();
+    } catch {
+      return encodeURI(cleaned);
+    }
   }
 
-  const normalizedPath = imagePath
-    .trim()
+  const normalizedPath = cleaned
     .replace(/^\/+/, "")
     .replace(/^product-samples\//, "");
 
-  return `${baseUrl}/storage/v1/object/public/product-samples/${normalizedPath}`;
+  return `${baseUrl}/storage/v1/object/public/product-samples/${encodeStoragePath(normalizedPath)}`;
 }
 
 function normalizeFilm(item: ProductRow) {
@@ -332,7 +370,7 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
   if (!supabase) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "Supabase 환경변수가 없습니다.", items: [] },
       { status: 500 }
     );
@@ -350,7 +388,7 @@ export async function GET(req: NextRequest) {
     const auth = await requireSimulatorInstaller();
 
     if (!auth.ok) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: auth.error, items: [] },
         { status: auth.status }
       );
@@ -383,7 +421,7 @@ export async function GET(req: NextRequest) {
       } | null;
 
       if (!typedLink || !typedLink.is_active || isExpired(typedLink.expires_at)) {
-        return NextResponse.json(
+        return jsonNoStore(
           { error: "만료된 링크입니다.", items: [] },
           { status: 410 }
         );
@@ -404,7 +442,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (filmScope !== "all" && allowedProductIds.length === 0) {
-          return NextResponse.json({
+          return jsonNoStore({
             items: [],
             ...(skipFacets
               ? {}
@@ -434,7 +472,7 @@ export async function GET(req: NextRequest) {
       );
 
       if (recommendedProductIds.length === 0) {
-        return NextResponse.json(
+        return jsonNoStore(
           {
             items: [],
             ...(skipFacets
@@ -513,7 +551,7 @@ export async function GET(req: NextRequest) {
       .slice(0, shouldUseDefaultRecommended ? DEFAULT_RECOMMENDED_FILM_LIMIT : 60)
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
-    return NextResponse.json(
+    return jsonNoStore(
       {
         items,
         ...(facets ? { facets } : {}),
@@ -525,7 +563,7 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (error: any) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: error?.message || "필름 검색 중 오류가 발생했습니다.", items: [] },
       { status: 500 }
     );

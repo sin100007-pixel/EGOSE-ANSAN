@@ -228,23 +228,127 @@ function getSpaceThumbnail(space: SimulatorSpace) {
   return space.thumbnail_url || space.overlay_image_url || space.base_image_url || "";
 }
 
+const KAKAO_CACHE_BUST_KEY = "__kakao_img";
+const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v2";
+
+function isKakaoInAppBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return /KAKAOTALK/i.test(navigator.userAgent || "");
+}
+
+function withKakaoCacheBuster(src: string | null | undefined) {
+  const value = String(src || "").trim();
+  if (!value) return "";
+  if (/^(data:|blob:|tel:|mailto:)/i.test(value)) return value;
+
+  const shouldBust = isKakaoInAppBrowser();
+
+  try {
+    const url = value.startsWith("http")
+      ? new URL(value)
+      : new URL(value, window.location.origin);
+
+    url.pathname = url.pathname
+      .split("/")
+      .map((part) => (part ? encodeURIComponent(decodeURIComponent(part)) : part))
+      .join("/");
+
+    if (shouldBust) {
+      url.searchParams.set(KAKAO_CACHE_BUST_KEY, "20260507");
+    }
+
+    if (!value.startsWith("http") && url.origin === window.location.origin) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+
+    return url.toString();
+  } catch {
+    const encoded = encodeURI(value.replace(/\s+/g, ""));
+    if (!shouldBust || encoded.includes(`${KAKAO_CACHE_BUST_KEY}=`)) return encoded;
+    return `${encoded}${encoded.includes("?") ? "&" : "?"}${KAKAO_CACHE_BUST_KEY}=20260507`;
+  }
+}
+
+function normalizeFilmForKakao(film: SimulatorFilm): SimulatorFilm {
+  return {
+    ...film,
+    image_url: withKakaoCacheBuster(film.image_url),
+    thumb_url: withKakaoCacheBuster(film.thumb_url),
+    sample_url: withKakaoCacheBuster(film.sample_url),
+  };
+}
+
+function normalizeSpaceForKakao(space: SimulatorSpace): SimulatorSpace {
+  const maskConfig = space.mask_config;
+  const zones = Array.isArray(maskConfig?.["zones"])
+    ? (maskConfig?.["zones"] as any[]).map((zone) =>
+        zone && typeof zone === "object"
+          ? { ...zone, mask_url: withKakaoCacheBuster(zone.mask_url) }
+          : zone
+      )
+    : maskConfig?.["zones"];
+
+  return {
+    ...space,
+    thumbnail_url: withKakaoCacheBuster(space.thumbnail_url),
+    base_image_url: withKakaoCacheBuster(space.base_image_url),
+    overlay_image_url: withKakaoCacheBuster(space.overlay_image_url),
+    mask_config: maskConfig ? { ...maskConfig, zones } : maskConfig,
+  };
+}
+
+function makeKakaoFetchInit(init: RequestInit = {}): RequestInit {
+  return {
+    ...init,
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      ...(init.headers || {}),
+    },
+  };
+}
+
+async function readJsonResponse(res: Response) {
+  const text = await res.text();
+
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error("API 응답을 읽지 못했습니다. 카카오톡 인앱브라우저 캐시를 초기화한 뒤 다시 시도해주세요.");
+  }
+}
+
 const loadedImageCache = new Set<string>();
 
 function preloadImage(src: string) {
-  if (!src || loadedImageCache.has(src)) {
+  const safeSrc = withKakaoCacheBuster(src);
+
+  if (!safeSrc || loadedImageCache.has(safeSrc)) {
     return Promise.resolve();
   }
 
   return new Promise<void>((resolve, reject) => {
     const img = new Image();
 
+    img.crossOrigin = "anonymous";
+    img.referrerPolicy = "no-referrer";
+    img.decoding = "async";
+
     img.onload = () => {
-      loadedImageCache.add(src);
+      loadedImageCache.add(safeSrc);
       resolve();
     };
 
     img.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
-    img.src = src;
+    img.src = safeSrc;
+
+    if (img.complete && img.naturalWidth > 0) {
+      loadedImageCache.add(safeSrc);
+      resolve();
+    }
   });
 }
 
@@ -349,6 +453,32 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   useEffect(() => {
+    if (!isKakaoInAppBrowser()) return;
+
+    try {
+      const resetDone = window.sessionStorage.getItem(KAKAO_SW_RESET_KEY);
+      if (resetDone === "1") return;
+
+      window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
+
+      void Promise.all([
+        "serviceWorker" in navigator
+          ? navigator.serviceWorker
+              .getRegistrations()
+              .then((registrations) =>
+                Promise.all(registrations.map((registration) => registration.unregister()))
+              )
+          : Promise.resolve(),
+        "caches" in window
+          ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          : Promise.resolve(),
+      ]);
+    } catch {
+      // 카카오톡 인앱브라우저에서 CacheStorage 접근이 막히는 경우는 무시합니다.
+    }
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
@@ -356,15 +486,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
       try {
         const params = token ? `?token=${encodeURIComponent(token)}` : "";
-        const res = await fetch(`/api/simulator/bootstrap${params}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
+        const res = await fetch(`/api/simulator/bootstrap${params}`, makeKakaoFetchInit());
+        const json = await readJsonResponse(res);
 
         if (cancelled) return;
 
-        const nextSpaces = Array.isArray(json.spaces) ? json.spaces : [];
-        const nextFilms = Array.isArray(json.films) ? json.films : [];
+        const nextSpaces = Array.isArray(json.spaces)
+          ? json.spaces.map((space: SimulatorSpace) => normalizeSpaceForKakao(space))
+          : [];
+        const nextFilms = Array.isArray(json.films)
+          ? json.films.map((film: SimulatorFilm) => normalizeFilmForKakao(film))
+          : [];
 
         setState({
           loading: false,
@@ -668,12 +800,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       if (!includeFacets) params.set("skip_facets", "1");
       nextPaletteColors.forEach((color) => params.append("palette_color", color));
 
-      const res = await fetch(`/api/simulator/films?${params.toString()}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      const res = await fetch(
+        `/api/simulator/films?${params.toString()}`,
+        makeKakaoFetchInit({ signal: controller.signal })
+      );
 
-      const json = await res.json();
+      const json = await readJsonResponse(res);
 
       if (requestSeq !== filmSearchSeqRef.current) {
         return;
@@ -684,7 +816,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         return;
       }
 
-      const nextFilms = Array.isArray(json.items) ? json.items : [];
+      const nextFilms = Array.isArray(json.items)
+        ? json.items.map((film: SimulatorFilm) => normalizeFilmForKakao(film))
+        : [];
       if (json.facets) {
         updatePaletteFacets(json);
       }
