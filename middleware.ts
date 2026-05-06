@@ -186,8 +186,10 @@ export async function middleware(req: NextRequest) {
     return redirectToLogin(req);
   }
 
-  // 유예기간: 기존 session_user 쿠키가 있으면 일반 페이지는 임시 허용
-  if (hasLegacySession && isProtectedPage) {
+  // 유예기간: 기존 session_user 쿠키가 있으면 일반 페이지와 일반 사용자 API는 임시 허용
+  // 거래내역(/ledger)은 화면은 통과해도 API가 막히면 표가 비어 보이므로,
+  // /api/my-ledger 같은 사용자 API도 legacy 쿠키 기간에는 허용한다.
+  if (hasLegacySession && (isProtectedPage || isUserApi)) {
     const res = NextResponse.next();
     return extendLegacyCookie(req, res);
   }

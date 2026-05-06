@@ -109,7 +109,16 @@ type Row = {
   uploaded_at?: string | null;
   created_at?: string | null;
 };
-type ApiResp = { ok: boolean; rows?: Row[]; message?: string };
+type ApiResp = {
+  ok: boolean;
+  name?: string;
+  rows?: Row[];
+  total?: number;
+  message?: string;
+  error?: string;
+  latestUploadedDate?: string;
+  latestUploadedAt?: string;
+};
 
 const cleanText = (value?: string | null) => (value || "").trim();
 
@@ -363,69 +372,61 @@ export default function LedgerPage() {
   }, []);
 
   useEffect(() => {
-    const fetchLatestUploadedDate = async () => {
-      try {
-        const r = await fetch("/api/ledger-search?limit=1", { cache: "no-store" });
-        const data: ApiResp = await r.json();
-        if (!data.ok) throw new Error(data.message || "최신 업데이트 조회 실패");
-
-        const latestRow = data.rows?.[0];
-        const latestDate =
-          toYMD(latestRow?.tx_date) ||
-          toYMD((latestRow as any)?.date) ||
-          toYMD((latestRow as any)?.["일자"]) ||
-          toYMD((latestRow as any)?.["날짜"]);
-
-        // 엑셀 업로드 시점입니다. ledger-import.ts에서 uploaded_at으로 저장합니다.
-        // 기존 DB에 created_at 컬럼이 있었다면 보조값으로도 표시합니다.
-        const latestUploadedAtRaw =
-          latestRow?.uploaded_at ||
-          (latestRow as any)?.uploadedAt ||
-          latestRow?.created_at ||
-          (latestRow as any)?.createdAt ||
-          (latestRow as any)?.inserted_at ||
-          (latestRow as any)?.imported_at;
-
-        setLatestUploadedDate(latestDate || "");
-        setLatestUploadedAt(toKoreanDateTime(latestUploadedAtRaw));
-      } catch {
-        setLatestUploadedDate("");
-        setLatestUploadedAt("");
-      }
-    };
-
-    fetchLatestUploadedDate();
-  }, []);
-
-  useEffect(() => {
     const run = async () => {
       setErr("");
       setRows([]);
-      if (!loginName) {
-        setLoading(false);
-        setErr("로그인 이름을 확인할 수 없습니다.");
-        return;
-      }
       setLoading(true);
+
       try {
-        const q = encodeURIComponent(loginName);
         const url =
-          `/api/ledger-search?order=excel&limit=2000` +
+          `/api/my-ledger?limit=2000` +
           `&date_from=${ymd(date_from)}` +
-          `&date_to=${ymd(date_to)}` +
-          `&q=${q}`;
-        const r = await fetch(url, { cache: "no-store" });
-        const data: ApiResp = await r.json();
-        if (!data.ok) throw new Error(data.message || "불러오기 실패");
-        setRows(data.rows || []);
+          `&date_to=${ymd(date_to)}`;
+
+        const r = await fetch(url, {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        const data: ApiResp = await r.json().catch(() => ({
+          ok: false,
+          message: "거래내역 응답을 읽지 못했습니다.",
+        }));
+
+        if (!r.ok || !data.ok) {
+          throw new Error(data.message || data.error || "거래내역을 불러오지 못했습니다.");
+        }
+
+        if (data.name) {
+          setLoginName(data.name);
+          try {
+            localStorage.setItem("session_user", data.name);
+          } catch {}
+        }
+
+        const nextRows = data.rows || [];
+        setRows(nextRows);
+
+        const latestDate =
+          toYMD(data.latestUploadedDate) ||
+          toYMD(nextRows?.[0]?.tx_date) ||
+          toYMD((nextRows?.[0] as any)?.date) ||
+          toYMD((nextRows?.[0] as any)?.["일자"]) ||
+          toYMD((nextRows?.[0] as any)?.["날짜"]);
+
+        setLatestUploadedDate(latestDate || "");
+        setLatestUploadedAt(toKoreanDateTime(data.latestUploadedAt));
       } catch (e: any) {
-        setErr(e?.message || "에러가 발생했습니다.");
+        setErr(e?.message || "거래내역을 불러오지 못했습니다.");
+        setLatestUploadedDate("");
+        setLatestUploadedAt("");
       } finally {
         setLoading(false);
       }
     };
+
     run();
-  }, [loginName, date_from, date_to]);
+  }, [date_from, date_to]);
 
   const normalizeText = (value: string) => value.replace(/\s+/g, "").toLowerCase();
 
