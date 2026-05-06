@@ -1,6 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { readFile } from "fs/promises";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
 
@@ -132,108 +130,6 @@ async function proxyKakaoImage(req: NextRequest) {
 }
 
 
-const INLINE_ASSET_MAX_BYTES = 3 * 1024 * 1024;
-const inlineAssetCache = new Map<string, string | null>();
-
-function isProblemImageBrowser(req: NextRequest) {
-  const userAgent = req.headers.get("user-agent") || "";
-  return /KAKAOTALK|SamsungBrowser|Whale|NAVER|FB_IAB|Instagram/i.test(userAgent);
-}
-
-function getImageMimeType(filePath: string) {
-  const lower = filePath.toLowerCase();
-  if (lower.endsWith(".png")) return "image/png";
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-  if (lower.endsWith(".webp")) return "image/webp";
-  if (lower.endsWith(".gif")) return "image/gif";
-  if (lower.endsWith(".svg")) return "image/svg+xml";
-  return "application/octet-stream";
-}
-
-async function toInlinePublicAsset(src: string | null | undefined) {
-  const value = String(src || "").trim();
-  if (!value) return value;
-  if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return value;
-
-  let pathname = "";
-
-  try {
-    const parsed = new URL(value, "http://egose.local");
-    pathname = decodeURIComponent(parsed.pathname || "");
-  } catch {
-    pathname = value.split("?")[0].split("#")[0];
-  }
-
-  if (!pathname.startsWith("/simulator/") || pathname.includes("\0")) return value;
-  if (!/\.(png|jpe?g|webp|gif|svg)$/i.test(pathname)) return value;
-
-  const publicRoot = path.join(process.cwd(), "public");
-  const filePath = path.normalize(path.join(publicRoot, pathname.replace(/^\/+/, "")));
-
-  if (!filePath.startsWith(publicRoot)) return value;
-
-  if (inlineAssetCache.has(filePath)) {
-    return inlineAssetCache.get(filePath) || value;
-  }
-
-  try {
-    const file = await readFile(filePath);
-
-    if (file.byteLength > INLINE_ASSET_MAX_BYTES) {
-      inlineAssetCache.set(filePath, null);
-      return value;
-    }
-
-    const dataUrl = `data:${getImageMimeType(filePath)};base64,${file.toString("base64")}`;
-    inlineAssetCache.set(filePath, dataUrl);
-    return dataUrl;
-  } catch {
-    inlineAssetCache.set(filePath, null);
-    return value;
-  }
-}
-
-async function inlineSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpaceRow> {
-  const maskConfig = space.mask_config;
-  let nextMaskConfig = maskConfig;
-
-  if (maskConfig && Array.isArray(maskConfig["zones"])) {
-    const zones = await Promise.all(
-      (maskConfig["zones"] as unknown[]).map(async (zone) => {
-        if (!zone || typeof zone !== "object") return zone;
-        const z = zone as Record<string, unknown>;
-        return {
-          ...z,
-          mask_url:
-            typeof z.mask_url === "string" ? await toInlinePublicAsset(z.mask_url) : z.mask_url,
-        };
-      })
-    );
-
-    nextMaskConfig = {
-      ...maskConfig,
-      zones,
-    };
-  }
-
-  return {
-    ...space,
-    thumbnail_url: await toInlinePublicAsset(space.thumbnail_url),
-    base_image_url: await toInlinePublicAsset(space.base_image_url),
-    overlay_image_url: await toInlinePublicAsset(space.overlay_image_url),
-    mask_config: nextMaskConfig,
-  };
-}
-
-async function maybeInlineSpaceAssets(
-  req: NextRequest,
-  spaces: SimulatorSpaceRow[]
-): Promise<SimulatorSpaceRow[]> {
-  if (!isProblemImageBrowser(req)) return spaces;
-  return Promise.all(spaces.map((space) => inlineSpaceAssets(space)));
-}
-
-
 type SimulatorLinkRow = {
   id: string;
   token: string;
@@ -315,6 +211,8 @@ function createFallbackContractorProfile(
     portfolio_photos: [],
   };
 }
+
+const DEFAULT_RECOMMENDED_FILM_LIMIT = 24;
 
 const PRODUCT_SELECT = `
   id,
@@ -525,7 +423,8 @@ async function readAllowedProductIds(
   const { data, error } = await supabase
     .from("simulator_link_films")
     .select("product_id")
-    .eq("link_id", linkId);
+    .eq("link_id", linkId)
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
 
@@ -541,13 +440,61 @@ async function readPresetProductIds(
   const { data, error } = await supabase
     .from("simulator_film_preset_items")
     .select("product_id")
-    .eq("preset_id", presetId);
+    .eq("preset_id", presetId)
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
 
   return (data || [])
     .map((row: { product_id?: number | string | null }) => Number(row.product_id))
     .filter((value: number) => Number.isFinite(value));
+}
+
+async function readDefaultRecommendedProductIds(supabase: any) {
+  const { data, error } = await supabase
+    .from("simulator_default_recommended_films")
+    .select("product_id, sort_order")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(DEFAULT_RECOMMENDED_FILM_LIMIT);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map(
+      (
+        row: { product_id?: number | string | null; sort_order?: number | string | null },
+        index: number
+      ) => ({
+        productId: Number(row.product_id),
+        sortOrder: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : index + 1,
+      })
+    )
+    .filter((row: { productId: number; sortOrder: number }) => Number.isFinite(row.productId));
+}
+
+async function safeReadDefaultRecommendedProductIds(supabase: any) {
+  try {
+    return await readDefaultRecommendedProductIds(supabase);
+  } catch (error) {
+    console.error("[simulator/bootstrap] recommended films fallback:", error);
+    return [];
+  }
+}
+
+function sortProductsByOrder(rows: ProductRow[], orderMap: Map<number, number>) {
+  if (orderMap.size === 0) return rows;
+
+  return [...rows].sort((a, b) => {
+    const ai = orderMap.get(Number(a.id)) ?? 99999;
+    const bi = orderMap.get(Number(b.id)) ?? 99999;
+
+    if (ai !== bi) return ai - bi;
+
+    const aName = a.full_name || a.product_code_1 || "";
+    const bName = b.full_name || b.product_code_1 || "";
+    return aName.localeCompare(bName, "ko");
+  });
 }
 
 async function readContractorProfile(
@@ -614,7 +561,7 @@ export async function GET(req: NextRequest) {
         message:
           "Supabase 환경변수 NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 없습니다.",
         contractor: null,
-        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES),
+        spaces: LOCAL_FALLBACK_SPACES,
         films: [],
       },
       {
@@ -669,6 +616,9 @@ export async function GET(req: NextRequest) {
       film_scope: "all" | "custom" | "preset";
     } | null = null;
     let contractorProfile: ContractorProfilePayload | null = null;
+    let recommendedProductIds: number[] = [];
+    let recommendedOrderMap = new Map<number, number>();
+    let allowedOrderMap = new Map<number, number>();
 
     // 시공자가 직접 /simulator 로 들어온 미리보기 화면에서도
     // 본인의 소개정보/카카오톡 링크를 사용할 수 있게 불러옵니다.
@@ -792,7 +742,6 @@ export async function GET(req: NextRequest) {
       spacesError ? [] : ((spaces || []) as SimulatorSpaceRow[]),
       !hasToken
     );
-    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(
@@ -801,7 +750,7 @@ export async function GET(req: NextRequest) {
           expired: false,
           link: linkInfo,
           contractor: contractorProfile,
-          spaces: responseSpaces,
+          spaces: resolvedSpaces,
           films: [],
         },
         {
@@ -809,6 +758,23 @@ export async function GET(req: NextRequest) {
             "Cache-Control": "no-store, no-cache, must-revalidate",
           },
         }
+      );
+    }
+
+    if (filmScope !== "all" && allowedProductIds.length > 0) {
+      allowedOrderMap = new Map(
+        allowedProductIds.map((productId: number, index: number) => [productId, index + 1])
+      );
+    } else {
+      const recommendedRows = await safeReadDefaultRecommendedProductIds(supabase);
+      recommendedProductIds = recommendedRows.map(
+        (row: { productId: number; sortOrder: number }) => row.productId
+      );
+      recommendedOrderMap = new Map(
+        recommendedRows.map((row: { productId: number; sortOrder: number }) => [
+          row.productId,
+          row.sortOrder,
+        ])
       );
     }
 
@@ -822,6 +788,8 @@ export async function GET(req: NextRequest) {
 
     if (hasToken && filmScope !== "all") {
       productQuery = productQuery.in("id", allowedProductIds);
+    } else if (recommendedProductIds.length > 0) {
+      productQuery = productQuery.in("id", recommendedProductIds);
     }
 
     const { data: products, error: productsError } = await productQuery;
@@ -830,16 +798,19 @@ export async function GET(req: NextRequest) {
       throw productsError;
     }
 
+    const productRows = sortProductsByOrder(
+      ((products || []) as ProductRow[]),
+      filmScope !== "all" ? allowedOrderMap : recommendedOrderMap
+    );
+
     return jsonNoStore(
       {
         setupNeeded: false,
         expired: false,
         link: linkInfo,
         contractor: contractorProfile,
-        spaces: responseSpaces,
-        films: ((products || []) as ProductRow[]).map((item: ProductRow) =>
-          normalizeFilm(item)
-        ),
+        spaces: resolvedSpaces,
+        films: productRows.map((item: ProductRow) => normalizeFilm(item)),
       },
       {
         headers: {
@@ -865,7 +836,7 @@ export async function GET(req: NextRequest) {
           : message || "시뮬레이터 정보를 불러오지 못했습니다.",
         link: null,
         contractor: null,
-        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES),
+        spaces: LOCAL_FALLBACK_SPACES,
         films: [],
       },
       {

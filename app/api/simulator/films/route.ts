@@ -91,9 +91,9 @@ function cleanParam(value: string | null) {
   return (value || "").trim();
 }
 
-function cleanPaletteColorParams(req: NextRequest): string[] {
+function cleanPaletteColorParams(req: NextRequest) {
   return Array.from(
-    new Set<string>(
+    new Set(
       req.nextUrl.searchParams
         .getAll("palette_color")
         .flatMap((value) => value.split(","))
@@ -280,7 +280,8 @@ async function readAllowedProductIds(
   const { data, error } = await supabase
     .from("simulator_link_films")
     .select("product_id")
-    .eq("link_id", linkId);
+    .eq("link_id", linkId)
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
 
@@ -296,7 +297,8 @@ async function readPresetProductIds(
   const { data, error } = await supabase
     .from("simulator_film_preset_items")
     .select("product_id")
-    .eq("preset_id", presetId);
+    .eq("preset_id", presetId)
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
 
@@ -343,6 +345,17 @@ function emptyPaletteFacets() {
     palette_subs: [],
     palette_colors: [],
   };
+}
+
+function mergeProductRows(rows: ProductRow[]) {
+  const map = new Map<number, ProductRow>();
+
+  rows.forEach((row) => {
+    if (!row || !Number.isFinite(Number(row.id))) return;
+    map.set(Number(row.id), row);
+  });
+
+  return Array.from(map.values());
 }
 
 async function safeReadPaletteFacets(
@@ -404,71 +417,6 @@ async function readPaletteFacets(
   };
 }
 
-async function readProductRowsWithFallback(
-  supabase: any,
-  options: {
-    q: string;
-    paletteMain: string;
-    paletteSub: string;
-    paletteColors: string[];
-    idFilter: number[];
-    useIdFilter: boolean;
-  }
-) {
-  const applyCommonFilters = (baseQuery: any, includeSearchFilter: boolean) => {
-    let nextQuery = baseQuery
-      .eq("manufacturer", "삼성필름")
-      .eq("is_simulatable", true);
-
-    if (options.paletteMain) nextQuery = nextQuery.eq("palette_main", options.paletteMain);
-    if (options.paletteSub) nextQuery = nextQuery.eq("palette_sub", options.paletteSub);
-
-    if (options.paletteColors.length === 1) {
-      nextQuery = nextQuery.eq("palette_color", options.paletteColors[0]);
-    } else if (options.paletteColors.length > 1) {
-      nextQuery = nextQuery.in("palette_color", options.paletteColors);
-    }
-
-    if (options.useIdFilter) {
-      nextQuery = nextQuery.in("id", options.idFilter);
-    }
-
-    const orFilter = includeSearchFilter && options.q ? buildDbOrFilter(options.q) : "";
-    if (orFilter) nextQuery = nextQuery.or(orFilter);
-
-    return nextQuery;
-  };
-
-  const primaryQuery = applyCommonFilters(
-    supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .or("simulation_image_path.not.is.null,image_path.not.is.null")
-      .limit(80),
-    true
-  );
-
-  const { data, error } = await primaryQuery;
-
-  if (!error) return (data || []) as ProductRow[];
-
-  console.error("[simulator/films] primary product query fallback:", error);
-
-  const fallbackQuery = applyCommonFilters(
-    supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .limit(options.q ? 300 : 80),
-    false
-  );
-
-  const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-
-  if (fallbackError) throw fallbackError;
-
-  return (fallbackData || []) as ProductRow[];
-}
-
 export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
@@ -505,6 +453,7 @@ export async function GET(req: NextRequest) {
     const hasToken = token.length > 0;
     let recommendedProductIds: number[] = [];
     let recommendedOrderMap = new Map<number, number>();
+    let allowedOrderMap = new Map<number, number>();
 
     if (hasToken) {
       const { data: link, error: linkError } = await supabase
@@ -560,6 +509,12 @@ export async function GET(req: NextRequest) {
         }
       }
 
+    if (filmScope !== "all" && allowedProductIds.length > 0) {
+      allowedOrderMap = new Map(
+        allowedProductIds.map((productId: number, index: number) => [productId, index + 1])
+      );
+    }
+
     const shouldUseDefaultRecommended = wantsRecommended && filmScope === "all";
 
     if (shouldUseDefaultRecommended) {
@@ -587,22 +542,77 @@ export async function GET(req: NextRequest) {
           paletteSub,
         });
 
-    const idFilter = hasToken && filmScope !== "all"
-      ? allowedProductIds
-      : hasRecommendedFilter
-        ? recommendedProductIds
-        : [];
+    let query = supabase
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .eq("manufacturer", "삼성필름")
+      .eq("is_simulatable", true)
+      .or("simulation_image_path.not.is.null,image_path.not.is.null")
+      .limit(80);
 
-    const data = await readProductRowsWithFallback(supabase, {
-      q,
-      paletteMain,
-      paletteSub,
-      paletteColors,
-      idFilter,
-      useIdFilter: idFilter.length > 0,
-    });
+    const orFilter = q ? buildDbOrFilter(q) : "";
+    if (orFilter) query = query.or(orFilter);
 
-    const items = data
+    if (paletteMain) query = query.eq("palette_main", paletteMain);
+    if (paletteSub) query = query.eq("palette_sub", paletteSub);
+    if (paletteColors.length === 1) {
+      query = query.eq("palette_color", paletteColors[0]);
+    } else if (paletteColors.length > 1) {
+      query = query.in("palette_color", paletteColors);
+    }
+
+    if (hasToken && filmScope !== "all") {
+      query = query.in("id", allowedProductIds);
+    } else if (hasRecommendedFilter) {
+      query = query.in("id", recommendedProductIds);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    let rawProducts = (data || []) as ProductRow[];
+
+    // DB의 product_code_1 / product_code_2가 "CG/CF" + "5528"처럼 나뉜 경우,
+    // 사용자가 CGCF5528처럼 붙여 검색하면 PostgREST ilike만으로는 빠질 수 있습니다.
+    // 검색어가 있을 때는 같은 제한조건 안에서 한 번 더 넓게 가져와 클라이언트식 정규화 점수로 보강합니다.
+    if (q) {
+      try {
+        let fallbackQuery = supabase
+          .from("products")
+          .select(PRODUCT_SELECT)
+          .eq("manufacturer", "삼성필름")
+          .eq("is_simulatable", true)
+          .or("simulation_image_path.not.is.null,image_path.not.is.null")
+          .limit(1500);
+
+        if (paletteMain) fallbackQuery = fallbackQuery.eq("palette_main", paletteMain);
+        if (paletteSub) fallbackQuery = fallbackQuery.eq("palette_sub", paletteSub);
+        if (paletteColors.length === 1) {
+          fallbackQuery = fallbackQuery.eq("palette_color", paletteColors[0]);
+        } else if (paletteColors.length > 1) {
+          fallbackQuery = fallbackQuery.in("palette_color", paletteColors);
+        }
+
+        if (hasToken && filmScope !== "all") {
+          fallbackQuery = fallbackQuery.in("id", allowedProductIds);
+        } else if (hasRecommendedFilter) {
+          fallbackQuery = fallbackQuery.in("id", recommendedProductIds);
+        }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+
+        if (!fallbackError && fallbackData) {
+          rawProducts = mergeProductRows([
+            ...rawProducts,
+            ...((fallbackData || []) as ProductRow[]),
+          ]);
+        }
+      } catch (fallbackError) {
+        console.error("[simulator/films] normalized search fallback:", fallbackError);
+      }
+    }
+
+    const items = rawProducts
       .map((item: ProductRow) => ({ item, score: getScore(item, q) }))
       .filter(({ score }: { item: ProductRow; score: number }) => score > 0)
       .sort((a: { item: ProductRow; score: number }, b: { item: ProductRow; score: number }) => {
@@ -614,6 +624,13 @@ export async function GET(req: NextRequest) {
         }
 
         if (b.score !== a.score) return b.score - a.score;
+
+        if (hasToken && filmScope !== "all" && allowedOrderMap.size > 0) {
+          const aOrder = allowedOrderMap.get(Number(a.item.id)) ?? 9999;
+          const bOrder = allowedOrderMap.get(Number(b.item.id)) ?? 9999;
+
+          if (aOrder !== bOrder) return aOrder - bOrder;
+        }
         const aName = a.item.full_name || a.item.product_code_1 || "";
         const bName = b.item.full_name || b.item.product_code_1 || "";
         return aName.localeCompare(bName, "ko");
