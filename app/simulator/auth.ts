@@ -19,9 +19,38 @@ function getSupabaseForSimulatorAuth() {
   });
 }
 
+function safeDecodeCookieValue(value: string) {
+  try {
+    return decodeURIComponent(value).trim();
+  } catch {
+    return value.trim();
+  }
+}
+
 export function getSimulatorSessionName() {
   const raw = cookies().get("session_user")?.value || "";
-  return raw ? decodeURIComponent(raw) : "";
+  return raw ? safeDecodeCookieValue(raw) : "";
+}
+
+async function getSecureSessionName() {
+  try {
+    const { getCurrentEgoseUser } = await import("@/lib/server-auth");
+    const currentUser = await getCurrentEgoseUser();
+    return currentUser?.name?.trim() || "";
+  } catch (error) {
+    console.error("[simulator/auth] secure session check failed:", error);
+    return "";
+  }
+}
+
+async function getSimulatorAuthName() {
+  const secureName = await getSecureSessionName();
+
+  if (secureName) {
+    return secureName;
+  }
+
+  return getSimulatorSessionName();
 }
 
 export async function isSimulatorAllowedUser(name: string) {
@@ -57,7 +86,7 @@ export async function isSimulatorAllowedUser(name: string) {
 }
 
 export async function requireSimulatorInstaller() {
-  const name = getSimulatorSessionName();
+  const name = await getSimulatorAuthName();
 
   if (!name) {
     return {

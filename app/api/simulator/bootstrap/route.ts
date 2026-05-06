@@ -54,6 +54,7 @@ type ContractorProfileRow = {
   phone: string | null;
   kakao_url: string | null;
   brand_color: string | null;
+  is_active?: boolean | null;
 };
 
 type ContractorPortfolioPhotoRow = {
@@ -69,6 +70,23 @@ type ContractorPortfolioPhotoRow = {
 type ContractorProfilePayload = ContractorProfileRow & {
   portfolio_photos: ContractorPortfolioPhotoRow[];
 };
+
+function createFallbackContractorProfile(
+  installerName: string
+): ContractorProfilePayload {
+  return {
+    id: `fallback-${encodeURIComponent(installerName)}`,
+    installer_name: installerName,
+    display_name: installerName,
+    logo_url: null,
+    greeting: null,
+    phone: null,
+    kakao_url: null,
+    brand_color: "#EEE0C5",
+    is_active: true,
+    portfolio_photos: [],
+  };
+}
 
 const PRODUCT_SELECT = `
   id,
@@ -299,9 +317,8 @@ async function readContractorProfile(
 
   const { data: profile, error: profileError } = await supabase
     .from("contractor_profiles")
-    .select("id, installer_name, display_name, logo_url, greeting, phone, kakao_url, brand_color")
+    .select("id, installer_name, display_name, logo_url, greeting, phone, kakao_url, brand_color, is_active")
     .eq("installer_name", normalizedInstallerName)
-    .eq("is_active", true)
     .maybeSingle();
 
   if (profileError) {
@@ -310,10 +327,14 @@ async function readContractorProfile(
   }
 
   if (!profile) {
-    return null;
+    return createFallbackContractorProfile(normalizedInstallerName);
   }
 
   const typedProfile = profile as ContractorProfileRow;
+
+  if (typedProfile.is_active === false) {
+    return null;
+  }
 
   const { data: photos, error: photosError } = await supabase
     .from("contractor_portfolio_photos")
