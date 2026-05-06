@@ -30,6 +30,7 @@ type MaskZoneDefinition = {
 };
 
 type SimulatorStep = "intro" | "space" | "apply" | "decision";
+type CustomerGuideStep = Extract<SimulatorStep, "intro" | "space" | "apply">;
 
 const COLORS = {
   bg: "#05023B",
@@ -41,6 +42,42 @@ const COLORS = {
   soft: "rgba(255,255,255,0.70)",
   white: "#FFFFFF",
 };
+
+const CUSTOMER_GUIDES: Record<
+  CustomerGuideStep,
+  { stepLabel: string; title: string; body: string[]; buttonLabel: string }
+> = {
+  intro: {
+    stepLabel: "1단계 소개",
+    title: "인테리어필름 시뮬레이터에 오신 걸 환영합니다.",
+    body: [
+      "원하는 공간에 필름을 미리 적용해볼 수 있어요.",
+      "준비되셨다면 화면 가운데의 [시뮬레이션 시작] 버튼을 눌러주세요.",
+    ],
+    buttonLabel: "알겠어요",
+  },
+  space: {
+    stepLabel: "2단계 공간 선택",
+    title: "시뮬레이션할 공간을 선택해주세요.",
+    body: [
+      "원하는 공간 카드를 터치하면 그 공간에 인테리어 필름을 적용해볼 수 있습니다.",
+    ],
+    buttonLabel: "공간 선택하러 가기",
+  },
+  apply: {
+    stepLabel: "3단계 색상 적용",
+    title: "먼저 필름을 적용할 구역을 선택해주세요.",
+    body: [
+      "이미지 아래의 구역 버튼을 누르면 색상 목록이 열립니다.",
+      "색상 팔레트에서 원하는 색을 고르면 비슷한 필름을 모아서 보여드려요.",
+      "마음에 드는 색을 적용했다면 화면 하단의 [결정확정] 버튼을 눌러주세요.",
+    ],
+    buttonLabel: "색상 적용해보기",
+  },
+};
+
+const CUSTOMER_GUIDE_STEPS: CustomerGuideStep[] = ["intro", "space", "apply"];
+const CUSTOMER_GUIDE_STORAGE_PREFIX = "egose-simulator-customer-guide-v1";
 
 const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
   {
@@ -254,6 +291,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
   const [decisionMessage, setDecisionMessage] = useState("");
   const [isDashboardMoving, setIsDashboardMoving] = useState(false);
+  const [activeGuideStep, setActiveGuideStep] = useState<CustomerGuideStep | null>(null);
+  const [seenGuideSteps, setSeenGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
+  const [guideReady, setGuideReady] = useState(false);
 
   const selectedSpace = useMemo(() => {
     return state.spaces.find((space) => space.id === selectedSpaceId) || state.spaces[0] || null;
@@ -271,6 +311,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
   const activeZoneFilm = activeZone ? zoneFilmMap[activeZone.key] || null : null;
+  const customerGuideStorageKey = useMemo(() => {
+    return `${CUSTOMER_GUIDE_STORAGE_PREFIX}:${token || "default"}`;
+  }, [token]);
 
   const applyingFilm = useMemo(() => {
     if (applyingFilmId === null) return null;
@@ -345,6 +388,86 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       cancelled = true;
     };
   }, [mode, token]);
+
+  useEffect(() => {
+    if (mode !== "customer") {
+      setSeenGuideSteps({});
+      setActiveGuideStep(null);
+      setGuideReady(true);
+      return;
+    }
+
+    setGuideReady(false);
+
+    try {
+      const raw = window.localStorage.getItem(customerGuideStorageKey);
+      const parsed = raw ? (JSON.parse(raw) as Partial<Record<CustomerGuideStep, boolean>>) : {};
+      const nextSeen: Partial<Record<CustomerGuideStep, boolean>> = {};
+
+      CUSTOMER_GUIDE_STEPS.forEach((guideStep) => {
+        if (parsed?.[guideStep]) {
+          nextSeen[guideStep] = true;
+        }
+      });
+
+      setSeenGuideSteps(nextSeen);
+    } catch {
+      setSeenGuideSteps({});
+    } finally {
+      setActiveGuideStep(null);
+      setGuideReady(true);
+    }
+  }, [customerGuideStorageKey, mode]);
+
+  useEffect(() => {
+    if (
+      mode !== "customer" ||
+      !guideReady ||
+      state.loading ||
+      state.expired ||
+      state.setupNeeded
+    ) {
+      return;
+    }
+
+    if (isFilmSheetOpen) {
+      return;
+    }
+
+    if (step !== "intro" && step !== "space" && step !== "apply") {
+      setActiveGuideStep(null);
+      return;
+    }
+
+    if (step === "intro" && !hasIntroStep) {
+      setActiveGuideStep(null);
+      return;
+    }
+
+    const nextGuideStep = step as CustomerGuideStep;
+
+    if (seenGuideSteps[nextGuideStep]) {
+      if (activeGuideStep === nextGuideStep) {
+        setActiveGuideStep(null);
+      }
+      return;
+    }
+
+    if (activeGuideStep !== nextGuideStep) {
+      setActiveGuideStep(nextGuideStep);
+    }
+  }, [
+    activeGuideStep,
+    guideReady,
+    hasIntroStep,
+    isFilmSheetOpen,
+    mode,
+    seenGuideSteps,
+    state.expired,
+    state.loading,
+    state.setupNeeded,
+    step,
+  ]);
 
   useEffect(() => {
     if (mode !== "installer") return;
@@ -758,12 +881,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     paintThenNavigateToDashboard();
   };
 
+  const closeCustomerGuide = () => {
+    if (!activeGuideStep) return;
+
+    const guideStep = activeGuideStep;
+
+    setSeenGuideSteps((prev) => {
+      const nextSeen = { ...prev, [guideStep]: true };
+
+      try {
+        window.localStorage.setItem(customerGuideStorageKey, JSON.stringify(nextSeen));
+      } catch {
+        // localStorage를 사용할 수 없는 브라우저여도 화면 동작은 유지합니다.
+      }
+
+      return nextSeen;
+    });
+
+    setActiveGuideStep(null);
+  };
+
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터";
   const hasIntroStep = mode === "customer" && Boolean(state.contractor);
   const contractorName = state.contractor?.display_name || state.link?.installer_name || "시공자";
   const contractorPhotos = state.contractor?.portfolio_photos || [];
   const phoneHref = getPhoneHref(state.contractor?.phone);
   const kakaoHref = getKakaoHref(state.contractor?.kakao_url);
+  const currentGuide = activeGuideStep ? CUSTOMER_GUIDES[activeGuideStep] : null;
 
   const stepBadgeText = hasIntroStep
     ? step === "intro"
@@ -1266,6 +1410,44 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             결정확정
           </button>
         </nav>
+        ) : null}
+
+        {currentGuide ? (
+          <div className="customerGuideOverlay" role="presentation" onClick={closeCustomerGuide}>
+            <section
+              className="customerGuideModal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="customer-guide-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="customerGuideTopRow">
+                <div className="customerGuideBadge">고객 사용 가이드 · {currentGuide.stepLabel}</div>
+                <button
+                  type="button"
+                  onClick={closeCustomerGuide}
+                  className="customerGuideClose"
+                  aria-label="가이드 닫기"
+                >
+                  ×
+                </button>
+              </div>
+
+              <h3 id="customer-guide-title" className="customerGuideTitle">
+                {currentGuide.title}
+              </h3>
+
+              <div className="customerGuideBody">
+                {currentGuide.body.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+
+              <button type="button" onClick={closeCustomerGuide} className="customerGuidePrimaryButton">
+                {currentGuide.buttonLabel}
+              </button>
+            </section>
+          </div>
         ) : null}
 
         {isFilmSheetOpen ? (
@@ -2765,6 +2947,103 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           border-color: rgba(238, 224, 197, 0.58);
           background: rgba(238, 224, 197, 0.16);
           color: ${COLORS.cream};
+        }
+
+        .customerGuideOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 10010;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+          background: rgba(2, 1, 25, 0.64);
+          backdrop-filter: blur(6px);
+        }
+
+        .customerGuideModal {
+          width: min(430px, 100%);
+          border-radius: 28px;
+          padding: 20px;
+          background: linear-gradient(180deg, rgba(14, 12, 82, 0.98) 0%, rgba(6, 4, 55, 0.99) 100%);
+          border: 1px solid rgba(238, 224, 197, 0.22);
+          box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+          color: #fff;
+          box-sizing: border-box;
+        }
+
+        .customerGuideTopRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .customerGuideBadge {
+          display: inline-flex;
+          align-items: center;
+          min-height: 32px;
+          padding: 0 12px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.12);
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          word-break: keep-all;
+        }
+
+        .customerGuideClose {
+          width: 36px;
+          height: 36px;
+          flex: 0 0 36px;
+          border-radius: 999px;
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          background: rgba(255, 255, 255, 0.06);
+          color: #fff;
+          font-size: 22px;
+          line-height: 1;
+          cursor: pointer;
+        }
+
+        .customerGuideTitle {
+          margin: 0 0 12px;
+          color: #fff;
+          font-size: 23px;
+          line-height: 1.28;
+          letter-spacing: -0.05em;
+          font-weight: 950;
+          word-break: keep-all;
+        }
+
+        .customerGuideBody {
+          display: grid;
+          gap: 8px;
+          margin-bottom: 18px;
+          color: rgba(255, 255, 255, 0.78);
+          font-size: 15px;
+          line-height: 1.68;
+          letter-spacing: -0.03em;
+          word-break: keep-all;
+        }
+
+        .customerGuideBody p {
+          margin: 0;
+        }
+
+        .customerGuidePrimaryButton {
+          width: 100%;
+          min-height: 52px;
+          border: 0;
+          border-radius: 18px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 16px;
+          font-weight: 950;
+          letter-spacing: -0.03em;
+          cursor: pointer;
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
         }
 
         .sheetOverlay {
