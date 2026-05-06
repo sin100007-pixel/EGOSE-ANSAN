@@ -26,6 +26,108 @@ function jsonNoStore(body: unknown, init: ResponseInit = {}) {
   });
 }
 
+const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
+const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
+
+function getAllowedProxyUrl(req: NextRequest, rawSrc: string | null) {
+  const value = String(rawSrc || "").trim();
+  if (!value || /^(data:|blob:|file:|javascript:)/i.test(value)) return null;
+
+  let targetUrl: URL;
+
+  try {
+    targetUrl = /^https?:\/\//i.test(value)
+      ? new URL(value)
+      : new URL(value, req.nextUrl.origin);
+  } catch {
+    return null;
+  }
+
+  if (targetUrl.protocol !== "http:" && targetUrl.protocol !== "https:") {
+    return null;
+  }
+
+  const isSameOrigin = targetUrl.origin === req.nextUrl.origin;
+  const isRecursiveProxy =
+    isSameOrigin &&
+    targetUrl.pathname === req.nextUrl.pathname &&
+    targetUrl.searchParams.get(KAKAO_IMAGE_PROXY_PARAM) === "1";
+
+  if (isRecursiveProxy) return null;
+
+  const supabaseBaseUrl = getCleanSupabaseUrl();
+  let isSupabaseStorage = false;
+
+  if (supabaseBaseUrl) {
+    try {
+      const supabaseUrl = new URL(supabaseBaseUrl);
+      isSupabaseStorage =
+        targetUrl.origin === supabaseUrl.origin &&
+        targetUrl.pathname.startsWith("/storage/v1/object/public/");
+    } catch {
+      isSupabaseStorage = false;
+    }
+  }
+
+  if (!isSameOrigin && !isSupabaseStorage) {
+    return null;
+  }
+
+  targetUrl.pathname = targetUrl.pathname
+    .split("/")
+    .map((part) => (part ? encodeURIComponent(decodeURIComponent(part)) : part))
+    .join("/");
+
+  return targetUrl;
+}
+
+async function proxyKakaoImage(req: NextRequest) {
+  const targetUrl = getAllowedProxyUrl(req, req.nextUrl.searchParams.get(KAKAO_IMAGE_PROXY_SRC_PARAM));
+
+  if (!targetUrl) {
+    return new NextResponse("Invalid image proxy request", {
+      status: 400,
+      headers: KAKAO_NO_STORE_HEADERS,
+    });
+  }
+
+  try {
+    const upstream = await fetch(targetUrl.toString(), {
+      cache: "no-store",
+      headers: {
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+
+    if (!upstream.ok) {
+      return new NextResponse("Image not found", {
+        status: upstream.status,
+        headers: KAKAO_NO_STORE_HEADERS,
+      });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    const body = await upstream.arrayBuffer();
+
+    return new NextResponse(body, {
+      status: 200,
+      headers: {
+        ...KAKAO_NO_STORE_HEADERS,
+        "Content-Type": contentType,
+        "Content-Length": String(body.byteLength),
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
+    return new NextResponse("Image proxy failed", {
+      status: 502,
+      headers: KAKAO_NO_STORE_HEADERS,
+    });
+  }
+}
+
 
 type SimulatorLinkRow = {
   id: string;
@@ -394,6 +496,10 @@ async function readContractorProfile(
 }
 
 export async function GET(req: NextRequest) {
+  if (req.nextUrl.searchParams.get(KAKAO_IMAGE_PROXY_PARAM) === "1") {
+    return proxyKakaoImage(req);
+  }
+
   const supabase = getSupabase();
 
   if (!supabase) {

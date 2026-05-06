@@ -229,43 +229,64 @@ function getSpaceThumbnail(space: SimulatorSpace) {
 }
 
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
-const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v2";
+const KAKAO_CACHE_BUST_VALUE = "20260507_proxy2";
+const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
+const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
+const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v3";
 
 function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
   return /KAKAOTALK/i.test(navigator.userAgent || "");
 }
 
-function withKakaoCacheBuster(src: string | null | undefined) {
+function normalizeImageSrc(src: string | null | undefined) {
   const value = String(src || "").trim();
   if (!value) return "";
   if (/^(data:|blob:|tel:|mailto:)/i.test(value)) return value;
 
-  const shouldBust = isKakaoInAppBrowser();
-
   try {
-    const url = value.startsWith("http")
-      ? new URL(value)
-      : new URL(value, window.location.origin);
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://example.com";
+    const isAbsolute = /^https?:\/\//i.test(value);
+    const url = isAbsolute ? new URL(value) : new URL(value, origin);
 
     url.pathname = url.pathname
       .split("/")
       .map((part) => (part ? encodeURIComponent(decodeURIComponent(part)) : part))
       .join("/");
 
-    if (shouldBust) {
-      url.searchParams.set(KAKAO_CACHE_BUST_KEY, "20260507");
-    }
-
-    if (!value.startsWith("http") && url.origin === window.location.origin) {
+    if (!isAbsolute && typeof window !== "undefined" && url.origin === window.location.origin) {
       return `${url.pathname}${url.search}${url.hash}`;
     }
 
     return url.toString();
   } catch {
-    const encoded = encodeURI(value.replace(/\s+/g, ""));
-    if (!shouldBust || encoded.includes(`${KAKAO_CACHE_BUST_KEY}=`)) return encoded;
-    return `${encoded}${encoded.includes("?") ? "&" : "?"}${KAKAO_CACHE_BUST_KEY}=20260507`;
+    return encodeURI(value.replace(/\s+/g, ""));
+  }
+}
+
+function withKakaoCacheBuster(src: string | null | undefined) {
+  const normalized = normalizeImageSrc(src);
+  if (!normalized) return "";
+  if (/^(data:|blob:|tel:|mailto:)/i.test(normalized)) return normalized;
+  if (!isKakaoInAppBrowser() || typeof window === "undefined") return normalized;
+  if (normalized.includes(`${KAKAO_IMAGE_PROXY_PARAM}=1`)) return normalized;
+
+  try {
+    const imageUrl = /^https?:\/\//i.test(normalized)
+      ? new URL(normalized)
+      : new URL(normalized, window.location.origin);
+
+    imageUrl.searchParams.set(KAKAO_CACHE_BUST_KEY, KAKAO_CACHE_BUST_VALUE);
+
+    const proxyParams = new URLSearchParams();
+    proxyParams.set(KAKAO_IMAGE_PROXY_PARAM, "1");
+    proxyParams.set(KAKAO_IMAGE_PROXY_SRC_PARAM, imageUrl.toString());
+    proxyParams.set("v", KAKAO_CACHE_BUST_VALUE);
+
+    return `/api/simulator/bootstrap?${proxyParams.toString()}`;
+  } catch {
+    if (normalized.includes(`${KAKAO_CACHE_BUST_KEY}=`)) return normalized;
+    return `${normalized}${normalized.includes("?") ? "&" : "?"}${KAKAO_CACHE_BUST_KEY}=${KAKAO_CACHE_BUST_VALUE}`;
   }
 }
 
