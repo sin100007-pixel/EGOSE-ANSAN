@@ -601,6 +601,50 @@ function sortProductsByOrder(rows: ProductRow[], orderMap: Map<number, number>) 
   });
 }
 
+async function readSearchCorpusProducts(
+  supabase: any,
+  options: {
+    hasToken: boolean;
+    filmScope: "all" | "custom" | "preset";
+    allowedProductIds: number[];
+  }
+) {
+  let query = supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("manufacturer", "삼성필름")
+    .eq("is_simulatable", true)
+    .or("simulation_image_path.not.is.null,image_path.not.is.null")
+    .limit(1500);
+
+  // 링크에서 직접선택/프리셋으로 제한한 경우에는 고객이 볼 수 있는 필름 안에서만
+  // 검색/팔레트 fallback이 동작해야 합니다.
+  if (options.hasToken && options.filmScope !== "all") {
+    if (options.allowedProductIds.length === 0) return [];
+    query = query.in("id", options.allowedProductIds);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = ((data || []) as ProductRow[]).filter(Boolean);
+
+  if (options.hasToken && options.filmScope !== "all") {
+    const orderMap = new Map(
+      options.allowedProductIds.map((productId: number, index: number) => [productId, index + 1])
+    );
+    return sortProductsByOrder(rows, orderMap);
+  }
+
+  // 전체허용 링크에서는 첫 화면용 추천필름 순서는 별도로 유지하고,
+  // search_films에는 전체 검색용 말뭉치를 제품명 순으로 싣습니다.
+  return [...rows].sort((a, b) => {
+    const aName = a.full_name || a.product_code_1 || "";
+    const bName = b.full_name || b.product_code_1 || "";
+    return aName.localeCompare(bName, "ko");
+  });
+}
+
 async function readContractorProfile(
   supabase: any,
   installerName: string | null | undefined
@@ -803,6 +847,15 @@ export async function GET(req: NextRequest) {
         allowedProductIds = await readAllowedProductIds(supabase, typedLink.id);
       } else if (filmScope === "preset" && presetId) {
         allowedProductIds = await readPresetProductIds(supabase, presetId);
+      } else if (filmScope === "all") {
+        // 과거 생성 링크나 브라우저 캐시 문제로 film_scope가 all처럼 보여도
+        // simulator_link_films에 직접선택 필름이 남아 있으면 그 선택값을 우선합니다.
+        const legacyDirectProductIds = await readAllowedProductIds(supabase, typedLink.id);
+        if (legacyDirectProductIds.length > 0) {
+          filmScope = "custom";
+          allowedProductIds = legacyDirectProductIds;
+          if (linkInfo) linkInfo.film_scope = "custom";
+        }
       }
     }
 
@@ -908,6 +961,19 @@ export async function GET(req: NextRequest) {
       filmScope !== "all" ? allowedOrderMap : recommendedOrderMap
     );
 
+    let searchProductRows = productRows;
+
+    try {
+      searchProductRows = await readSearchCorpusProducts(supabase, {
+        hasToken,
+        filmScope,
+        allowedProductIds,
+      });
+    } catch (searchCorpusError) {
+      console.error("[simulator/bootstrap] search films fallback:", searchCorpusError);
+      searchProductRows = productRows;
+    }
+
     return jsonNoStore(
       {
         setupNeeded: false,
@@ -916,6 +982,7 @@ export async function GET(req: NextRequest) {
         contractor: contractorProfile,
         spaces: responseSpaces,
         films: productRows.map((item: ProductRow) => normalizeFilm(item)),
+        search_films: searchProductRows.map((item: ProductRow) => normalizeFilm(item)),
       },
       {
         headers: {

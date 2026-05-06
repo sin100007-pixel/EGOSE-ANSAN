@@ -500,6 +500,14 @@ export async function GET(req: NextRequest) {
         allowedProductIds = await readAllowedProductIds(supabase, typedLink.id);
       } else if (filmScope === "preset" && presetId) {
         allowedProductIds = await readPresetProductIds(supabase, presetId);
+      } else if (filmScope === "all") {
+        // 과거 생성 링크나 브라우저 캐시 문제로 film_scope가 all처럼 보여도
+        // simulator_link_films에 직접선택 필름이 남아 있으면 그 선택값을 우선합니다.
+        const legacyDirectProductIds = await readAllowedProductIds(supabase, typedLink.id);
+        if (legacyDirectProductIds.length > 0) {
+          filmScope = "custom";
+          allowedProductIds = legacyDirectProductIds;
+        }
       }
 
       if (filmScope !== "all" && allowedProductIds.length === 0) {
@@ -539,7 +547,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const hasRecommendedFilter = shouldUseDefaultRecommended && recommendedProductIds.length > 0;
+    const isInitialRecommendedRequest =
+      shouldUseDefaultRecommended &&
+      !q &&
+      !paletteMain &&
+      !paletteSub &&
+      paletteColors.length === 0;
+    const hasRecommendedFilter = isInitialRecommendedRequest && recommendedProductIds.length > 0;
 
     const facets = skipFacets
       ? null

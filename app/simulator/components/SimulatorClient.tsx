@@ -662,7 +662,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     allKnownFilmsRef.current = mergeFilmsById(allKnownFilmsRef.current, films);
   };
 
-  const getLocalFilmSource = () => {
+  const getLocalFilmSource = (preferInitialSource = false) => {
+    if (preferInitialSource && initialSheetFilmsRef.current.length > 0) {
+      return initialSheetFilmsRef.current;
+    }
     if (allKnownFilmsRef.current.length > 0) return allKnownFilmsRef.current;
     if (initialSheetFilmsRef.current.length > 0) return initialSheetFilmsRef.current;
     return state.films;
@@ -675,9 +678,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       paletteSub: string;
       paletteColors: string[];
       includeFacets: boolean;
+      preferInitialSource?: boolean;
     }
   ) => {
-    const sourceFilms = getLocalFilmSource();
+    const sourceFilms = getLocalFilmSource(Boolean(options.preferInitialSource));
 
     if (sourceFilms.length === 0) return false;
 
@@ -756,6 +760,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         const nextFilms = Array.isArray(json.films)
           ? json.films.map((film: SimulatorFilm) => normalizeFilmForKakao(film))
           : [];
+        const nextSearchFilms = Array.isArray(json.search_films)
+          ? json.search_films.map((film: SimulatorFilm) => normalizeFilmForKakao(film))
+          : [];
 
         setState({
           loading: false,
@@ -781,6 +788,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         if (nextFilms.length > 0) {
           initialSheetFilmsRef.current = nextFilms;
           rememberFilms(nextFilms);
+        }
+
+        if (nextSearchFilms.length > 0) {
+          rememberFilms(nextSearchFilms);
         }
 
         if (nextFilms[0]) {
@@ -1084,6 +1095,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           paletteSub: nextPaletteSub,
           paletteColors: nextPaletteColors,
           includeFacets,
+          preferInitialSource: isInitialSheetRequest && useRecommended,
         });
 
         if (!recovered) {
@@ -1103,6 +1115,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           paletteSub: nextPaletteSub,
           paletteColors: nextPaletteColors,
           includeFacets,
+          preferInitialSource: isInitialSheetRequest && useRecommended,
         });
 
         if (recovered) return;
@@ -1133,6 +1146,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         paletteSub: nextPaletteSub,
         paletteColors: nextPaletteColors,
         includeFacets,
+        preferInitialSource: isInitialSheetRequest && useRecommended,
       });
 
       if (!recovered) {
