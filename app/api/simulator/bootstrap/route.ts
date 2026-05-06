@@ -14,6 +14,7 @@ const KAKAO_NO_STORE_HEADERS = {
   Pragma: "no-cache",
   Expires: "0",
   Vary: "Cookie, Authorization, User-Agent",
+  "Access-Control-Allow-Origin": "*",
 };
 
 function jsonNoStore(body: unknown, init: ResponseInit = {}) {
@@ -118,6 +119,7 @@ async function proxyKakaoImage(req: NextRequest) {
         "Content-Type": contentType,
         "Content-Length": String(body.byteLength),
         "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": "inline",
       },
     });
   } catch {

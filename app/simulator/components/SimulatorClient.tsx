@@ -229,14 +229,22 @@ function getSpaceThumbnail(space: SimulatorSpace) {
 }
 
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
-const KAKAO_CACHE_BUST_VALUE = "20260507_proxy2";
+const KAKAO_CACHE_BUST_VALUE = "20260507_hard_reset_4";
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
 const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
-const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v3";
+const KAKAO_SW_RESET_DONE_PARAM = "__egose_sw_reset_done";
+const KAKAO_SW_RESET_DONE_VALUE = "20260507-hard-reset-4";
 
 function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
   return /KAKAOTALK/i.test(navigator.userAgent || "");
+}
+
+function isFragileMobileBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return /KAKAOTALK|SamsungBrowser|NAVER|Whale|; wv\)|Version\/\d+\.\d+ Chrome\/\d+.*Mobile Safari/i.test(
+    navigator.userAgent || ""
+  );
 }
 
 function normalizeImageSrc(src: string | null | undefined) {
@@ -268,7 +276,7 @@ function withKakaoCacheBuster(src: string | null | undefined) {
   const normalized = normalizeImageSrc(src);
   if (!normalized) return "";
   if (/^(data:|blob:|tel:|mailto:)/i.test(normalized)) return normalized;
-  if (!isKakaoInAppBrowser() || typeof window === "undefined") return normalized;
+  if (!isFragileMobileBrowser() || typeof window === "undefined") return normalized;
   if (normalized.includes(`${KAKAO_IMAGE_PROXY_PARAM}=1`)) return normalized;
 
   try {
@@ -474,14 +482,18 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   useEffect(() => {
-    if (!isKakaoInAppBrowser()) return;
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    const resetRequested =
+      url.searchParams.has("__kakao_sw_reset") ||
+      url.searchParams.has("__egose_sw_reset");
+    const shouldReset = resetRequested || isKakaoInAppBrowser() || isFragileMobileBrowser();
+
+    if (!shouldReset) return;
+    if (url.searchParams.get(KAKAO_SW_RESET_DONE_PARAM) === KAKAO_SW_RESET_DONE_VALUE) return;
 
     try {
-      const resetDone = window.sessionStorage.getItem(KAKAO_SW_RESET_KEY);
-      if (resetDone === "1") return;
-
-      window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
-
       void Promise.all([
         "serviceWorker" in navigator
           ? navigator.serviceWorker
@@ -493,9 +505,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         "caches" in window
           ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
           : Promise.resolve(),
-      ]);
+      ]).finally(() => {
+        // unregister/caches.delete는 현재 페이지의 기존 service worker controller를 즉시 떼어내지 못합니다.
+        // 한 번 새 URL로 재진입해야 카카오톡/삼성 브라우저에서 이미지와 API 요청이 정상 네트워크로 나갑니다.
+        url.searchParams.set("__kakao_sw_reset", "1");
+        url.searchParams.set(KAKAO_SW_RESET_DONE_PARAM, KAKAO_SW_RESET_DONE_VALUE);
+        url.searchParams.set("v", KAKAO_SW_RESET_DONE_VALUE);
+        window.location.replace(url.toString());
+      });
     } catch {
-      // 카카오톡 인앱브라우저에서 CacheStorage 접근이 막히는 경우는 무시합니다.
+      // 일부 인앱브라우저에서 CacheStorage 접근이 막히는 경우는 무시합니다.
     }
   }, []);
 
