@@ -1,79 +1,22 @@
-const CACHE_NAME = "egose-v4";
-const OFFLINE_URL = "/offline";
-
-const STATIC_ASSETS = [OFFLINE_URL, "/manifest.json"];
+// 카카오톡 인앱브라우저 이미지/API 깨짐 방지를 위한 emergency no-op service worker
+// 기존 egose-v2 캐시와 fetch 가로채기를 제거하기 위한 파일입니다.
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) =>
-        Promise.all(
-          STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => undefined))
-        )
-      )
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
-        )
-      )
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
 
-function shouldSkipFetch(request) {
-  if (request.method !== "GET") return true;
-
-  const url = new URL(request.url);
-
-  if (url.origin !== self.location.origin) return true;
-  if (url.pathname.startsWith("/api/")) return true;
-  if (url.pathname.startsWith("/_next/")) return true;
-
-  const destination = request.destination;
-
-  if (
-    destination === "image" ||
-    destination === "style" ||
-    destination === "script" ||
-    destination === "font" ||
-    destination === "video" ||
-    destination === "audio" ||
-    destination === "manifest"
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-
-  if (shouldSkipFetch(request)) return;
-
-  const isNavigation =
-    request.mode === "navigate" ||
-    request.destination === "document" ||
-    request.headers.get("accept")?.includes("text/html");
-
-  if (!isNavigation) return;
-
-  event.respondWith(
-    fetch(request).catch(async () => {
-      const cache = await caches.open(CACHE_NAME);
-      const cachedOffline = await cache.match(OFFLINE_URL);
-      return cachedOffline || Response.error();
-    })
-  );
+// 중요:
+// fetch 이벤트에서 event.respondWith를 절대 호출하지 않습니다.
+// 그러면 이미지, API, JS, CSS 요청이 전부 브라우저 기본 네트워크로 그대로 갑니다.
+self.addEventListener("fetch", () => {
+  return;
 });
