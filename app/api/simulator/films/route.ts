@@ -91,9 +91,9 @@ function cleanParam(value: string | null) {
   return (value || "").trim();
 }
 
-function cleanPaletteColorParams(req: NextRequest) {
+function cleanPaletteColorParams(req: NextRequest): string[] {
   return Array.from(
-    new Set(
+    new Set<string>(
       req.nextUrl.searchParams
         .getAll("palette_color")
         .flatMap((value) => value.split(","))
@@ -404,6 +404,71 @@ async function readPaletteFacets(
   };
 }
 
+async function readProductRowsWithFallback(
+  supabase: any,
+  options: {
+    q: string;
+    paletteMain: string;
+    paletteSub: string;
+    paletteColors: string[];
+    idFilter: number[];
+    useIdFilter: boolean;
+  }
+) {
+  const applyCommonFilters = (baseQuery: any, includeSearchFilter: boolean) => {
+    let nextQuery = baseQuery
+      .eq("manufacturer", "삼성필름")
+      .eq("is_simulatable", true);
+
+    if (options.paletteMain) nextQuery = nextQuery.eq("palette_main", options.paletteMain);
+    if (options.paletteSub) nextQuery = nextQuery.eq("palette_sub", options.paletteSub);
+
+    if (options.paletteColors.length === 1) {
+      nextQuery = nextQuery.eq("palette_color", options.paletteColors[0]);
+    } else if (options.paletteColors.length > 1) {
+      nextQuery = nextQuery.in("palette_color", options.paletteColors);
+    }
+
+    if (options.useIdFilter) {
+      nextQuery = nextQuery.in("id", options.idFilter);
+    }
+
+    const orFilter = includeSearchFilter && options.q ? buildDbOrFilter(options.q) : "";
+    if (orFilter) nextQuery = nextQuery.or(orFilter);
+
+    return nextQuery;
+  };
+
+  const primaryQuery = applyCommonFilters(
+    supabase
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .or("simulation_image_path.not.is.null,image_path.not.is.null")
+      .limit(80),
+    true
+  );
+
+  const { data, error } = await primaryQuery;
+
+  if (!error) return (data || []) as ProductRow[];
+
+  console.error("[simulator/films] primary product query fallback:", error);
+
+  const fallbackQuery = applyCommonFilters(
+    supabase
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .limit(options.q ? 300 : 80),
+    false
+  );
+
+  const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+
+  if (fallbackError) throw fallbackError;
+
+  return (fallbackData || []) as ProductRow[];
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase();
 
@@ -522,35 +587,22 @@ export async function GET(req: NextRequest) {
           paletteSub,
         });
 
-    let query = supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .eq("manufacturer", "삼성필름")
-      .eq("is_simulatable", true)
-      .or("simulation_image_path.not.is.null,image_path.not.is.null")
-      .limit(80);
+    const idFilter = hasToken && filmScope !== "all"
+      ? allowedProductIds
+      : hasRecommendedFilter
+        ? recommendedProductIds
+        : [];
 
-    const orFilter = q ? buildDbOrFilter(q) : "";
-    if (orFilter) query = query.or(orFilter);
+    const data = await readProductRowsWithFallback(supabase, {
+      q,
+      paletteMain,
+      paletteSub,
+      paletteColors,
+      idFilter,
+      useIdFilter: idFilter.length > 0,
+    });
 
-    if (paletteMain) query = query.eq("palette_main", paletteMain);
-    if (paletteSub) query = query.eq("palette_sub", paletteSub);
-    if (paletteColors.length === 1) {
-      query = query.eq("palette_color", paletteColors[0]);
-    } else if (paletteColors.length > 1) {
-      query = query.in("palette_color", paletteColors);
-    }
-
-    if (hasToken && filmScope !== "all") {
-      query = query.in("id", allowedProductIds);
-    } else if (hasRecommendedFilter) {
-      query = query.in("id", recommendedProductIds);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    const items = ((data || []) as ProductRow[])
+    const items = data
       .map((item: ProductRow) => ({ item, score: getScore(item, q) }))
       .filter(({ score }: { item: ProductRow; score: number }) => score > 0)
       .sort((a: { item: ProductRow; score: number }, b: { item: ProductRow; score: number }) => {
