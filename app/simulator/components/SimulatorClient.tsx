@@ -311,6 +311,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
   const activeZoneFilm = activeZone ? zoneFilmMap[activeZone.key] || null : null;
+  const hasIntroStep = mode === "customer" && Boolean(state.contractor);
   const customerGuideStorageKey = useMemo(() => {
     return `${CUSTOMER_GUIDE_STORAGE_PREFIX}:${token || "default"}`;
   }, [token]);
@@ -902,7 +903,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터";
-  const hasIntroStep = mode === "customer" && Boolean(state.contractor);
   const contractorName = state.contractor?.display_name || state.link?.installer_name || "시공자";
   const contractorPhotos = state.contractor?.portfolio_photos || [];
   const phoneHref = getPhoneHref(state.contractor?.phone);
