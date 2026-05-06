@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
@@ -327,6 +328,41 @@ async function readDefaultRecommendedProductIds(supabase: any) {
     .filter((row: { productId: number; sortOrder: number }) => Number.isFinite(row.productId));
 }
 
+async function safeReadDefaultRecommendedProductIds(supabase: any) {
+  try {
+    return await readDefaultRecommendedProductIds(supabase);
+  } catch (error) {
+    console.error("[simulator/films] recommended films fallback:", error);
+    return [];
+  }
+}
+
+function emptyPaletteFacets() {
+  return {
+    palette_mains: [],
+    palette_subs: [],
+    palette_colors: [],
+  };
+}
+
+async function safeReadPaletteFacets(
+  supabase: any,
+  options: {
+    hasToken: boolean;
+    filmScope: "all" | "custom" | "preset";
+    allowedProductIds: number[];
+    paletteMain: string;
+    paletteSub: string;
+  }
+) {
+  try {
+    return await readPaletteFacets(supabase, options);
+  } catch (error) {
+    console.error("[simulator/films] palette facets fallback:", error);
+    return emptyPaletteFacets();
+  }
+}
+
 async function readPaletteFacets(
   supabase: any,
   options: {
@@ -462,7 +498,7 @@ export async function GET(req: NextRequest) {
     const shouldUseDefaultRecommended = wantsRecommended && filmScope === "all";
 
     if (shouldUseDefaultRecommended) {
-      const recommendedRows = await readDefaultRecommendedProductIds(supabase);
+      const recommendedRows = await safeReadDefaultRecommendedProductIds(supabase);
       recommendedProductIds = recommendedRows.map(
         (row: { productId: number; sortOrder: number }) => row.productId
       );
@@ -472,33 +508,13 @@ export async function GET(req: NextRequest) {
           row.sortOrder,
         ])
       );
-
-      if (recommendedProductIds.length === 0) {
-        return jsonNoStore(
-          {
-            items: [],
-            ...(skipFacets
-              ? {}
-              : {
-                  facets: {
-                    palette_mains: [],
-                    palette_subs: [],
-                    palette_colors: [],
-                  },
-                }),
-          },
-          {
-            headers: {
-              "Cache-Control": "no-store, no-cache, must-revalidate",
-            },
-          }
-        );
-      }
     }
+
+    const hasRecommendedFilter = shouldUseDefaultRecommended && recommendedProductIds.length > 0;
 
     const facets = skipFacets
       ? null
-      : await readPaletteFacets(supabase, {
+      : await safeReadPaletteFacets(supabase, {
           hasToken,
           filmScope,
           allowedProductIds,
@@ -527,7 +543,7 @@ export async function GET(req: NextRequest) {
 
     if (hasToken && filmScope !== "all") {
       query = query.in("id", allowedProductIds);
-    } else if (shouldUseDefaultRecommended) {
+    } else if (hasRecommendedFilter) {
       query = query.in("id", recommendedProductIds);
     }
 
@@ -538,7 +554,7 @@ export async function GET(req: NextRequest) {
       .map((item: ProductRow) => ({ item, score: getScore(item, q) }))
       .filter(({ score }: { item: ProductRow; score: number }) => score > 0)
       .sort((a: { item: ProductRow; score: number }, b: { item: ProductRow; score: number }) => {
-        if (shouldUseDefaultRecommended && recommendedOrderMap.size > 0) {
+        if (hasRecommendedFilter && recommendedOrderMap.size > 0) {
           const aOrder = recommendedOrderMap.get(Number(a.item.id)) ?? 9999;
           const bOrder = recommendedOrderMap.get(Number(b.item.id)) ?? 9999;
 
@@ -550,7 +566,7 @@ export async function GET(req: NextRequest) {
         const bName = b.item.full_name || b.item.product_code_1 || "";
         return aName.localeCompare(bName, "ko");
       })
-      .slice(0, shouldUseDefaultRecommended ? DEFAULT_RECOMMENDED_FILM_LIMIT : 60)
+      .slice(0, hasRecommendedFilter ? DEFAULT_RECOMMENDED_FILM_LIMIT : 60)
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
     return jsonNoStore(

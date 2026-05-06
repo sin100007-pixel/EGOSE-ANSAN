@@ -229,16 +229,14 @@ function getSpaceThumbnail(space: SimulatorSpace) {
 }
 
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
-const KAKAO_CACHE_BUST_VALUE = "20260507_inline_assets_1";
+const KAKAO_CACHE_BUST_VALUE = "20260507_proxy2";
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
 const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
-const KAKAO_SW_RESET_KEY = "egose-simulator-browser-sw-reset-v4";
+const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v3";
 
-function isProblemInAppBrowser() {
+function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-
-  return /KAKAOTALK|SamsungBrowser|Whale|NAVER|FB_IAB|Instagram/i.test(ua);
+  return /KAKAOTALK/i.test(navigator.userAgent || "");
 }
 
 function normalizeImageSrc(src: string | null | undefined) {
@@ -270,7 +268,7 @@ function withKakaoCacheBuster(src: string | null | undefined) {
   const normalized = normalizeImageSrc(src);
   if (!normalized) return "";
   if (/^(data:|blob:|tel:|mailto:)/i.test(normalized)) return normalized;
-  if (!isProblemInAppBrowser() || typeof window === "undefined") return normalized;
+  if (!isKakaoInAppBrowser() || typeof window === "undefined") return normalized;
   if (normalized.includes(`${KAKAO_IMAGE_PROXY_PARAM}=1`)) return normalized;
 
   try {
@@ -476,7 +474,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   useEffect(() => {
-    if (!isProblemInAppBrowser()) return;
+    if (!isKakaoInAppBrowser()) return;
 
     try {
       const resetDone = window.sessionStorage.getItem(KAKAO_SW_RESET_KEY);
@@ -540,6 +538,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           setStep("intro");
         } else {
           setStep("space");
+        }
+
+        if (nextFilms.length > 0) {
+          initialSheetFilmsRef.current = nextFilms;
         }
 
         if (nextFilms[0]) {
@@ -717,9 +719,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     selectedPaletteColorsRef.current = [];
 
     const cachedInitialFilms = initialSheetFilmsRef.current;
+    const fallbackFilms = cachedInitialFilms.length > 0 ? cachedInitialFilms : state.films;
     setState((prev) => ({
       ...prev,
-      films: cachedInitialFilms.length > 0 ? cachedInitialFilms : [],
+      films: fallbackFilms,
     }));
 
     setPreviewSampleFilm(null);
@@ -835,6 +838,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       if (!res.ok) {
+        const fallbackFilms = initialSheetFilmsRef.current;
+
+        if (fallbackFilms.length > 0) {
+          setState((prev) => ({ ...prev, films: fallbackFilms }));
+          setFilmError("");
+          return;
+        }
+
         setFilmError(json.error || "필름 검색 중 오류가 발생했습니다.");
         return;
       }
@@ -856,6 +867,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       if (requestSeq !== filmSearchSeqRef.current) {
+        return;
+      }
+
+      const fallbackFilms = initialSheetFilmsRef.current;
+
+      if (fallbackFilms.length > 0) {
+        setState((prev) => ({ ...prev, films: fallbackFilms }));
+        setFilmError("");
         return;
       }
 
