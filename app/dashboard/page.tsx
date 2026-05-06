@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import BottomQuickNav from "@/app/components/BottomQuickNav";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 import EgoseBannerCarousel from "@/app/components/EgoseBannerCarousel";
+import LedgerApologyNotice from "@/app/components/LedgerApologyNotice";
 import { isSimulatorAllowedUser } from "@/app/simulator/auth";
 import { getCurrentEgoseUser } from "@/lib/server-auth";
 
@@ -169,6 +170,8 @@ export default async function DashboardPage() {
             <EgoseBannerCarousel />
           </div>
         </div>
+
+        <LedgerApologyNotice />
 
         <section
           id="user-qr-card"
