@@ -231,6 +231,11 @@ function getScore(item: ProductRow, query: string) {
   const q = normalizeForSearch(query);
   if (!q) return 1;
 
+  const code1 = normalizeForSearch(item.product_code_1 || "");
+  const code2 = normalizeForSearch(item.product_code_2 || "");
+  const fullName = normalizeForSearch(item.full_name || "");
+  const colorName = normalizeForSearch(item.color_name || "");
+
   const fields = [
     item.product_code_1,
     item.product_code_2,
@@ -242,6 +247,10 @@ function getScore(item: ProductRow, query: string) {
     item.palette_sub,
     item.palette_color,
     item.manufacturer,
+    code1 && code2 ? `${code1}${code2}` : "",
+    code1 && colorName ? `${code1}${colorName}` : "",
+    code2 && colorName ? `${code2}${colorName}` : "",
+    fullName,
   ]
     .map((value) => normalizeForSearch(value || ""))
     .filter(Boolean);

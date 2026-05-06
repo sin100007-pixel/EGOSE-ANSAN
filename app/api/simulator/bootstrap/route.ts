@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { readFile } from "fs/promises";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
 
@@ -127,6 +129,108 @@ async function proxyKakaoImage(req: NextRequest) {
       headers: KAKAO_NO_STORE_HEADERS,
     });
   }
+}
+
+
+const INLINE_ASSET_MAX_BYTES = 3 * 1024 * 1024;
+const inlineAssetCache = new Map<string, string | null>();
+
+function isProblemImageBrowser(req: NextRequest) {
+  const userAgent = req.headers.get("user-agent") || "";
+  return /KAKAOTALK|SamsungBrowser|Whale|NAVER|FB_IAB|Instagram|; wv\)/i.test(userAgent);
+}
+
+function getImageMimeType(filePath: string) {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".gif")) return "image/gif";
+  if (lower.endsWith(".svg")) return "image/svg+xml";
+  return "application/octet-stream";
+}
+
+async function toInlinePublicAsset(src: string | null | undefined) {
+  const value = String(src || "").trim();
+  if (!value) return value;
+  if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return value;
+
+  let pathname = "";
+
+  try {
+    const parsed = new URL(value, "http://egose.local");
+    pathname = decodeURIComponent(parsed.pathname || "");
+  } catch {
+    pathname = value.split("?")[0].split("#")[0];
+  }
+
+  if (!pathname.startsWith("/simulator/") || pathname.includes("\0")) return value;
+  if (!/\.(png|jpe?g|webp|gif|svg)$/i.test(pathname)) return value;
+
+  const publicRoot = path.join(process.cwd(), "public");
+  const filePath = path.normalize(path.join(publicRoot, pathname.replace(/^\/+/, "")));
+
+  if (!filePath.startsWith(publicRoot)) return value;
+
+  if (inlineAssetCache.has(filePath)) {
+    return inlineAssetCache.get(filePath) || value;
+  }
+
+  try {
+    const file = await readFile(filePath);
+
+    if (file.byteLength > INLINE_ASSET_MAX_BYTES) {
+      inlineAssetCache.set(filePath, null);
+      return value;
+    }
+
+    const dataUrl = `data:${getImageMimeType(filePath)};base64,${file.toString("base64")}`;
+    inlineAssetCache.set(filePath, dataUrl);
+    return dataUrl;
+  } catch {
+    inlineAssetCache.set(filePath, null);
+    return value;
+  }
+}
+
+async function inlineSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpaceRow> {
+  const maskConfig = space.mask_config;
+  let nextMaskConfig = maskConfig;
+
+  if (maskConfig && Array.isArray(maskConfig["zones"])) {
+    const zones = await Promise.all(
+      (maskConfig["zones"] as unknown[]).map(async (zone) => {
+        if (!zone || typeof zone !== "object") return zone;
+        const z = zone as Record<string, unknown>;
+        return {
+          ...z,
+          mask_url:
+            typeof z.mask_url === "string" ? await toInlinePublicAsset(z.mask_url) : z.mask_url,
+        };
+      })
+    );
+
+    nextMaskConfig = {
+      ...maskConfig,
+      zones,
+    };
+  }
+
+  return {
+    ...space,
+    thumbnail_url: await toInlinePublicAsset(space.thumbnail_url),
+    base_image_url: await toInlinePublicAsset(space.base_image_url),
+    overlay_image_url: await toInlinePublicAsset(space.overlay_image_url),
+    mask_config: nextMaskConfig,
+  };
+}
+
+async function maybeInlineSpaceAssets(
+  req: NextRequest,
+  spaces: SimulatorSpaceRow[]
+): Promise<SimulatorSpaceRow[]> {
+  if (!isProblemImageBrowser(req)) return spaces;
+  return Promise.all(spaces.map((space) => inlineSpaceAssets(space)));
 }
 
 
@@ -561,7 +665,7 @@ export async function GET(req: NextRequest) {
         message:
           "Supabase 환경변수 NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 없습니다.",
         contractor: null,
-        spaces: LOCAL_FALLBACK_SPACES,
+        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES),
         films: [],
       },
       {
@@ -742,6 +846,7 @@ export async function GET(req: NextRequest) {
       spacesError ? [] : ((spaces || []) as SimulatorSpaceRow[]),
       !hasToken
     );
+    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(
@@ -750,7 +855,7 @@ export async function GET(req: NextRequest) {
           expired: false,
           link: linkInfo,
           contractor: contractorProfile,
-          spaces: resolvedSpaces,
+          spaces: responseSpaces,
           films: [],
         },
         {
@@ -809,7 +914,7 @@ export async function GET(req: NextRequest) {
         expired: false,
         link: linkInfo,
         contractor: contractorProfile,
-        spaces: resolvedSpaces,
+        spaces: responseSpaces,
         films: productRows.map((item: ProductRow) => normalizeFilm(item)),
       },
       {
@@ -836,7 +941,7 @@ export async function GET(req: NextRequest) {
           : message || "시뮬레이터 정보를 불러오지 못했습니다.",
         link: null,
         contractor: null,
-        spaces: LOCAL_FALLBACK_SPACES,
+        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES),
         films: [],
       },
       {

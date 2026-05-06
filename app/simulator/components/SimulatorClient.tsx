@@ -171,6 +171,128 @@ function getFilmCode(film: SimulatorFilm) {
   return [film.product_code_1, film.product_code_2].filter(Boolean).join(" / ");
 }
 
+
+function normalizeClientSearch(value: string | null | undefined) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/번/g, "")
+    .replace(/[^0-9A-Z가-힣]/g, "");
+}
+
+function getClientFilmSearchScore(film: SimulatorFilm, query: string) {
+  const q = normalizeClientSearch(query);
+  if (!q) return 1;
+
+  const code1 = normalizeClientSearch(film.product_code_1);
+  const code2 = normalizeClientSearch(film.product_code_2);
+  const fullName = normalizeClientSearch(film.full_name);
+  const colorName = normalizeClientSearch(film.color_name);
+
+  const fields = [
+    film.product_code_1,
+    film.product_code_2,
+    film.full_name,
+    film.color_name,
+    film.category_main,
+    film.category_sub,
+    film.palette_main,
+    film.palette_sub,
+    film.palette_color,
+    film.manufacturer,
+    code1 && code2 ? `${code1}${code2}` : "",
+    code1 && colorName ? `${code1}${colorName}` : "",
+    code2 && colorName ? `${code2}${colorName}` : "",
+    fullName,
+  ]
+    .map((value) => normalizeClientSearch(value))
+    .filter(Boolean);
+
+  let score = 0;
+
+  for (const field of fields) {
+    if (field === q) score = Math.max(score, 100);
+    else if (field.startsWith(q)) score = Math.max(score, 80);
+    else if (field.includes(q)) score = Math.max(score, 60);
+  }
+
+  return score;
+}
+
+function uniqueKoreanSorted(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "ko"));
+}
+
+function mergeFilmsById(current: SimulatorFilm[], next: SimulatorFilm[]) {
+  const map = new Map<number, SimulatorFilm>();
+
+  for (const film of current) {
+    if (Number.isFinite(Number(film.id))) map.set(Number(film.id), film);
+  }
+
+  for (const film of next) {
+    if (Number.isFinite(Number(film.id))) map.set(Number(film.id), film);
+  }
+
+  return Array.from(map.values());
+}
+
+function filterFilmsLocally(
+  films: SimulatorFilm[],
+  options: {
+    keyword: string;
+    paletteMain: string;
+    paletteSub: string;
+    paletteColors: string[];
+  }
+) {
+  const paletteColorSet = new Set(options.paletteColors);
+
+  return films
+    .filter((film) => {
+      if (options.paletteMain && film.palette_main !== options.paletteMain) return false;
+      if (options.paletteSub && film.palette_sub !== options.paletteSub) return false;
+      if (paletteColorSet.size > 0 && !paletteColorSet.has(String(film.palette_color || ""))) {
+        return false;
+      }
+      return true;
+    })
+    .map((film) => ({ film, score: getClientFilmSearchScore(film, options.keyword) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const aName = a.film.full_name || a.film.product_code_1 || "";
+      const bName = b.film.full_name || b.film.product_code_1 || "";
+      return aName.localeCompare(bName, "ko");
+    })
+    .slice(0, 60)
+    .map(({ film }) => film);
+}
+
+function buildLocalPaletteFacets(
+  films: SimulatorFilm[],
+  paletteMain: string,
+  paletteSub: string
+) {
+  const mainRows = paletteMain
+    ? films.filter((film) => film.palette_main === paletteMain)
+    : films;
+  const subRows = paletteSub
+    ? mainRows.filter((film) => film.palette_sub === paletteSub)
+    : mainRows;
+
+  return {
+    palette_mains: uniqueKoreanSorted(films.map((film) => film.palette_main)),
+    palette_subs: uniqueKoreanSorted(mainRows.map((film) => film.palette_sub)),
+    palette_colors: uniqueKoreanSorted(subRows.map((film) => film.palette_color)),
+  };
+}
+
 function isFabricFilm(film: SimulatorFilm | null | undefined) {
   if (!film) return false;
 
@@ -242,6 +364,38 @@ function isKakaoInAppBrowser() {
   // 카카오톡 인앱브라우저뿐 아니라 삼성/웨일/네이버 계열도
   // 이미지 캐시·API 캐시가 크롬과 다르게 남는 경우가 있어 같은 우회 로직을 적용합니다.
   return /KAKAOTALK|SamsungBrowser|Whale|NAVER|; wv\)/i.test(ua);
+}
+
+
+let problemBrowserResetPromise: Promise<void> | null = null;
+
+function clearProblemBrowserCachesOnce() {
+  if (!isKakaoInAppBrowser() || typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  if (problemBrowserResetPromise) return problemBrowserResetPromise;
+
+  problemBrowserResetPromise = Promise.all([
+    "serviceWorker" in navigator
+      ? navigator.serviceWorker
+          .getRegistrations()
+          .then((registrations) =>
+            Promise.all(registrations.map((registration) => registration.unregister()))
+          )
+          .then(() => undefined)
+          .catch(() => undefined)
+      : Promise.resolve(),
+    "caches" in window
+      ? caches
+          .keys()
+          .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          .then(() => undefined)
+          .catch(() => undefined)
+      : Promise.resolve(),
+  ]).then(() => undefined);
+
+  return problemBrowserResetPromise;
 }
 
 function addApiCacheBuster(path: string, params: URLSearchParams) {
@@ -343,6 +497,27 @@ function makeKakaoFetchInit(init: RequestInit = {}): RequestInit {
   };
 }
 
+
+function buildSimulatorApiUrl(pathname: string, params?: URLSearchParams) {
+  if (typeof window === "undefined") {
+    const query = params?.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  }
+
+  const url = new URL(pathname, window.location.origin);
+
+  params?.forEach((value, key) => {
+    url.searchParams.append(key, value);
+  });
+
+  url.searchParams.set(
+    "__egose_api_cache_bust",
+    `${KAKAO_CACHE_BUST_VALUE}_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  );
+
+  return url.toString();
+}
+
 async function readJsonResponse(res: Response) {
   const text = await res.text();
 
@@ -403,6 +578,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const filmSearchSeqRef = useRef(0);
   const filmSearchAbortRef = useRef<AbortController | null>(null);
   const initialSheetFilmsRef = useRef<SimulatorFilm[]>([]);
+  const allKnownFilmsRef = useRef<SimulatorFilm[]>([]);
   const initialSheetRequestKeyRef = useRef("");
   const selectedPaletteMainRef = useRef("");
   const selectedPaletteSubRef = useRef("");
@@ -480,6 +656,49 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     return selectedDecisionFilms.some((film) => isFabricFilm(film));
   }, [selectedDecisionFilms]);
 
+
+  const rememberFilms = (films: SimulatorFilm[]) => {
+    if (films.length === 0) return;
+    allKnownFilmsRef.current = mergeFilmsById(allKnownFilmsRef.current, films);
+  };
+
+  const getLocalFilmSource = () => {
+    if (allKnownFilmsRef.current.length > 0) return allKnownFilmsRef.current;
+    if (initialSheetFilmsRef.current.length > 0) return initialSheetFilmsRef.current;
+    return state.films;
+  };
+
+  const applyLocalFilmFallback = (
+    keyword: string,
+    options: {
+      paletteMain: string;
+      paletteSub: string;
+      paletteColors: string[];
+      includeFacets: boolean;
+    }
+  ) => {
+    const sourceFilms = getLocalFilmSource();
+
+    if (sourceFilms.length === 0) return false;
+
+    const nextFilms = filterFilmsLocally(sourceFilms, {
+      keyword,
+      paletteMain: options.paletteMain,
+      paletteSub: options.paletteSub,
+      paletteColors: options.paletteColors,
+    });
+
+    if (options.includeFacets) {
+      updatePaletteFacets({
+        facets: buildLocalPaletteFacets(sourceFilms, options.paletteMain, options.paletteSub),
+      });
+    }
+
+    setState((prev) => ({ ...prev, films: nextFilms }));
+    setFilmError(nextFilms.length === 0 ? "조건에 맞는 필름이 없습니다." : "");
+    return true;
+  };
+
   const getTargetZoneKey = () => {
     return activeZoneKey || activeZone?.key || maskZones[0]?.key || "";
   };
@@ -492,6 +711,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       if (resetDone === "1") return;
 
       window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
+
+      void clearProblemBrowserCachesOnce();
 
       void Promise.all([
         "serviceWorker" in navigator
@@ -517,10 +738,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       setState((prev) => ({ ...prev, loading: true, message: "" }));
 
       try {
+        await clearProblemBrowserCachesOnce();
+
         const params = new URLSearchParams();
         if (token) params.set("token", token);
         const res = await fetch(
-          addApiCacheBuster("/api/simulator/bootstrap", params),
+          buildSimulatorApiUrl("/api/simulator/bootstrap", params),
           makeKakaoFetchInit()
         );
         const json = await readJsonResponse(res);
@@ -557,6 +780,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         if (nextFilms.length > 0) {
           initialSheetFilmsRef.current = nextFilms;
+          rememberFilms(nextFilms);
         }
 
         if (nextFilms[0]) {
@@ -832,6 +1056,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setFilmError("");
 
     try {
+      await clearProblemBrowserCachesOnce();
+
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (token) params.set("token", token);
@@ -842,7 +1068,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       nextPaletteColors.forEach((color) => params.append("palette_color", color));
 
       const res = await fetch(
-        addApiCacheBuster("/api/simulator/films", params),
+        buildSimulatorApiUrl("/api/simulator/films", params),
         makeKakaoFetchInit({ signal: controller.signal })
       );
 
@@ -853,25 +1079,42 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       if (!res.ok) {
-        const fallbackFilms = initialSheetFilmsRef.current;
+        const recovered = applyLocalFilmFallback(q, {
+          paletteMain: nextPaletteMain,
+          paletteSub: nextPaletteSub,
+          paletteColors: nextPaletteColors,
+          includeFacets,
+        });
 
-        if (fallbackFilms.length > 0) {
-          setState((prev) => ({ ...prev, films: fallbackFilms }));
-          setFilmError("");
-          return;
+        if (!recovered) {
+          setFilmError(json.error || "필름 검색 중 오류가 발생했습니다.");
         }
 
-        setFilmError(json.error || "필름 검색 중 오류가 발생했습니다.");
         return;
       }
 
       const nextFilms = Array.isArray(json.items)
         ? json.items.map((film: SimulatorFilm) => normalizeFilmForKakao(film))
         : [];
+
+      if (nextFilms.length === 0 && (q || nextPaletteMain || nextPaletteSub || nextPaletteColors.length > 0)) {
+        const recovered = applyLocalFilmFallback(q, {
+          paletteMain: nextPaletteMain,
+          paletteSub: nextPaletteSub,
+          paletteColors: nextPaletteColors,
+          includeFacets,
+        });
+
+        if (recovered) return;
+      }
+
       if (json.facets) {
         updatePaletteFacets(json);
       }
-      if (isInitialSheetRequest) {
+      if (nextFilms.length > 0) {
+        rememberFilms(nextFilms);
+      }
+      if (isInitialSheetRequest && nextFilms.length > 0) {
         initialSheetFilmsRef.current = nextFilms;
       }
 
@@ -885,15 +1128,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         return;
       }
 
-      const fallbackFilms = initialSheetFilmsRef.current;
+      const recovered = applyLocalFilmFallback(q, {
+        paletteMain: nextPaletteMain,
+        paletteSub: nextPaletteSub,
+        paletteColors: nextPaletteColors,
+        includeFacets,
+      });
 
-      if (fallbackFilms.length > 0) {
-        setState((prev) => ({ ...prev, films: fallbackFilms }));
-        setFilmError("");
-        return;
+      if (!recovered) {
+        setFilmError("필름 검색 중 오류가 발생했습니다.");
       }
-
-      setFilmError("필름 검색 중 오류가 발생했습니다.");
     } finally {
       if (requestSeq === filmSearchSeqRef.current) {
         setFilmLoading(false);
