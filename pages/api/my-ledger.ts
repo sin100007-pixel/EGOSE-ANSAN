@@ -144,9 +144,27 @@ function contentRangeTotal(headers: any, fallback: number) {
   return Number.isFinite(total) ? total : fallback;
 }
 
+function normalizeName(value: any) {
+  return String(value ?? "")
+    .replace(/[\s\u00a0]+/g, "")
+    .trim();
+}
+
+function cleanForIlike(value: string) {
+  // PostgREST ilike 패턴에서 사용자가 넣을 수 있는 와일드카드/구분 문자를 제거
+  return String(value ?? "")
+    .replace(/[\*%,()]/g, "")
+    .trim();
+}
+
+function getRowCustomerName(row: any) {
+  return String(row?.name ?? row?.customer_name ?? row?.customerName ?? row?.["거래처"] ?? row?.["고객명"] ?? "").trim();
+}
+
 function buildLedgerUrl(args: {
-  customerColumn: "name" | "customer_name";
-  loginName: string;
+  customerColumn?: "name" | "customer_name";
+  loginName?: string;
+  matchMode?: "eq" | "ilike" | "none";
   dateFrom: string;
   dateTo: string;
   limit: number;
@@ -157,7 +175,15 @@ function buildLedgerUrl(args: {
   const url = new URL(base);
 
   url.searchParams.set("select", "*");
-  url.searchParams.set(args.customerColumn, `eq.${args.loginName}`);
+
+  if (args.customerColumn && args.loginName && args.matchMode !== "none") {
+    if (args.matchMode === "ilike") {
+      const likeName = cleanForIlike(args.loginName);
+      url.searchParams.set(args.customerColumn, `ilike.*${likeName}*`);
+    } else {
+      url.searchParams.set(args.customerColumn, `eq.${args.loginName}`);
+    }
+  }
 
   if (args.dateFrom) url.searchParams.set("tx_date", `gte.${args.dateFrom}`);
   if (args.dateTo) url.searchParams.append("tx_date", `lte.${args.dateTo}`);
@@ -176,18 +202,46 @@ async function fetchRows(loginName: string, dateFrom: string, dateTo: string, li
     Prefer: "count=exact",
   } as Record<string, string>;
 
-  const attempts = [
-    { customerColumn: "name" as const, orderWithRowNo: true },
-    { customerColumn: "name" as const, orderWithRowNo: false },
-    { customerColumn: "customer_name" as const, orderWithRowNo: false },
+  const compactLoginName = normalizeName(loginName);
+  const compactCandidate = compactLoginName && compactLoginName !== loginName ? compactLoginName : "";
+
+  const attempts: Array<{
+    customerColumn: "name" | "customer_name";
+    loginName: string;
+    matchMode: "eq" | "ilike";
+    orderWithRowNo: boolean;
+  }> = [
+    // 1순위: 기존 원장 검색과 비슷하게 이름 포함 검색을 먼저 시도한다.
+    // 거래처명에 공백/괄호/호칭이 붙은 경우 exact(eq)만 쓰면 0건이 될 수 있음.
+    { customerColumn: "name", loginName, matchMode: "ilike", orderWithRowNo: true },
+    { customerColumn: "name", loginName, matchMode: "ilike", orderWithRowNo: false },
+    { customerColumn: "name", loginName, matchMode: "eq", orderWithRowNo: true },
+    { customerColumn: "name", loginName, matchMode: "eq", orderWithRowNo: false },
+    ...(compactCandidate
+      ? [
+          { customerColumn: "name" as const, loginName: compactCandidate, matchMode: "ilike" as const, orderWithRowNo: false },
+          { customerColumn: "name" as const, loginName: compactCandidate, matchMode: "eq" as const, orderWithRowNo: false },
+        ]
+      : []),
+    // 예전/다른 DB 구조 대비
+    { customerColumn: "customer_name", loginName, matchMode: "ilike", orderWithRowNo: false },
+    { customerColumn: "customer_name", loginName, matchMode: "eq", orderWithRowNo: false },
+    ...(compactCandidate
+      ? [
+          { customerColumn: "customer_name" as const, loginName: compactCandidate, matchMode: "ilike" as const, orderWithRowNo: false },
+          { customerColumn: "customer_name" as const, loginName: compactCandidate, matchMode: "eq" as const, orderWithRowNo: false },
+        ]
+      : []),
   ];
 
   let lastFailure: { status: number; text: string } | null = null;
+  let emptySuccess: { rows: LedgerRow[]; total: number } | null = null;
 
   for (const attempt of attempts) {
     const url = buildLedgerUrl({
       customerColumn: attempt.customerColumn,
-      loginName,
+      loginName: attempt.loginName,
+      matchMode: attempt.matchMode,
       dateFrom,
       dateTo,
       limit,
@@ -200,14 +254,58 @@ async function fetchRows(loginName: string, dateFrom: string, dateTo: string, li
     if (resp.status >= 200 && resp.status < 300) {
       const rawRows = JSON.parse(resp.text || "[]");
       const rows = Array.isArray(rawRows) ? rawRows.map(normalizeRow) : [];
-      return {
-        rows,
-        total: contentRangeTotal(resp.headers, rows.length),
-      };
+
+      if (rows.length > 0) {
+        return {
+          rows,
+          total: contentRangeTotal(resp.headers, rows.length),
+        };
+      }
+
+      if (!emptySuccess) {
+        emptySuccess = {
+          rows,
+          total: contentRangeTotal(resp.headers, rows.length),
+        };
+      }
+      continue;
     }
 
     lastFailure = { status: resp.status, text: resp.text };
   }
+
+  // 마지막 안전장치: 이름 컬럼에 공백/특수문자 차이가 있어 PostgREST 필터가 못 잡는 경우가 있어서
+  // 최근 3개월 범위만 가져온 뒤 서버 안에서 이름을 정규화해 다시 걸러낸다.
+  // 브라우저에는 필터링된 본인 데이터만 내려간다.
+  const fallbackUrl = buildLedgerUrl({
+    dateFrom,
+    dateTo,
+    limit: Math.min(Math.max(limit, 5000), 10000),
+    offset,
+    orderWithRowNo: false,
+    matchMode: "none",
+  });
+
+  const fallbackResp = await httpsGet(fallbackUrl, headers);
+  if (fallbackResp.status >= 200 && fallbackResp.status < 300) {
+    const rawRows = JSON.parse(fallbackResp.text || "[]");
+    const filteredRows = Array.isArray(rawRows)
+      ? rawRows
+          .filter((row) => {
+            const rowName = normalizeName(getRowCustomerName(row));
+            if (!rowName || !compactLoginName) return false;
+            return rowName === compactLoginName || rowName.includes(compactLoginName) || compactLoginName.includes(rowName);
+          })
+          .map(normalizeRow)
+      : [];
+
+    return {
+      rows: filteredRows.slice(0, limit),
+      total: filteredRows.length,
+    };
+  }
+
+  if (emptySuccess) return emptySuccess;
 
   throw new Error(
     lastFailure
