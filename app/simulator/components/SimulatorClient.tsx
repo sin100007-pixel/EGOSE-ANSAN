@@ -351,10 +351,10 @@ function getSpaceThumbnail(space: SimulatorSpace) {
 }
 
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
-const KAKAO_CACHE_BUST_VALUE = "20260507_proxy3";
+const KAKAO_CACHE_BUST_VALUE = "20260507_proxy5";
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
 const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
-const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v4";
+const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v5";
 
 function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
@@ -693,14 +693,49 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     });
 
     if (options.includeFacets) {
+      const facetSourceFilms = getLocalFilmSource(false);
       updatePaletteFacets({
-        facets: buildLocalPaletteFacets(sourceFilms, options.paletteMain, options.paletteSub),
+        facets: buildLocalPaletteFacets(
+          facetSourceFilms.length > 0 ? facetSourceFilms : sourceFilms,
+          options.paletteMain,
+          options.paletteSub
+        ),
       });
     }
 
     setState((prev) => ({ ...prev, films: nextFilms }));
     setFilmError(nextFilms.length === 0 ? "조건에 맞는 필름이 없습니다." : "");
     return true;
+  };
+
+  const updatePaletteFacetsFromLocalCorpus = (paletteMain = "", paletteSub = "") => {
+    const sourceFilms = getLocalFilmSource(false);
+
+    if (sourceFilms.length === 0) {
+      setPaletteSubOptions([]);
+      setPaletteColorOptions(PALETTE_COLOR_OPTIONS);
+      return false;
+    }
+
+    updatePaletteFacets({
+      facets: buildLocalPaletteFacets(sourceFilms, paletteMain, paletteSub),
+    });
+    return true;
+  };
+
+  const restoreInitialSheetFilms = () => {
+    const initialFilms = initialSheetFilmsRef.current.length > 0
+      ? initialSheetFilmsRef.current
+      : state.films;
+
+    setState((prev) => ({
+      ...prev,
+      films: initialFilms,
+    }));
+
+    setFilmError(initialFilms.length === 0 ? "조건에 맞는 필름이 없습니다." : "");
+    updatePaletteFacetsFromLocalCorpus("", "");
+    return initialFilms.length > 0;
   };
 
   const getTargetZoneKey = () => {
@@ -974,9 +1009,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       ...prev,
       films: fallbackFilms,
     }));
+    updatePaletteFacetsFromLocalCorpus("", "");
 
     setPreviewSampleFilm(null);
     setIsFilmSheetOpen(true);
+
+    // 카카오톡/삼성/웨일 계열은 필름 선택창을 열자마자 API를 다시 부르면
+    // 추천 필름 목록과 팔레트가 브라우저 캐시/응답 순서에 따라 바뀌는 경우가 있습니다.
+    // 처음 목록은 bootstrap에서 받은 지정 필름을 그대로 쓰고,
+    // 검색/팔레트는 bootstrap의 search_films 말뭉치로 로컬 처리합니다.
+    if (isKakaoInAppBrowser()) {
+      setFilmLoading(false);
+      return;
+    }
 
     if (!filmLoading) {
       void searchFilms("", {
@@ -1066,6 +1111,23 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setFilmLoading(true);
     setFilmError("");
 
+    if (isKakaoInAppBrowser() && getLocalFilmSource(false).length > 0) {
+      if (isInitialSheetRequest) {
+        restoreInitialSheetFilms();
+      } else {
+        applyLocalFilmFallback(q, {
+          paletteMain: nextPaletteMain,
+          paletteSub: nextPaletteSub,
+          paletteColors: nextPaletteColors,
+          includeFacets,
+          preferInitialSource: false,
+        });
+      }
+
+      setFilmLoading(false);
+      return;
+    }
+
     try {
       await clearProblemBrowserCachesOnce();
 
@@ -1127,7 +1189,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       if (nextFilms.length > 0) {
         rememberFilms(nextFilms);
       }
-      if (isInitialSheetRequest && nextFilms.length > 0) {
+      if (isInitialSheetRequest && useRecommended && nextFilms.length > 0) {
         initialSheetFilmsRef.current = nextFilms;
       }
 
@@ -1177,6 +1239,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     if (initialSheetRequestKeyRef.current === requestKey) return;
 
     initialSheetRequestKeyRef.current = requestKey;
+
+    if (isKakaoInAppBrowser()) {
+      restoreInitialSheetFilms();
+      return;
+    }
 
     void searchFilms("", {
       paletteMain: "",

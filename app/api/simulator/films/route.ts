@@ -401,7 +401,7 @@ async function readPaletteFacets(
     .eq("manufacturer", "삼성필름")
     .eq("is_simulatable", true)
     .or("simulation_image_path.not.is.null,image_path.not.is.null")
-    .limit(1500);
+    .limit(3000);
 
   if (options.hasToken && options.filmScope !== "all") {
     query = query.in("id", options.allowedProductIds);
@@ -606,7 +606,7 @@ export async function GET(req: NextRequest) {
           .eq("manufacturer", "삼성필름")
           .eq("is_simulatable", true)
           .or("simulation_image_path.not.is.null,image_path.not.is.null")
-          .limit(1500);
+          .limit(3000);
 
         if (paletteMain) fallbackQuery = fallbackQuery.eq("palette_main", paletteMain);
         if (paletteSub) fallbackQuery = fallbackQuery.eq("palette_sub", paletteSub);

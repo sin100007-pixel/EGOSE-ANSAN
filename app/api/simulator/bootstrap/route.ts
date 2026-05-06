@@ -615,7 +615,7 @@ async function readSearchCorpusProducts(
     .eq("manufacturer", "삼성필름")
     .eq("is_simulatable", true)
     .or("simulation_image_path.not.is.null,image_path.not.is.null")
-    .limit(1500);
+    .limit(3000);
 
   // 링크에서 직접선택/프리셋으로 제한한 경우에는 고객이 볼 수 있는 필름 안에서만
   // 검색/팔레트 fallback이 동작해야 합니다.
