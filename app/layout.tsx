@@ -4,6 +4,9 @@ import PWAClient from "./pwa-client";
 import SessionHydrator from "./components/SessionHydrator";
 import PageViewTracker from "./components/PageViewTracker";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://customer-qr-login.vercel.app";
+
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#111827" },
@@ -12,6 +15,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "EGOSE QR",
   description: "고객 전용 QR 코드 뷰어",
   manifest: "/manifest.json",
