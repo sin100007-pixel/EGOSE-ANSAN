@@ -905,12 +905,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           background: transparent;
         }
 
-        .sceneStageClickable {
-          cursor: pointer;
-          touch-action: manipulation;
-        }
-
-
         .maskedTransparencyLayer,
         .maskedFilmLayer {
           position: absolute;
@@ -943,11 +937,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           z-index: 3;
           background-position: center;
           background-repeat: repeat;
-        }
-
-        .maskedTransparencyLayerActive,
-        .maskedFilmLayerActive {
-          filter: brightness(1.04) saturate(1.06);
         }
 
         .sceneBaseImage,
@@ -1483,7 +1472,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .customerGuideBody {
           display: grid;
-          gap: 8px;
+          gap: 14px;
           margin-bottom: 18px;
           color: rgba(255, 255, 255, 0.78);
           font-size: 15px;
@@ -1492,8 +1481,51 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           word-break: keep-all;
         }
 
+        .customerGuideSection {
+          display: grid;
+          gap: 6px;
+        }
+
+        .customerGuideSectionTitle {
+          color: ${COLORS.cream};
+          font-size: 15px;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+        }
+
+        .customerGuideSectionLines {
+          display: grid;
+          gap: 4px;
+        }
+
         .customerGuideBody p {
           margin: 0;
+        }
+
+        .customerGuideCheckerInline {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          vertical-align: middle;
+          color: ${COLORS.cream};
+          font-weight: 800;
+        }
+
+        .customerGuideCheckerDot {
+          width: 18px;
+          height: 18px;
+          display: inline-block;
+          border-radius: 999px;
+          border: 1px solid rgba(238, 224, 197, 0.7);
+          background-color: rgba(255, 255, 255, 0.92);
+          background-image:
+            linear-gradient(45deg, rgba(18, 18, 40, 0.14) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(18, 18, 40, 0.14) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(18, 18, 40, 0.14) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(18, 18, 40, 0.14) 75%);
+          background-size: 8px 8px;
+          background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
         }
 
         .customerGuidePrimaryButton {

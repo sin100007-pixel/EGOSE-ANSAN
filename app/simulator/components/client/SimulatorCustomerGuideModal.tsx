@@ -1,14 +1,28 @@
-type CustomerGuide = {
-  stepLabel: string;
-  title: string;
-  body: string[];
-  buttonLabel: string;
-};
+import type { CustomerGuide, CustomerGuideInlinePart, CustomerGuideSectionLine } from "../../lib/client-state";
 
 type SimulatorCustomerGuideModalProps = {
   guide: CustomerGuide;
   onClose: () => void;
 };
+
+function renderGuideLine(line: CustomerGuideSectionLine) {
+  if (typeof line === "string") {
+    return line;
+  }
+
+  return line.map((part, index) => {
+    if (part.type === "checker") {
+      return (
+        <span key={`checker-${index}`} className="customerGuideCheckerInline">
+          <span className="customerGuideCheckerDot" aria-hidden="true" />
+          <span>{part.label ?? "체크무늬"}</span>
+        </span>
+      );
+    }
+
+    return <span key={`text-${index}`}>{part.text}</span>;
+  });
+}
 
 export default function SimulatorCustomerGuideModal({ guide, onClose }: SimulatorCustomerGuideModalProps) {
   return (
@@ -37,8 +51,18 @@ export default function SimulatorCustomerGuideModal({ guide, onClose }: Simulato
         </h3>
 
         <div className="customerGuideBody">
-          {guide.body.map((line) => (
-            <p key={line}>{line}</p>
+          {guide.body.map((section, sectionIndex) => (
+            <div key={`${guide.stepLabel}-${sectionIndex}`} className="customerGuideSection">
+              {section.heading ? (
+                <div className="customerGuideSectionTitle">{section.heading}</div>
+              ) : null}
+
+              <div className="customerGuideSectionLines">
+                {section.lines.map((line, lineIndex) => (
+                  <p key={`${guide.stepLabel}-${sectionIndex}-${lineIndex}`}>{renderGuideLine(line)}</p>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
 

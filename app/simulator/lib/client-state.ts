@@ -38,10 +38,21 @@ export const INITIAL_BOOTSTRAP_STATE: BootstrapState = {
   contractor: null,
 };
 
+export type CustomerGuideInlinePart =
+  | { type: "text"; text: string }
+  | { type: "checker"; label?: string };
+
+export type CustomerGuideSectionLine = string | CustomerGuideInlinePart[];
+
+export type CustomerGuideSection = {
+  heading?: string;
+  lines: CustomerGuideSectionLine[];
+};
+
 export type CustomerGuide = {
   stepLabel: string;
   title: string;
-  body: string[];
+  body: CustomerGuideSection[];
   buttonLabel: string;
 };
 
@@ -50,8 +61,12 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
     stepLabel: "1단계 소개",
     title: "인테리어필름 시뮬레이터에 오신 걸 환영합니다.",
     body: [
-      "원하는 공간에 필름을 미리 적용해볼 수 있어요.",
-      "준비되셨다면 화면 가운데의 [시뮬레이션 시작] 버튼을 눌러주세요.",
+      {
+        lines: [
+          "원하는 공간에 필름을 미리 적용해볼 수 있어요.",
+          "준비되셨다면 화면 가운데의 [시뮬레이션 시작] 버튼을 눌러주세요.",
+        ],
+      },
     ],
     buttonLabel: "알겠어요",
   },
@@ -59,17 +74,41 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
     stepLabel: "2단계 공간 선택",
     title: "시뮬레이션할 공간을 선택해주세요.",
     body: [
-      "원하는 공간 카드를 터치하면 그 공간에 인테리어 필름을 적용해볼 수 있습니다.",
+      {
+        lines: [
+          "원하는 공간 카드를 터치하면 그 공간에 인테리어 필름을 적용해볼 수 있습니다.",
+        ],
+      },
     ],
     buttonLabel: "공간 선택하러 가기",
   },
   apply: {
     stepLabel: "3단계 색상 적용",
-    title: "먼저 필름을 적용할 구역을 선택해주세요.",
+    title: "색상 적용 방법을 안내드릴게요.",
     body: [
-      "이미지 아래의 구역 버튼을 누르면 색상 목록이 열립니다.",
-      "색상 팔레트에서 원하는 색을 고르면 비슷한 필름을 모아서 보여드려요.",
-      "마음에 드는 색을 적용했다면 화면 하단의 [결정확정] 버튼을 눌러주세요.",
+      {
+        heading: "[구역선택]",
+        lines: [
+          [
+            { type: "text", text: "이미지의 원하는 구역의 " },
+            { type: "checker", label: "체크무늬" },
+            { type: "text", text: "를 클릭" },
+          ],
+          "이미지 하단의 구역 버튼 클릭",
+        ],
+      },
+      {
+        heading: "[색상선택]",
+        lines: [
+          "팔레트에서 원하는 색을 누르면 그 색과 비슷한 필름을 모아서 보여드려요.",
+        ],
+      },
+      {
+        heading: "[결정확정]",
+        lines: [
+          "마음에 드는 색을 찾으셨으면 하단에 결정확정을 눌러주세요.",
+        ],
+      },
     ],
     buttonLabel: "색상 적용해보기",
   },

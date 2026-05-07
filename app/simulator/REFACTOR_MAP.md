@@ -108,14 +108,13 @@ Supabase Storage 이미지 URL을 만드는 공통 함수입니다. `bootstrap/r
 
 `links/route.ts`, `presets/route.ts`에서 body 값을 안전하게 문자열/숫자 배열로 정리하는 공통 함수입니다.
 
+## 고객 가이드 안내 문구/체크무늬 배지
 
-## 마스크 영역 직접 선택 기능
+- `app/simulator/lib/client-state.ts`: 고객 사용 가이드 문구와 단계별 안내 데이터
+- `app/simulator/components/client/SimulatorCustomerGuideModal.tsx`: 안내 문구 렌더링, 체크무늬 인라인 배지 렌더링
+- `app/simulator/components/SimulatorClientStyles.tsx`: 고객 가이드 팝업, 아이보리 섹션 제목, 원형 체크무늬 배지 스타일
 
-- `app/simulator/hooks/useMaskZonePicker.ts`: 미리보기에서 클릭한 좌표가 어느 마스크 PNG의 불투명 영역인지 판별합니다.
-- `app/simulator/components/client/SimulatorScenePreview.tsx`: `onZoneClick`이 있을 때 체크무늬/필름 적용 영역을 직접 눌러 구역을 선택할 수 있게 합니다.
-- `app/simulator/components/client/SimulatorApplyStep.tsx`: 미리보기에서 선택된 구역을 기존 `onOpenFilmSheet` 흐름으로 연결합니다.
-
-주의: 마스크 선택은 PNG의 alpha 값을 읽어서 판단하므로, 새 공간의 마스크 파일은 현재처럼 적용 영역만 불투명하고 나머지는 투명해야 합니다.
+색상 적용 단계 안내는 구역 선택, 색상 선택, 결정 확정 순서로 정리되어 있습니다.
 
 ## 6단계 이후 다음 후보
 
