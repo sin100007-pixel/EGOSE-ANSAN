@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import BottomQuickNav from "@/app/components/BottomQuickNav";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
@@ -18,10 +19,11 @@ type IconOnlyShortcutProps = {
 
 function IconOnlyShortcut({ href, imageSrc, label }: IconOnlyShortcutProps) {
   return (
-    <a
-      href={href}
+    <Link
+      href={href as any}
       aria-label={label}
       title={label}
+      prefetch={true}
       style={{
         display: "flex",
         alignItems: "center",
@@ -49,7 +51,7 @@ function IconOnlyShortcut({ href, imageSrc, label }: IconOnlyShortcutProps) {
           filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.18))",
         }}
       />
-    </a>
+    </Link>
   );
 }
 

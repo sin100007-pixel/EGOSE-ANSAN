@@ -452,7 +452,7 @@ export function useSimulatorFilmSearch({
   };
 
   useEffect(() => {
-    if (state.loading || step !== "apply") return;
+    if (state.loading || state.setupNeeded || state.expired) return;
 
     const isRestrictedCustomerLink =
       mode === "customer" &&
@@ -470,20 +470,26 @@ export function useSimulatorFilmSearch({
 
     initialSheetRequestKeyRef.current = requestKey;
 
-    if (isKakaoInAppBrowser()) {
-      restoreInitialSheetFilms();
-      return;
-    }
+    const prefetchInitialFilms = () => {
+      if (isKakaoInAppBrowser()) {
+        restoreInitialSheetFilms();
+        return;
+      }
 
-    void searchFilms("", {
-      paletteMain: "",
-      paletteSub: "",
-      paletteColors: [],
-      includeFacets: true,
-      recommended: !isRestrictedCustomerLink,
-    });
+      void searchFilms("", {
+        paletteMain: "",
+        paletteSub: "",
+        paletteColors: [],
+        includeFacets: true,
+        recommended: !isRestrictedCustomerLink,
+      });
+    };
+
+    const timer = window.setTimeout(prefetchInitialFilms, 80);
+
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, state.loading, mode, token, state.link?.film_scope, state.link?.token]);
+  }, [state.loading, state.setupNeeded, state.expired, mode, token, state.link?.film_scope, state.link?.token]);
 
   const handlePaletteMainClick = (value: string) => {
     const nextMain = selectedPaletteMainRef.current === value ? "" : value;

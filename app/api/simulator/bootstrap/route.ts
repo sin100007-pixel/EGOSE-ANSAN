@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
-import { KAKAO_NO_STORE_HEADERS, jsonNoStore } from "../_lib/response";
+import { KAKAO_NO_STORE_HEADERS, isProblemImageBrowserRequest, jsonNoStore, jsonSimulatorCache } from "../_lib/response";
 import { getSupabase } from "../_lib/supabase";
 import { getCleanSupabaseUrl } from "../_lib/image-url";
 import {
@@ -131,8 +131,7 @@ const INLINE_ASSET_MAX_BYTES = 3 * 1024 * 1024;
 const inlineAssetCache = new Map<string, string | null>();
 
 function isProblemImageBrowser(req: NextRequest) {
-  const userAgent = req.headers.get("user-agent") || "";
-  return /KAKAOTALK|SamsungBrowser|Whale|NAVER|FB_IAB|Instagram|; wv\)/i.test(userAgent);
+  return isProblemImageBrowserRequest(req);
 }
 
 function getImageMimeType(filePath: string) {
@@ -718,6 +717,23 @@ export async function GET(req: NextRequest) {
           },
         }
       );
+    }
+
+    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req);
+
+    // 일반 Chrome/Edge에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
+    // 추천 필름과 검색용 3000개 말뭉치는 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
+    // 카카오/삼성/웨일/네이버 인앱브라우저는 기존 안정화 방식이 local search_films에 의존하므로 유지합니다.
+    if (!shouldKeepLegacyFilmBootstrap) {
+      return jsonSimulatorCache(req, {
+        setupNeeded: false,
+        expired: false,
+        link: linkInfo,
+        contractor: contractorProfile,
+        spaces: responseSpaces,
+        films: [],
+        search_films: [],
+      });
     }
 
     if (filmScope !== "all" && allowedProductIds.length > 0) {

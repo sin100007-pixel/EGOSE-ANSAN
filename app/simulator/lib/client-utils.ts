@@ -411,6 +411,17 @@ export function normalizeSpaceForKakao(space: SimulatorSpace): SimulatorSpace {
 }
 
 export function makeKakaoFetchInit(init: RequestInit = {}): RequestInit {
+  if (!isKakaoInAppBrowser()) {
+    return {
+      ...init,
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        ...(init.headers || {}),
+      },
+    };
+  }
+
   return {
     ...init,
     cache: "no-store",
@@ -437,10 +448,12 @@ export function buildSimulatorApiUrl(pathname: string, params?: URLSearchParams)
     url.searchParams.append(key, value);
   });
 
-  url.searchParams.set(
-    "__egose_api_cache_bust",
-    `${KAKAO_CACHE_BUST_VALUE}_${Date.now()}_${Math.random().toString(36).slice(2)}`
-  );
+  if (isKakaoInAppBrowser()) {
+    url.searchParams.set(
+      "__egose_api_cache_bust",
+      `${KAKAO_CACHE_BUST_VALUE}_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    );
+  }
 
   return url.toString();
 }

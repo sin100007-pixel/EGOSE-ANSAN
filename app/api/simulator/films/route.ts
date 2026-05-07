@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
-import { jsonNoStore } from "../_lib/response";
+import { jsonNoStore, jsonSimulatorCache } from "../_lib/response";
 import { getSupabase } from "../_lib/supabase";
 import {
   DEFAULT_RECOMMENDED_FILM_LIMIT,
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (filmScope !== "all" && allowedProductIds.length === 0) {
-          return jsonNoStore({
+          return jsonSimulatorCache(req, {
             items: [],
             ...(skipFacets
               ? {}
@@ -264,17 +264,10 @@ export async function GET(req: NextRequest) {
       .slice(0, hasRecommendedFilter ? DEFAULT_RECOMMENDED_FILM_LIMIT : 60)
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
-    return jsonNoStore(
-      {
-        items,
-        ...(facets ? { facets } : {}),
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
-      }
-    );
+    return jsonSimulatorCache(req, {
+      items,
+      ...(facets ? { facets } : {}),
+    });
   } catch (error: any) {
     return jsonNoStore(
       { error: error?.message || "필름 검색 중 오류가 발생했습니다.", items: [] },
