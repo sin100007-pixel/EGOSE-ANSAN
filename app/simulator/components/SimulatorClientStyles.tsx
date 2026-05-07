@@ -398,6 +398,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           box-sizing: border-box;
         }
 
+        .pageInnerCustomerIntroWithGuide {
+          padding-top: calc(env(safe-area-inset-top, 0px) + 104px);
+        }
+
 
         .guideToggleFloatingButton {
           position: fixed;
@@ -2599,6 +2603,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
         @media (min-width: 768px) {
+          .pageInnerCustomerIntroWithGuide {
+            padding-top: calc(env(safe-area-inset-top, 0px) + 116px);
+          }
+
           .guideToggleFloatingButton {
             top: calc(env(safe-area-inset-top, 0px) + 14px);
             right: 14px;

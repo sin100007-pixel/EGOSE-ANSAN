@@ -284,12 +284,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ? "이미지의 체크무늬 구역이나 아래 구역 버튼을 눌러 필름을 적용하세요."
         : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요.";
 
+  const isCustomerIntroStep = step === "intro" && hasIntroStep;
+
   const showGuideToggle =
     mode === "customer" &&
     !state.loading &&
     !state.expired &&
     !state.setupNeeded &&
-    (step === "space" || step === "apply");
+    (isCustomerIntroStep || step === "space" || step === "apply");
 
   const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
   const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
@@ -348,7 +350,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           </button>
         ) : null}
 
-        <div className="pageInner">
+        <div className={isCustomerIntroStep && showGuideToggle ? "pageInner pageInnerCustomerIntroWithGuide" : "pageInner"}>
           {(state.loading && mode === "customer") || (step === "intro" && hasIntroStep) ? null : (
             <section className="heroCard">
               <div className="heroTopRow">

@@ -5,7 +5,6 @@ import {
   CUSTOMER_GUIDES,
   CUSTOMER_GUIDE_STEPS,
   CUSTOMER_GUIDE_STORAGE_PREFIX,
-  CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX,
   type CustomerGuideStep,
   type SimulatorMode,
   type SimulatorStep,
@@ -35,21 +34,29 @@ export function useSimulatorCustomerGuide({
   const [activeGuideStep, setActiveGuideStep] = useState<CustomerGuideStep | null>(null);
   const [seenGuideSteps, setSeenGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
   const [guideReady, setGuideReady] = useState(false);
-  const [guideEnabled, setGuideEnabled] = useState(true);
+  const [manualGuideMode, setManualGuideMode] = useState(false);
 
   const customerGuideStorageKey = useMemo(() => {
     return `${CUSTOMER_GUIDE_STORAGE_PREFIX}:${token || "default"}`;
   }, [token]);
 
-  const customerGuideEnabledStorageKey = useMemo(() => {
-    return `${CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX}:${token || "default"}`;
-  }, [token]);
+  const currentStepGuide = useMemo<CustomerGuideStep | null>(() => {
+    if (step !== "intro" && step !== "space" && step !== "apply") {
+      return null;
+    }
+
+    if (step === "intro" && !hasIntroStep) {
+      return null;
+    }
+
+    return step as CustomerGuideStep;
+  }, [hasIntroStep, step]);
 
   useEffect(() => {
     if (mode !== "customer") {
       setSeenGuideSteps({});
       setActiveGuideStep(null);
-      setGuideEnabled(false);
+      setManualGuideMode(false);
       setGuideReady(true);
       return;
     }
@@ -67,106 +74,45 @@ export function useSimulatorCustomerGuide({
         }
       });
 
-      const enabledRaw = window.localStorage.getItem(customerGuideEnabledStorageKey);
-      const parsedEnabled = enabledRaw ? JSON.parse(enabledRaw) : true;
-
       setSeenGuideSteps(nextSeen);
-      setGuideEnabled(parsedEnabled !== false);
     } catch {
       setSeenGuideSteps({});
-      setGuideEnabled(true);
     } finally {
       setActiveGuideStep(null);
+      setManualGuideMode(false);
       setGuideReady(true);
     }
-  }, [customerGuideEnabledStorageKey, customerGuideStorageKey, mode]);
+  }, [customerGuideStorageKey, mode]);
 
   useEffect(() => {
-    if (
-      mode !== "customer" ||
-      !guideReady ||
-      !guideEnabled ||
-      loading ||
-      expired ||
-      setupNeeded
-    ) {
+    if (mode !== "customer" || !guideReady || loading || expired || setupNeeded) {
       return;
     }
 
-    if (isFilmSheetOpen) {
-      return;
-    }
-
-    if (step !== "intro" && step !== "space" && step !== "apply") {
+    if (!currentStepGuide || isFilmSheetOpen) {
       setActiveGuideStep(null);
       return;
     }
 
-    if (step === "intro" && !hasIntroStep) {
-      setActiveGuideStep(null);
+    if (manualGuideMode || !seenGuideSteps[currentStepGuide]) {
+      setActiveGuideStep(currentStepGuide);
       return;
     }
 
-    const nextGuideStep = step as CustomerGuideStep;
-
-    if (seenGuideSteps[nextGuideStep]) {
-      if (activeGuideStep && activeGuideStep !== nextGuideStep) {
-        setActiveGuideStep(null);
-      }
-      return;
-    }
-
-    if (activeGuideStep !== nextGuideStep) {
-      setActiveGuideStep(nextGuideStep);
-    }
+    setActiveGuideStep(null);
   }, [
-    activeGuideStep,
+    currentStepGuide,
     expired,
-    guideEnabled,
     guideReady,
-    hasIntroStep,
     isFilmSheetOpen,
     loading,
+    manualGuideMode,
     mode,
     seenGuideSteps,
     setupNeeded,
-    step,
   ]);
 
-  const toggleGuideEnabled = () => {
-    const nextEnabled = !guideEnabled;
-
-    setGuideEnabled(nextEnabled);
-
-    try {
-      window.localStorage.setItem(customerGuideEnabledStorageKey, JSON.stringify(nextEnabled));
-    } catch {
-      // localStorage를 사용할 수 없는 브라우저여도 화면 동작은 유지합니다.
-    }
-
-    if (!nextEnabled) {
-      setActiveGuideStep(null);
-      return;
-    }
-
-    if (loading || expired || setupNeeded || isFilmSheetOpen) {
-      return;
-    }
-
-    if (step === "intro" && !hasIntroStep) {
-      return;
-    }
-
-    if (step === "intro" || step === "space" || step === "apply") {
-      setActiveGuideStep(step as CustomerGuideStep);
-    }
-  };
-
-  const closeCustomerGuide = () => {
-    if (!activeGuideStep) return;
-
-    const guideStep = activeGuideStep;
-
+  const rememberGuideStepAsSeen = (guideStep: CustomerGuideStep) => {
     setSeenGuideSteps((prev) => {
       const nextSeen = { ...prev, [guideStep]: true };
 
@@ -178,9 +124,37 @@ export function useSimulatorCustomerGuide({
 
       return nextSeen;
     });
-
-    setActiveGuideStep(null);
   };
+
+  const toggleGuideEnabled = () => {
+    if (mode !== "customer" || !guideReady || loading || expired || setupNeeded || !currentStepGuide) {
+      return;
+    }
+
+    if (activeGuideStep) {
+      rememberGuideStepAsSeen(activeGuideStep);
+      setActiveGuideStep(null);
+      setManualGuideMode(false);
+      return;
+    }
+
+    if (isFilmSheetOpen) {
+      return;
+    }
+
+    setManualGuideMode(true);
+    setActiveGuideStep(currentStepGuide);
+  };
+
+  const closeCustomerGuide = () => {
+    if (!activeGuideStep) return;
+
+    rememberGuideStepAsSeen(activeGuideStep);
+    setActiveGuideStep(null);
+    setManualGuideMode(false);
+  };
+
+  const guideEnabled = Boolean(activeGuideStep);
 
   return {
     activeGuideStep,
