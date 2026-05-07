@@ -83,6 +83,9 @@ const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
   },
 ];
 
+const CUSTOMER_SHARE_MESSAGE =
+  "대표적인 공간 이미지에 500여가지 필름을 적용해, 조합에 따른 뉘앙스를 보여드립니다.\n*Chrome(크롬브라우저)에 최적화되어 있습니다.";
+
 const COLORS = {
   bg: "#05023B",
   panel: "rgba(12,10,72,0.74)",
@@ -481,12 +484,14 @@ export default function SimulatorLinkBuilder() {
     }
   };
 
-  const copyText = async (text: string) => {
+  const copyShareMessage = async (url: string) => {
     setCopyMessage("");
 
+    const message = `${CUSTOMER_SHARE_MESSAGE}\n\n${url}`;
+
     try {
-      await navigator.clipboard.writeText(text);
-      setCopyMessage("복사 완료");
+      await navigator.clipboard.writeText(message);
+      setCopyMessage("안내 문구와 링크를 복사했습니다.");
     } catch {
       setCopyMessage("복사에 실패했습니다. 링크를 길게 눌러 직접 복사해주세요.");
     }
@@ -834,7 +839,7 @@ export default function SimulatorLinkBuilder() {
                   <div className="urlBox">{result.url}</div>
 
                   <div className="resultActions">
-                    <button type="button" onClick={() => copyText(result.url)}>
+                    <button type="button" onClick={() => copyShareMessage(result.url)}>
                       링크 복사
                     </button>
                     <a href={result.url} target="_blank" rel="noreferrer">

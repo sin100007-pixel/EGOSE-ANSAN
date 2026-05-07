@@ -22,6 +22,9 @@ type ManagedLink = {
   query_url: string;
 };
 
+const CUSTOMER_SHARE_MESSAGE =
+  "대표적인 공간 이미지에 500여가지 필름을 적용해, 조합에 따른 뉘앙스를 보여드립니다.\n*Chrome(크롬브라우저)에 최적화되어 있습니다.";
+
 const COLORS = {
   bg: "#05023B",
   panel: "rgba(12,10,72,0.74)",
@@ -142,9 +145,11 @@ export default function SimulatorLinkManager() {
   const copyLink = async (url: string) => {
     setCopyMessage("");
 
+    const message = `${CUSTOMER_SHARE_MESSAGE}\n\n${url}`;
+
     try {
-      await navigator.clipboard.writeText(url);
-      setCopyMessage("링크를 복사했습니다.");
+      await navigator.clipboard.writeText(message);
+      setCopyMessage("안내 문구와 링크를 복사했습니다.");
     } catch {
       setCopyMessage("복사에 실패했습니다. 링크를 직접 선택해서 복사해주세요.");
     }

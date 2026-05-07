@@ -16,7 +16,7 @@ const SITE_URL =
 const OG_TITLE = "시뮬봇";
 
 const OG_DESCRIPTION =
-  "대표적인 공간 이미지에 필름을 적용해, 어떤조합이 어떤 뉘앙스를 주는지에 대한 도움을 제공합니다. chrome(크롬브라우저) 최적화 되어있어 되도록이면 주소를 chrome(크롬브라우저)에 붙여넣어 실행해주세요.";
+  "대표적인 공간 이미지에 500여가지 필름을 적용해, 조합에 따른 뉘앙스를 보여드립니다.\n*Chrome(크롬브라우저)에 최적화되어 있습니다.";
 
 const OG_IMAGE_PATH = "/og/simubot-card.png";
 
