@@ -62,6 +62,7 @@ export function uniqueClean(values: unknown) {
 
 export type SimulatorPaletteFilterProps = {
   open: boolean;
+  loading?: boolean;
   activeCount: number;
   selectedMain: string;
   selectedSub: string;
@@ -79,6 +80,7 @@ export type SimulatorPaletteFilterProps = {
 
 export default function SimulatorPaletteFilter({
   open,
+  loading = false,
   activeCount,
   selectedMain,
   selectedSub,
@@ -133,7 +135,7 @@ export default function SimulatorPaletteFilter({
       ) : null}
 
       {open ? (
-        <div className="palettePanel">
+        <div className={`palettePanel ${loading ? "palettePanelLoading" : ""}`} aria-busy={loading}>
           <div className="palettePanelHeader">
             <div>
               <strong>색상 팔레트</strong>
@@ -147,6 +149,7 @@ export default function SimulatorPaletteFilter({
           <div className="paletteGroup">
             <div className="paletteLabelRow">
               <span>1차 분류</span>
+              {loading ? <em className="paletteStatus">불러오는 중…</em> : null}
             </div>
             <div className="paletteChipRow">
               {mainOptions.map((item) => (
@@ -155,6 +158,7 @@ export default function SimulatorPaletteFilter({
                   type="button"
                   onClick={() => onMainClick(item)}
                   className={`paletteChip ${selectedMain === item ? "paletteChipActive" : ""}`}
+                  disabled={loading}
                 >
                   {item}
                 </button>
@@ -173,6 +177,7 @@ export default function SimulatorPaletteFilter({
                   type="button"
                   onClick={() => onSubClick("")}
                   className={`paletteChip ${!selectedSub ? "paletteChipActive" : ""}`}
+                  disabled={loading}
                 >
                   전체
                 </button>
@@ -182,6 +187,7 @@ export default function SimulatorPaletteFilter({
                     type="button"
                     onClick={() => onSubClick(item)}
                     className={`paletteChip ${selectedSub === item ? "paletteChipActive" : ""}`}
+                    disabled={loading}
                   >
                     {item}
                   </button>
@@ -192,29 +198,101 @@ export default function SimulatorPaletteFilter({
 
           <div className="paletteGroup">
             <div className="paletteLabelRow">
-              <span>색상</span>
-              <em>{selectedColors.length > 0 ? selectedColors.join(", ") : "전체"}</em>
+              <span>색상 팔레트</span>
+              <em>{selectedColors.length > 0 ? `${selectedColors.length}개 선택` : "전체"}</em>
             </div>
-            <div className="paletteColorGrid">
+            <div className="paletteColorScroller">
               {colorOptions.map((item) => {
                 const active = selectedColors.includes(item);
-
                 return (
                   <button
                     key={item}
                     type="button"
                     onClick={() => onColorClick(item)}
-                    className={`paletteColorChip ${active ? "paletteColorChipActive" : ""}`}
+                    className={`paletteSwatchButton ${active ? "paletteSwatchButtonActive" : ""}`}
                     aria-pressed={active}
+                    aria-label={`${item}${active ? " 선택됨" : ""}`}
+                    title={item}
+                    disabled={loading}
                   >
                     <i style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }} />
-                    <span>{item}</span>
                     {active ? <b aria-hidden="true">✓</b> : null}
                   </button>
                 );
               })}
             </div>
           </div>
+
+          <style jsx>{`
+            .palettePanelLoading {
+              opacity: 0.96;
+            }
+            .paletteStatus {
+              color: rgba(255,255,255,0.72);
+              font-style: normal;
+            }
+            .paletteColorScroller {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              overflow-x: auto;
+              padding: 2px 2px 10px;
+              scrollbar-width: thin;
+            }
+            .paletteColorScroller::-webkit-scrollbar {
+              height: 6px;
+            }
+            .paletteColorScroller::-webkit-scrollbar-thumb {
+              background: rgba(238,224,197,0.34);
+              border-radius: 999px;
+            }
+            .paletteSwatchButton {
+              position: relative;
+              flex: 0 0 auto;
+              width: 38px;
+              height: 38px;
+              border-radius: 999px;
+              border: 1px solid rgba(238,224,197,0.24);
+              background: rgba(255,255,255,0.06);
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+            }
+            .paletteSwatchButton i {
+              width: 24px;
+              height: 24px;
+              border-radius: 999px;
+              border: 1.5px solid rgba(255,255,255,0.66);
+              box-shadow: 0 1px 4px rgba(0,0,0,0.28);
+              display: block;
+            }
+            .paletteSwatchButton b {
+              position: absolute;
+              right: -2px;
+              top: -3px;
+              width: 16px;
+              height: 16px;
+              border-radius: 999px;
+              background: #eee0c5;
+              color: #67502a;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              font-weight: 900;
+              border: 1px solid rgba(20,18,65,0.45);
+            }
+            .paletteSwatchButtonActive {
+              border-color: rgba(238,224,197,0.72);
+              box-shadow: 0 0 0 2px rgba(238,224,197,0.16);
+            }
+            .paletteSwatchButton:disabled,
+            .paletteChip:disabled {
+              opacity: 0.62;
+              cursor: wait;
+            }
+          `}</style>
         </div>
       ) : null}
     </>

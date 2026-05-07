@@ -41,7 +41,7 @@ export default function SimulatorFilmSearchPanel({
         <button type="submit">{loading ? "검색중" : "검색"}</button>
       </form>
 
-      <SimulatorPaletteFilter {...palette} />
+      <SimulatorPaletteFilter {...palette} loading={loading} />
 
       {children}
     </div>

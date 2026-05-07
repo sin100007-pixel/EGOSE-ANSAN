@@ -554,8 +554,16 @@ export default function SimulatorPresetManager() {
                 buttonTitle="누르면 선택 해제"
               />
 
-              <div className="filmResultGrid">
-                {filmSearchResults.length > 0 ? (
+              <div className="filmResultGrid" aria-busy={filmLoading}>
+                {filmLoading ? (
+                  Array.from({ length: 9 }).map((_, index) => (
+                    <div key={`preset-film-skeleton-${index}`} className="filmResultSkeletonCard" aria-hidden="true">
+                      <div className="filmResultSkeletonThumb" />
+                      <div className="filmResultSkeletonLine" />
+                      <div className="filmResultSkeletonLine short" />
+                    </div>
+                  ))
+                ) : filmSearchResults.length > 0 ? (
                   filmSearchResults.map((film) => {
                     const active = selectedFilmIds.has(film.id);
 
@@ -572,14 +580,6 @@ export default function SimulatorPresetManager() {
                       />
                     );
                   })
-                ) : filmLoading ? (
-                  Array.from({ length: 9 }).map((_, index) => (
-                    <div key={`preset-film-skeleton-${index}`} className="filmResultSkeletonCard" aria-hidden="true">
-                      <div className="filmResultSkeletonThumb" />
-                      <div className="filmResultSkeletonLine" />
-                      <div className="filmResultSkeletonLine short" />
-                    </div>
-                  ))
                 ) : null}
               </div>
 

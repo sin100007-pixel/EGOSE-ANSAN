@@ -788,8 +788,16 @@ export default function SimulatorLinkBuilder() {
                       emptyText="아직 선택한 필름이 없습니다. 검색 결과에서 필름을 눌러 추가하세요."
                     />
 
-                    <div className="filmGrid">
-                      {filmSearchResults.length > 0 ? (
+                    <div className="filmGrid" aria-busy={filmLoading}>
+                      {filmLoading ? (
+                        Array.from({ length: 9 }).map((_, index) => (
+                          <div key={`film-skeleton-${index}`} className="filmSkeletonCard" aria-hidden="true">
+                            <div className="filmSkeletonThumb" />
+                            <div className="filmSkeletonLine" />
+                            <div className="filmSkeletonLine short" />
+                          </div>
+                        ))
+                      ) : filmSearchResults.length > 0 ? (
                         filmSearchResults.map((film) => {
                           const active = selectedFilmIds.has(film.id);
 
@@ -806,14 +814,6 @@ export default function SimulatorLinkBuilder() {
                             />
                           );
                         })
-                      ) : filmLoading ? (
-                        Array.from({ length: 9 }).map((_, index) => (
-                          <div key={`film-skeleton-${index}`} className="filmSkeletonCard" aria-hidden="true">
-                            <div className="filmSkeletonThumb" />
-                            <div className="filmSkeletonLine" />
-                            <div className="filmSkeletonLine short" />
-                          </div>
-                        ))
                       ) : null}
                     </div>
 
