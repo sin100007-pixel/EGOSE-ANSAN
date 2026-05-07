@@ -44,11 +44,32 @@ function detectDeviceType(userAgent: string | null): string {
   return "other";
 }
 
+function cleanLogPath(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return "";
+
+  // /dashboard?__egose_pwa_cache_reset=... 또는 /?source=pwa 처럼
+  // 캐시/실행 출처 확인용 query가 붙어도 관리자 로그에는 pathname만 저장합니다.
+  try {
+    const url = raw.startsWith("/")
+      ? new URL(raw, "https://egose.local")
+      : new URL(raw);
+
+    return url.pathname || "/";
+  } catch {
+    const withoutHash = raw.split("#")[0] || "";
+    const withoutQuery = withoutHash.split("?")[0] || "/";
+    return withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  }
+}
+
+
 export async function POST(req: Request) {
   try {
     const { path } = await req.json();
+    const cleanPath = cleanLogPath(path);
 
-    if (!path || typeof path !== "string") {
+    if (!cleanPath) {
       return NextResponse.json(
         { ok: false, message: "path 가 비어 있습니다." },
         { status: 400 }
@@ -70,7 +91,7 @@ export async function POST(req: Request) {
 
     await prisma.pageView.create({
       data: {
-        path,
+        path: cleanPath,
         deviceType,
         userAgent,
         ip,

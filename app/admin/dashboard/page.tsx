@@ -49,6 +49,25 @@ function formatDateTime(d: Date): string {
   return formatKoreanDateTime(d);
 }
 
+// 관리자 화면에서는 기존에 저장된 query까지 붙은 로그도 pathname만 표시
+function cleanDisplayPath(value?: string | null): string {
+  const raw = (value || "").trim();
+  if (!raw) return "-";
+
+  try {
+    const url = raw.startsWith("/")
+      ? new URL(raw, "https://egose.local")
+      : new URL(raw);
+
+    return url.pathname || "/";
+  } catch {
+    const withoutHash = raw.split("#")[0] || "";
+    const withoutQuery = withoutHash.split("?")[0] || "/";
+    return withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  }
+}
+
+
 // 공통 스타일들
 const wrapperStyle: React.CSSProperties = {
   maxWidth: 1200,
@@ -195,6 +214,7 @@ export default async function AdminDashboardPage() {
                   ...borderTopStyle,
                 };
 
+                const displayPath = cleanDisplayPath(log.path);
                 const ua = log.userAgent || "";
                 const shortUA =
                   ua.length > 90 ? ua.slice(0, 90).concat("…") : ua;
@@ -215,7 +235,7 @@ export default async function AdminDashboardPage() {
                   <tr key={log.id} style={rowStyle}>
                     <td style={cellStyle}>{formatDateTime(log.viewedAt)}</td>
                     <td style={cellStyle}>{log.userName || "-"}</td>
-                    <td style={cellStyle}>{log.path}</td>
+                    <td style={cellStyle}>{displayPath}</td>
                     <td style={cellStyle}>{deviceType}</td>
                     <td style={cellStyle}>{log.ip || "-"}</td>
                     <td style={{ ...cellStyle, textAlign: "left" }}>
