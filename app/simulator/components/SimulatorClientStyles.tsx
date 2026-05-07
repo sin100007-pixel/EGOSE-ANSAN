@@ -419,8 +419,9 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .guideToggleFloatingImage {
           width: 100%;
-          height: auto;
+          height: 100%;
           display: block;
+          object-fit: contain;
         }
 
         .guideToggleFloatingButton:focus-visible {

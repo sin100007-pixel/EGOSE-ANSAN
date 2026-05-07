@@ -289,7 +289,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     !state.loading &&
     !state.expired &&
     !state.setupNeeded &&
-    (step === "intro" || step === "space" || step === "apply");
+    (step === "space" || step === "apply");
 
   const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
   const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";

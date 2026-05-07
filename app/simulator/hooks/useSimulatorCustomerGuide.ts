@@ -110,7 +110,7 @@ export function useSimulatorCustomerGuide({
     const nextGuideStep = step as CustomerGuideStep;
 
     if (seenGuideSteps[nextGuideStep]) {
-      if (activeGuideStep === nextGuideStep) {
+      if (activeGuideStep && activeGuideStep !== nextGuideStep) {
         setActiveGuideStep(null);
       }
       return;
