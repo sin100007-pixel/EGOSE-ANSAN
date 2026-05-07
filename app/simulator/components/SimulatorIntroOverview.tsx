@@ -326,6 +326,7 @@ export default function SimulatorIntroOverview({
           flex-direction: column;
           gap: 14px;
           color: ${COLORS.white};
+          margin-top: -24px;
         }
 
         .introHeroCard,
