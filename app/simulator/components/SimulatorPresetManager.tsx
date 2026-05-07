@@ -154,7 +154,20 @@ export default function SimulatorPresetManager() {
     }
   };
 
-  const updatePaletteFacets = (json: any) => {
+  const getPaletteColorOptions = (colors: string[], paletteMain = "", paletteSub = "") => {
+    if (!paletteMain && !paletteSub) {
+      return orderPaletteValues(
+        Array.from(new Set([...DEFAULT_PALETTE_COLOR_OPTIONS, ...colors])),
+        DEFAULT_PALETTE_COLOR_OPTIONS
+      );
+    }
+
+    return colors.length > 0
+      ? orderPaletteValues(colors, DEFAULT_PALETTE_COLOR_OPTIONS)
+      : DEFAULT_PALETTE_COLOR_OPTIONS;
+  };
+
+  const updatePaletteFacets = (json: any, paletteMain = selectedPaletteMain, paletteSub = selectedPaletteSub) => {
     const mains = uniqueClean(json?.facets?.palette_mains);
     const subs = uniqueClean(json?.facets?.palette_subs);
     const colors = uniqueClean(json?.facets?.palette_colors);
@@ -164,11 +177,7 @@ export default function SimulatorPresetManager() {
     }
 
     setPaletteSubOptions(subs);
-    setPaletteColorOptions(
-      colors.length > 0
-        ? orderPaletteValues(colors, DEFAULT_PALETTE_COLOR_OPTIONS)
-        : DEFAULT_PALETTE_COLOR_OPTIONS
-    );
+    setPaletteColorOptions(getPaletteColorOptions(colors, paletteMain, paletteSub));
   };
 
   const searchFilms = async (options: SearchOptions = {}) => {
@@ -178,7 +187,7 @@ export default function SimulatorPresetManager() {
     const q = options.query !== undefined ? options.query.trim() : filmQuery.trim();
     const paletteMain = options.paletteMain !== undefined ? options.paletteMain : selectedPaletteMain;
     const paletteSub = options.paletteSub !== undefined ? options.paletteSub : selectedPaletteSub;
-    const paletteColors = options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors;
+    const paletteColors = (options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors).slice(0, 1);
     const updateFacets = options.updateFacets === true;
     const silent = options.silent === true;
     const useRecommended = options.recommended === true;
@@ -210,7 +219,7 @@ export default function SimulatorPresetManager() {
       }
 
       setFilmSearchResults(Array.isArray(json.items) ? json.items : []);
-      if (updateFacets) updatePaletteFacets(json);
+      if (updateFacets) updatePaletteFacets(json, paletteMain, paletteSub);
     } catch {
       if (requestId === searchRequestRef.current && !silent) {
         setError("필름 검색 중 오류가 발생했습니다.");
@@ -299,9 +308,7 @@ export default function SimulatorPresetManager() {
   };
 
   const handlePaletteColorClick = (value: string) => {
-    const nextColors = selectedPaletteColors.includes(value)
-      ? selectedPaletteColors.filter((item) => item !== value)
-      : [...selectedPaletteColors, value];
+    const nextColors = selectedPaletteColors.includes(value) ? [] : [value];
 
     setSelectedPaletteColors(nextColors);
 

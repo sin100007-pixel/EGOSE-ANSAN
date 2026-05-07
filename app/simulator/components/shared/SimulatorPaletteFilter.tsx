@@ -158,7 +158,6 @@ export default function SimulatorPaletteFilter({
                   type="button"
                   onClick={() => onMainClick(item)}
                   className={`paletteChip ${selectedMain === item ? "paletteChipActive" : ""}`}
-                  disabled={loading}
                 >
                   {item}
                 </button>
@@ -177,7 +176,6 @@ export default function SimulatorPaletteFilter({
                   type="button"
                   onClick={() => onSubClick("")}
                   className={`paletteChip ${!selectedSub ? "paletteChipActive" : ""}`}
-                  disabled={loading}
                 >
                   전체
                 </button>
@@ -187,7 +185,6 @@ export default function SimulatorPaletteFilter({
                     type="button"
                     onClick={() => onSubClick(item)}
                     className={`paletteChip ${selectedSub === item ? "paletteChipActive" : ""}`}
-                    disabled={loading}
                   >
                     {item}
                   </button>
@@ -213,7 +210,6 @@ export default function SimulatorPaletteFilter({
                     aria-pressed={active}
                     aria-label={`${item}${active ? " 선택됨" : ""}`}
                     title={item}
-                    disabled={loading}
                   >
                     <i style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }} />
                     {active ? <b aria-hidden="true">✓</b> : null}

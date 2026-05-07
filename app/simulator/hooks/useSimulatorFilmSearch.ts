@@ -91,7 +91,19 @@ export function useSimulatorFilmSearch({
     return state.films;
   };
 
-  const updatePaletteFacets = (json: any) => {
+  const getPaletteColorOptions = (colors: string[], paletteMain = "", paletteSub = "") => {
+    const cleanColors = Array.from(
+      new Set(colors.map((color) => String(color || "").trim()).filter(Boolean))
+    );
+
+    if (!paletteMain && !paletteSub) {
+      return orderPaletteColors([...new Set([...PALETTE_COLOR_OPTIONS, ...cleanColors])]);
+    }
+
+    return cleanColors.length > 0 ? orderPaletteColors(cleanColors) : PALETTE_COLOR_OPTIONS;
+  };
+
+  const updatePaletteFacets = (json: any, paletteMain = selectedPaletteMainRef.current, paletteSub = selectedPaletteSubRef.current) => {
     const nextSubs = Array.isArray(json?.facets?.palette_subs)
       ? json.facets.palette_subs.filter(Boolean)
       : [];
@@ -100,9 +112,7 @@ export function useSimulatorFilmSearch({
       : [];
 
     setPaletteSubOptions(nextSubs);
-    setPaletteColorOptions(
-      nextColors.length > 0 ? orderPaletteColors(nextColors) : PALETTE_COLOR_OPTIONS
-    );
+    setPaletteColorOptions(getPaletteColorOptions(nextColors, paletteMain, paletteSub));
   };
 
   const applyLocalFilmFallback = (keyword: string, options: LocalFallbackOptions) => {
@@ -119,13 +129,17 @@ export function useSimulatorFilmSearch({
 
     if (options.includeFacets) {
       const facetSourceFilms = getLocalFilmSource(false);
-      updatePaletteFacets({
-        facets: buildLocalPaletteFacets(
-          facetSourceFilms.length > 0 ? facetSourceFilms : sourceFilms,
-          options.paletteMain,
-          options.paletteSub
-        ),
-      });
+      updatePaletteFacets(
+        {
+          facets: buildLocalPaletteFacets(
+            facetSourceFilms.length > 0 ? facetSourceFilms : sourceFilms,
+            options.paletteMain,
+            options.paletteSub
+          ),
+        },
+        options.paletteMain,
+        options.paletteSub
+      );
     }
 
     setState((prev) => ({ ...prev, films: nextFilms }));
@@ -142,9 +156,13 @@ export function useSimulatorFilmSearch({
       return false;
     }
 
-    updatePaletteFacets({
-      facets: buildLocalPaletteFacets(sourceFilms, paletteMain, paletteSub),
-    });
+    updatePaletteFacets(
+      {
+        facets: buildLocalPaletteFacets(sourceFilms, paletteMain, paletteSub),
+      },
+      paletteMain,
+      paletteSub
+    );
     return true;
   };
 
@@ -321,8 +339,9 @@ export function useSimulatorFilmSearch({
       overrides.paletteMain !== undefined ? overrides.paletteMain : selectedPaletteMainRef.current;
     const nextPaletteSub =
       overrides.paletteSub !== undefined ? overrides.paletteSub : selectedPaletteSubRef.current;
-    const nextPaletteColors =
-      overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColorsRef.current;
+    const nextPaletteColors = (
+      overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColorsRef.current
+    ).slice(0, 1);
     const includeFacets = overrides.includeFacets !== false;
     const useRecommended = overrides.recommended === true;
     const isInitialSheetRequest =
@@ -414,7 +433,7 @@ export function useSimulatorFilmSearch({
       }
 
       if (json.facets) {
-        updatePaletteFacets(json);
+        updatePaletteFacets(json, nextPaletteMain, nextPaletteSub);
       }
       if (nextFilms.length > 0) {
         rememberFilms(nextFilms);
@@ -531,9 +550,7 @@ export function useSimulatorFilmSearch({
 
   const handlePaletteColorClick = (value: string) => {
     const currentColors = selectedPaletteColorsRef.current;
-    const nextColors = currentColors.includes(value)
-      ? currentColors.filter((color) => color !== value)
-      : [...currentColors, value];
+    const nextColors = currentColors.includes(value) ? [] : [value];
 
     selectedPaletteColorsRef.current = nextColors;
 
