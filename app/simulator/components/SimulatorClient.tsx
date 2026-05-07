@@ -187,12 +187,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setIsFilmSheetOpen(true);
 
     if (shouldSearchOnOpen) {
-      void searchFilms("", {
-        paletteMain: "",
-        paletteSub: "",
-        paletteColors: [],
+      const hasActiveFilmSearch =
+        filmQuery.trim().length > 0 ||
+        Boolean(selectedPaletteMain) ||
+        Boolean(selectedPaletteSub) ||
+        selectedPaletteColors.length > 0;
+
+      void searchFilms(filmQuery, {
         includeFacets: true,
-        recommended: !isRestrictedCustomerLink,
+        recommended: !isRestrictedCustomerLink && !hasActiveFilmSearch,
       });
     }
   };

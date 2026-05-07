@@ -277,33 +277,42 @@ export function useSimulatorFilmSearch({
   }, [mode, setSelectedFilm, setSelectedSpaceId, setStep, token]);
 
   const prepareFilmSheet = () => {
-    setFilmQuery("");
     setFilmError("");
-    setSelectedPaletteMain("");
-    setSelectedPaletteSub("");
-    setSelectedPaletteColors([]);
-    selectedPaletteMainRef.current = "";
-    selectedPaletteSubRef.current = "";
-    selectedPaletteColorsRef.current = [];
 
-    const cachedInitialFilms = initialSheetFilmsRef.current;
-    const fallbackFilms = cachedInitialFilms.length > 0 ? cachedInitialFilms : state.films;
-    setState((prev) => ({
-      ...prev,
-      films: fallbackFilms,
-    }));
-    updatePaletteFacetsFromLocalCorpus("", "");
+    const hasActiveSearchState =
+      filmQuery.trim().length > 0 ||
+      Boolean(selectedPaletteMainRef.current) ||
+      Boolean(selectedPaletteSubRef.current) ||
+      selectedPaletteColorsRef.current.length > 0;
+
+    // 구역을 바꿔 필름 선택창을 다시 열어도 기존 검색어/1차/2차/색상 팔레트와
+    // 현재 필름 목록을 유지합니다.
+    // 단, 아직 목록이 비어있는 첫 진입 상황에서는 bootstrap 추천 목록만 복구합니다.
+    if (state.films.length === 0) {
+      const cachedInitialFilms = initialSheetFilmsRef.current;
+
+      if (cachedInitialFilms.length > 0 && !hasActiveSearchState) {
+        setState((prev) => ({
+          ...prev,
+          films: cachedInitialFilms,
+        }));
+      }
+    }
+
+    updatePaletteFacetsFromLocalCorpus(
+      selectedPaletteMainRef.current,
+      selectedPaletteSubRef.current
+    );
 
     // 카카오톡/삼성/웨일 계열은 필름 선택창을 열자마자 API를 다시 부르면
     // 추천 필름 목록과 팔레트가 브라우저 캐시/응답 순서에 따라 바뀌는 경우가 있습니다.
-    // 처음 목록은 bootstrap에서 받은 지정 필름을 그대로 쓰고,
-    // 검색/팔레트는 bootstrap의 search_films 말뭉치로 로컬 처리합니다.
+    // 검색/팔레트 상태는 그대로 유지하고, 필요 시 로컬 말뭉치로만 처리합니다.
     if (isKakaoInAppBrowser()) {
       setFilmLoading(false);
       return false;
     }
 
-    return !filmLoading;
+    return state.films.length === 0 && !filmLoading;
   };
 
   const searchFilms = async (keyword = filmQuery, overrides: SearchOverrides = {}) => {
