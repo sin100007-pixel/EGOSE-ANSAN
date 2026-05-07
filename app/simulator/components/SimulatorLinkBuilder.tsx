@@ -83,14 +83,15 @@ const DEFAULT_MASK_ZONES: MaskZoneDefinition[] = [
   },
 ];
 
-const CUSTOMER_SHARE_MESSAGE =
-  "필름 시뮬레이터, 시뮬봇!
-
-대표적인 공간 이미지에 500여가지 필름을 적용해, 조합에 따른 뉘앙스를 보여드립니다.
-
-*Chrome(크롬브라우저)에 최적화되어 있습니다.
-
-아래 링크를 눌러 실행해주세요.";
+const CUSTOMER_SHARE_MESSAGE = [
+  "필름 시뮬레이터, 시뮬봇!",
+  "",
+  "대표적인 공간 이미지에 500여가지 필름을 적용해, 조합에 따른 뉘앙스를 보여드립니다.",
+  "",
+  "*Chrome(크롬브라우저)에 최적화되어 있습니다.",
+  "",
+  "아래 링크를 눌러 실행해주세요.",
+].join("\n");
 
 const COLORS = {
   bg: "#05023B",
