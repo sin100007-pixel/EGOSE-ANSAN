@@ -196,16 +196,20 @@ export default function SimulatorFilmSheet({
           </button>
         </form>
 
-        {filmLoading && films.length > 0 ? (
-          <div className="sheetLoadingText">필름 목록 업데이트 중...</div>
-        ) : null}
-
         {filmError ? (
           <div style={{ color: "#ffd6d6", fontSize: 14, marginBottom: 10 }}>{filmError}</div>
         ) : null}
 
-        <div className="sheetFilmGrid">
-          {films.length > 0 ? (
+        <div className="sheetFilmGrid" aria-busy={filmLoading}>
+          {filmLoading ? (
+            Array.from({ length: 8 }).map((_, index) => (
+              <div key={`sheet-film-skeleton-${index}`} className="sheetFilmSkeletonItem" aria-hidden="true">
+                <div className="sheetFilmSkeletonThumb" />
+                <div className="sheetFilmSkeletonLine" />
+                <div className="sheetFilmSkeletonLine short" />
+              </div>
+            ))
+          ) : films.length > 0 ? (
             films.map((film) => {
               const active = selectedFilm?.id === film.id;
               const thumbUrl = getFilmThumbUrl(film);
@@ -248,14 +252,6 @@ export default function SimulatorFilmSheet({
                 </div>
               );
             })
-          ) : filmLoading ? (
-            Array.from({ length: 8 }).map((_, index) => (
-              <div key={`sheet-film-skeleton-${index}`} className="sheetFilmSkeletonItem" aria-hidden="true">
-                <div className="sheetFilmSkeletonThumb" />
-                <div className="sheetFilmSkeletonLine" />
-                <div className="sheetFilmSkeletonLine short" />
-              </div>
-            ))
           ) : (
             <div className="emptyFilmBox">표시할 필름이 없습니다.</div>
           )}
