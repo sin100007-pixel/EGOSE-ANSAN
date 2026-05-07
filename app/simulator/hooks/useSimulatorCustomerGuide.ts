@@ -5,6 +5,7 @@ import {
   CUSTOMER_GUIDES,
   CUSTOMER_GUIDE_STEPS,
   CUSTOMER_GUIDE_STORAGE_PREFIX,
+  CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX,
   type CustomerGuideStep,
   type SimulatorMode,
   type SimulatorStep,
@@ -34,15 +35,21 @@ export function useSimulatorCustomerGuide({
   const [activeGuideStep, setActiveGuideStep] = useState<CustomerGuideStep | null>(null);
   const [seenGuideSteps, setSeenGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
   const [guideReady, setGuideReady] = useState(false);
+  const [guideEnabled, setGuideEnabled] = useState(true);
 
   const customerGuideStorageKey = useMemo(() => {
     return `${CUSTOMER_GUIDE_STORAGE_PREFIX}:${token || "default"}`;
+  }, [token]);
+
+  const customerGuideEnabledStorageKey = useMemo(() => {
+    return `${CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX}:${token || "default"}`;
   }, [token]);
 
   useEffect(() => {
     if (mode !== "customer") {
       setSeenGuideSteps({});
       setActiveGuideStep(null);
+      setGuideEnabled(false);
       setGuideReady(true);
       return;
     }
@@ -60,19 +67,25 @@ export function useSimulatorCustomerGuide({
         }
       });
 
+      const enabledRaw = window.localStorage.getItem(customerGuideEnabledStorageKey);
+      const parsedEnabled = enabledRaw ? JSON.parse(enabledRaw) : true;
+
       setSeenGuideSteps(nextSeen);
+      setGuideEnabled(parsedEnabled !== false);
     } catch {
       setSeenGuideSteps({});
+      setGuideEnabled(true);
     } finally {
       setActiveGuideStep(null);
       setGuideReady(true);
     }
-  }, [customerGuideStorageKey, mode]);
+  }, [customerGuideEnabledStorageKey, customerGuideStorageKey, mode]);
 
   useEffect(() => {
     if (
       mode !== "customer" ||
       !guideReady ||
+      !guideEnabled ||
       loading ||
       expired ||
       setupNeeded
@@ -109,6 +122,7 @@ export function useSimulatorCustomerGuide({
   }, [
     activeGuideStep,
     expired,
+    guideEnabled,
     guideReady,
     hasIntroStep,
     isFilmSheetOpen,
@@ -118,6 +132,35 @@ export function useSimulatorCustomerGuide({
     setupNeeded,
     step,
   ]);
+
+  const toggleGuideEnabled = () => {
+    const nextEnabled = !guideEnabled;
+
+    setGuideEnabled(nextEnabled);
+
+    try {
+      window.localStorage.setItem(customerGuideEnabledStorageKey, JSON.stringify(nextEnabled));
+    } catch {
+      // localStorage를 사용할 수 없는 브라우저여도 화면 동작은 유지합니다.
+    }
+
+    if (!nextEnabled) {
+      setActiveGuideStep(null);
+      return;
+    }
+
+    if (loading || expired || setupNeeded || isFilmSheetOpen) {
+      return;
+    }
+
+    if (step === "intro" && !hasIntroStep) {
+      return;
+    }
+
+    if (step === "intro" || step === "space" || step === "apply") {
+      setActiveGuideStep(step as CustomerGuideStep);
+    }
+  };
 
   const closeCustomerGuide = () => {
     if (!activeGuideStep) return;
@@ -142,6 +185,8 @@ export function useSimulatorCustomerGuide({
   return {
     activeGuideStep,
     currentGuide: activeGuideStep ? CUSTOMER_GUIDES[activeGuideStep] : null,
+    guideEnabled,
+    toggleGuideEnabled,
     closeCustomerGuide,
   };
 }

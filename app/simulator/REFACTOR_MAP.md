@@ -128,3 +128,12 @@ Supabase Storage 이미지 URL을 만드는 공통 함수입니다. `bootstrap/r
 - `presets/route.ts`: 프리셋 detail/replace/list handler 분리
 
 단, 7단계는 route 흐름 자체를 건드리기 때문에 6단계보다 위험도가 높습니다.
+
+
+## 가이드 토글 에셋
+
+### app/simulator/assets/guide-on.png
+- 고객 가이드 켜짐(ON) 상태 버튼 이미지
+
+### app/simulator/assets/guide-off.png
+- 고객 가이드 꺼짐(OFF) 상태 버튼 이미지

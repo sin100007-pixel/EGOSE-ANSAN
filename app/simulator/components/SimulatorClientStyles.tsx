@@ -398,6 +398,37 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           box-sizing: border-box;
         }
 
+
+        .guideToggleFloatingButton {
+          position: fixed;
+          top: calc(env(safe-area-inset-top, 0px) + 10px);
+          right: 10px;
+          z-index: 80;
+          width: 88px;
+          height: 88px;
+          padding: 0;
+          margin: 0;
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .guideToggleFloatingImage {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+
+        .guideToggleFloatingButton:focus-visible {
+          outline: 2px solid ${COLORS.cream};
+          outline-offset: 3px;
+          border-radius: 18px;
+        }
+
         .backButton {
           display: inline-flex;
           align-items: center;
@@ -2565,7 +2596,15 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           .sheetSampleBubbleText {
             font-size: 11px;
           }
+
+        @media (min-width: 768px) {
+          .guideToggleFloatingButton {
+            top: calc(env(safe-area-inset-top, 0px) + 14px);
+            right: 14px;
+            width: 96px;
+            height: 96px;
+          }
         }
-`}</style>
+      `}</style>
   );
 }

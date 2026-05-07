@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import type { SimulatorFilm } from "../types";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorClientStyles from "./SimulatorClientStyles";
@@ -27,6 +28,8 @@ import { useSimulatorFilmSearch } from "../hooks/useSimulatorFilmSearch";
 import { useSimulatorCustomerGuide } from "../hooks/useSimulatorCustomerGuide";
 import { useDecisionResultShare } from "../hooks/useDecisionResultShare";
 import { useDashboardNavigation } from "../hooks/useDashboardNavigation";
+import guideOnImage from "../assets/guide-on.png";
+import guideOffImage from "../assets/guide-off.png";
 
 type SimulatorClientProps = {
   token?: string;
@@ -119,7 +122,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const { isDashboardMoving, goToDashboard } = useDashboardNavigation(mode);
 
-  const { currentGuide, closeCustomerGuide } = useSimulatorCustomerGuide({
+  const { currentGuide, guideEnabled, toggleGuideEnabled, closeCustomerGuide } = useSimulatorCustomerGuide({
     mode,
     token,
     step,
@@ -281,6 +284,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ? "이미지의 체크무늬 구역이나 아래 구역 버튼을 눌러 필름을 적용하세요."
         : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요.";
 
+  const showGuideToggle =
+    mode === "customer" &&
+    !state.loading &&
+    !state.expired &&
+    !state.setupNeeded &&
+    (step === "intro" || step === "space" || step === "apply");
+
+  const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
+  const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
+
   return (
     <main
       style={{
@@ -313,6 +326,25 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         {mode === "installer" ? (
           <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
             ← 대시보드
+          </button>
+        ) : null}
+
+        {showGuideToggle ? (
+          <button
+            type="button"
+            className="guideToggleFloatingButton"
+            onClick={toggleGuideEnabled}
+            aria-pressed={guideEnabled}
+            aria-label={guideEnabled ? "가이드 끄기" : "가이드 켜기"}
+          >
+            <Image
+              src={guideToggleImage}
+              alt={guideToggleAlt}
+              width={120}
+              height={120}
+              className="guideToggleFloatingImage"
+              priority={false}
+            />
           </button>
         ) : null}
 
