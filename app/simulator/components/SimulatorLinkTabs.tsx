@@ -1,5 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 type SimulatorLinkTabsProps = {
   active: "new" | "manage" | "presets" | "settings";
 };
@@ -11,21 +15,74 @@ const COLORS = {
   soft: "rgba(255,255,255,0.70)",
 };
 
+const TAB_ITEMS: Array<{
+  key: SimulatorLinkTabsProps["active"];
+  href: string;
+  label: string;
+}> = [
+  { key: "new", href: "/simulator/links/new", label: "링크 생성" },
+  { key: "presets", href: "/simulator/presets", label: "프리셋" },
+  { key: "manage", href: "/simulator/links/manage", label: "링크 관리" },
+  { key: "settings", href: "/simulator/settings", label: "소개 설정" },
+];
+
 export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
+  const router = useRouter();
+  const [movingTo, setMovingTo] = useState("");
+
+  const prefetchTabs = () => {
+    TAB_ITEMS.forEach((item) => {
+      if (item.key !== active) {
+        router.prefetch(item.href);
+      }
+    });
+  };
+
+  useEffect(() => {
+    setMovingTo("");
+
+    prefetchTabs();
+
+    const firstIdle = window.setTimeout(prefetchTabs, 180);
+    const secondIdle = window.setTimeout(prefetchTabs, 800);
+
+    return () => {
+      window.clearTimeout(firstIdle);
+      window.clearTimeout(secondIdle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, router]);
+
   return (
     <nav className="linkTabs" aria-label="시뮬레이션 링크 메뉴">
-      <a href="/simulator/links/new" className={active === "new" ? "active" : ""}>
-        링크 생성
-      </a>
-      <a href="/simulator/presets" className={active === "presets" ? "active" : ""}>
-        프리셋
-      </a>
-      <a href="/simulator/links/manage" className={active === "manage" ? "active" : ""}>
-        링크 관리
-      </a>
-      <a href="/simulator/settings" className={active === "settings" ? "active" : ""}>
-        소개 설정
-      </a>
+      {TAB_ITEMS.map((item) => {
+        const isActive = active === item.key;
+        const isMoving = movingTo === item.key;
+
+        return (
+          <Link
+            key={item.key}
+            href={item.href}
+            prefetch
+            className={`${isActive ? "active" : ""} ${isMoving ? "moving" : ""}`.trim()}
+            aria-current={isActive ? "page" : undefined}
+            onMouseEnter={() => router.prefetch(item.href)}
+            onFocus={() => router.prefetch(item.href)}
+            onTouchStart={() => router.prefetch(item.href)}
+            onClick={(event) => {
+              if (isActive) {
+                event.preventDefault();
+                return;
+              }
+
+              setMovingTo(item.key);
+              router.prefetch(item.href);
+            }}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
 
       <style jsx>{`
         .linkTabs {
@@ -49,7 +106,7 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
           overflow: hidden;
         }
 
-        .linkTabs a {
+        .linkTabs :global(a) {
           text-decoration: none;
           border: 1px solid transparent;
           border-radius: 16px;
@@ -60,9 +117,23 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
           font-size: 14px;
           font-weight: 900;
           text-align: center;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
+          transition:
+            transform 120ms ease,
+            background 120ms ease,
+            color 120ms ease,
+            border-color 120ms ease,
+            opacity 120ms ease;
         }
 
-        .linkTabs a.active {
+        .linkTabs :global(a:active),
+        .linkTabs :global(a.moving) {
+          transform: translateY(1px) scale(0.98);
+          opacity: 0.88;
+        }
+
+        .linkTabs :global(a.active) {
           border-color: rgba(238, 224, 197, 0.58);
           background: ${COLORS.cream};
           color: ${COLORS.creamText};
@@ -78,7 +149,7 @@ export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
             gap: 5px;
           }
 
-          .linkTabs a {
+          .linkTabs :global(a) {
             border-radius: 15px;
             padding: 11px 4px;
             font-size: 12px;
