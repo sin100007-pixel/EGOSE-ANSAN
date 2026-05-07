@@ -3,31 +3,26 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
+import { KAKAO_NO_STORE_HEADERS, jsonNoStore } from "../_lib/response";
+import { getSupabase } from "../_lib/supabase";
+import { getCleanSupabaseUrl } from "../_lib/image-url";
+import {
+  PRODUCT_SELECT,
+  normalizeFilm,
+  sortProductsByOrder,
+  type ProductRow,
+} from "../_lib/film-normalizer";
+import {
+  isExpired,
+  readAllowedProductIds,
+  readPresetProductIds,
+  safeReadDefaultRecommendedProductIds,
+} from "../_lib/link-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
-
-const KAKAO_NO_STORE_HEADERS = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-  "CDN-Cache-Control": "no-store",
-  "Vercel-CDN-Cache-Control": "no-store",
-  "Surrogate-Control": "no-store",
-  Pragma: "no-cache",
-  Expires: "0",
-  Vary: "Cookie, Authorization, User-Agent",
-};
-
-function jsonNoStore(body: unknown, init: ResponseInit = {}) {
-  return NextResponse.json(body, {
-    ...init,
-    headers: {
-      ...KAKAO_NO_STORE_HEADERS,
-      ...(init.headers || {}),
-    },
-  });
-}
 
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
 const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
@@ -245,23 +240,6 @@ type SimulatorLinkRow = {
   preset_id: string | null;
 };
 
-type ProductRow = {
-  id: number;
-  manufacturer: string | null;
-  product_code_1: string | null;
-  product_code_2: string | null;
-  color_name: string | null;
-  full_name: string | null;
-  category_main: string | null;
-  category_sub: string | null;
-  palette_main: string | null;
-  palette_sub: string | null;
-  palette_color: string | null;
-  image_path: string | null;
-  simulation_image_path: string | null;
-  simulation_thumb_path: string | null;
-};
-
 type SimulatorSpaceRow = {
   id: string;
   name: string;
@@ -315,25 +293,6 @@ function createFallbackContractorProfile(
     portfolio_photos: [],
   };
 }
-
-const DEFAULT_RECOMMENDED_FILM_LIMIT = 24;
-
-const PRODUCT_SELECT = `
-  id,
-  manufacturer,
-  product_code_1,
-  product_code_2,
-  color_name,
-  full_name,
-  category_main,
-  category_sub,
-  palette_main,
-  palette_sub,
-  palette_color,
-  image_path,
-  simulation_image_path,
-  simulation_thumb_path
-`;
 
 const SPACE_SELECT = `
   id,
@@ -413,83 +372,6 @@ const LOCAL_FALLBACK_SPACES: SimulatorSpaceRow[] = [
   },
 ];
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  const key = serviceKey || anonKey;
-
-  if (!url || !key) {
-    return null;
-  }
-
-  return createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
-
-function getCleanSupabaseUrl() {
-  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return rawUrl.replace(/\s+/g, "").replace(/\/+$/, "");
-}
-
-function encodeStoragePath(pathValue: string) {
-  return pathValue
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-}
-
-function toPublicImageUrl(imagePath: string | null | undefined) {
-  if (!imagePath) return null;
-
-  const baseUrl = getCleanSupabaseUrl();
-  if (!baseUrl) return null;
-
-  const cleaned = String(imagePath).trim().replace(/\s+/g, "");
-
-  if (/^https?:\/\//i.test(cleaned)) {
-    try {
-      const url = new URL(cleaned);
-      url.pathname = url.pathname
-        .split("/")
-        .map((part) => (part ? encodeURIComponent(decodeURIComponent(part)) : part))
-        .join("/");
-      return url.toString();
-    } catch {
-      return encodeURI(cleaned);
-    }
-  }
-
-  const normalizedPath = cleaned
-    .replace(/^\/+/, "")
-    .replace(/^product-samples\//, "");
-
-  return `${baseUrl}/storage/v1/object/public/product-samples/${encodeStoragePath(normalizedPath)}`;
-}
-
-function normalizeFilm(item: ProductRow) {
-  const { image_path, simulation_image_path, simulation_thumb_path, ...rest } = item;
-
-  return {
-    ...rest,
-    image_url: toPublicImageUrl(simulation_image_path || image_path),
-    thumb_url: toPublicImageUrl(
-      simulation_thumb_path || simulation_image_path || image_path
-    ),
-    sample_url: toPublicImageUrl(image_path),
-  };
-}
-
-function isExpired(expiresAt: string) {
-  const expiresTime = new Date(expiresAt).getTime();
-  if (Number.isNaN(expiresTime)) return true;
-  return Date.now() > expiresTime;
-}
-
 function resolveSpaces(
   spaces: SimulatorSpaceRow[] | null | undefined,
   allowLocalFallback: boolean
@@ -518,87 +400,6 @@ async function readAllowedSpaceIds(
       (value: string | null | undefined): value is string =>
         typeof value === "string" && value.length > 0
     );
-}
-
-async function readAllowedProductIds(
-  supabase: any,
-  linkId: string
-) {
-  const { data, error } = await supabase
-    .from("simulator_link_films")
-    .select("product_id")
-    .eq("link_id", linkId)
-    .order("created_at", { ascending: true });
-
-  if (error) throw error;
-
-  return (data || [])
-    .map((row: { product_id?: number | string | null }) => Number(row.product_id))
-    .filter((value: number) => Number.isFinite(value));
-}
-
-async function readPresetProductIds(
-  supabase: any,
-  presetId: string
-) {
-  const { data, error } = await supabase
-    .from("simulator_film_preset_items")
-    .select("product_id")
-    .eq("preset_id", presetId)
-    .order("created_at", { ascending: true });
-
-  if (error) throw error;
-
-  return (data || [])
-    .map((row: { product_id?: number | string | null }) => Number(row.product_id))
-    .filter((value: number) => Number.isFinite(value));
-}
-
-async function readDefaultRecommendedProductIds(supabase: any) {
-  const { data, error } = await supabase
-    .from("simulator_default_recommended_films")
-    .select("product_id, sort_order")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .limit(DEFAULT_RECOMMENDED_FILM_LIMIT);
-
-  if (error) throw error;
-
-  return (data || [])
-    .map(
-      (
-        row: { product_id?: number | string | null; sort_order?: number | string | null },
-        index: number
-      ) => ({
-        productId: Number(row.product_id),
-        sortOrder: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : index + 1,
-      })
-    )
-    .filter((row: { productId: number; sortOrder: number }) => Number.isFinite(row.productId));
-}
-
-async function safeReadDefaultRecommendedProductIds(supabase: any) {
-  try {
-    return await readDefaultRecommendedProductIds(supabase);
-  } catch (error) {
-    console.error("[simulator/bootstrap] recommended films fallback:", error);
-    return [];
-  }
-}
-
-function sortProductsByOrder(rows: ProductRow[], orderMap: Map<number, number>) {
-  if (orderMap.size === 0) return rows;
-
-  return [...rows].sort((a, b) => {
-    const ai = orderMap.get(Number(a.id)) ?? 99999;
-    const bi = orderMap.get(Number(b.id)) ?? 99999;
-
-    if (ai !== bi) return ai - bi;
-
-    const aName = a.full_name || a.product_code_1 || "";
-    const bName = b.full_name || b.product_code_1 || "";
-    return aName.localeCompare(bName, "ko");
-  });
 }
 
 async function readSearchCorpusProducts(

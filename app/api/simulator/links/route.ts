@@ -3,6 +3,13 @@ import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
+import { getSupabase } from "../_lib/supabase";
+import { isExpired } from "../_lib/link-scope";
+import {
+  normalizeNumberArray,
+  normalizeString,
+  normalizeStringArray,
+} from "../_lib/request-values";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,25 +34,6 @@ type PresetRow = {
   name: string;
 };
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-  const key = serviceKey || anonKey;
-
-  if (!url || !key) {
-    return null;
-  }
-
-  return createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
-
 function getSessionName() {
   const raw = cookies().get("session_user")?.value || "";
   return raw ? decodeURIComponent(raw) : "";
@@ -53,34 +41,6 @@ function getSessionName() {
 
 function createToken() {
   return randomBytes(18).toString("base64url");
-}
-
-function normalizeString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeStringArray(value: unknown) {
-  if (!Array.isArray(value)) return [];
-
-  return Array.from(
-    new Set(
-      value
-        .map((item) => normalizeString(item))
-        .filter((item) => item.length > 0)
-    )
-  );
-}
-
-function normalizeNumberArray(value: unknown) {
-  if (!Array.isArray(value)) return [];
-
-  return Array.from(
-    new Set(
-      value
-        .map((item) => Number(item))
-        .filter((item) => Number.isFinite(item) && item > 0)
-    )
-  );
 }
 
 function normalizeFilmScope(value: unknown): FilmScope {
@@ -108,12 +68,6 @@ function getExpiresAt(daysValue: unknown) {
   date.setDate(date.getDate() + safeDays);
 
   return date.toISOString();
-}
-
-function isExpired(expiresAt: string) {
-  const expiresTime = new Date(expiresAt).getTime();
-  if (Number.isNaN(expiresTime)) return true;
-  return Date.now() > expiresTime;
 }
 
 async function readCountMap(
