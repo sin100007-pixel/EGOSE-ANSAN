@@ -32,9 +32,10 @@ export function useSimulatorCustomerGuide({
   setupNeeded,
 }: UseSimulatorCustomerGuideArgs) {
   const [activeGuideStep, setActiveGuideStep] = useState<CustomerGuideStep | null>(null);
-  const [seenGuideSteps, setSeenGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
+  const [, setSeenGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
+  const [dismissedGuideSteps, setDismissedGuideSteps] = useState<Partial<Record<CustomerGuideStep, boolean>>>({});
   const [guideReady, setGuideReady] = useState(false);
-  const [manualGuideMode, setManualGuideMode] = useState(false);
+  const [guideEnabled, setGuideEnabled] = useState(false);
 
   const customerGuideStorageKey = useMemo(() => {
     return `${CUSTOMER_GUIDE_STORAGE_PREFIX}:${token || "default"}`;
@@ -55,8 +56,9 @@ export function useSimulatorCustomerGuide({
   useEffect(() => {
     if (mode !== "customer") {
       setSeenGuideSteps({});
+      setDismissedGuideSteps({});
       setActiveGuideStep(null);
-      setManualGuideMode(false);
+      setGuideEnabled(false);
       setGuideReady(true);
       return;
     }
@@ -75,17 +77,20 @@ export function useSimulatorCustomerGuide({
       });
 
       setSeenGuideSteps(nextSeen);
+      setGuideEnabled(CUSTOMER_GUIDE_STEPS.some((guideStep) => !nextSeen[guideStep]));
     } catch {
       setSeenGuideSteps({});
+      setGuideEnabled(true);
     } finally {
+      setDismissedGuideSteps({});
       setActiveGuideStep(null);
-      setManualGuideMode(false);
       setGuideReady(true);
     }
   }, [customerGuideStorageKey, mode]);
 
   useEffect(() => {
     if (mode !== "customer" || !guideReady || loading || expired || setupNeeded) {
+      setActiveGuideStep(null);
       return;
     }
 
@@ -94,7 +99,7 @@ export function useSimulatorCustomerGuide({
       return;
     }
 
-    if (manualGuideMode || !seenGuideSteps[currentStepGuide]) {
+    if (guideEnabled && !dismissedGuideSteps[currentStepGuide]) {
       setActiveGuideStep(currentStepGuide);
       return;
     }
@@ -102,13 +107,13 @@ export function useSimulatorCustomerGuide({
     setActiveGuideStep(null);
   }, [
     currentStepGuide,
+    dismissedGuideSteps,
     expired,
+    guideEnabled,
     guideReady,
     isFilmSheetOpen,
     loading,
-    manualGuideMode,
     mode,
-    seenGuideSteps,
     setupNeeded,
   ]);
 
@@ -131,10 +136,14 @@ export function useSimulatorCustomerGuide({
       return;
     }
 
-    if (activeGuideStep) {
-      rememberGuideStepAsSeen(activeGuideStep);
+    if (guideEnabled) {
+      if (activeGuideStep) {
+        rememberGuideStepAsSeen(activeGuideStep);
+      }
+
+      setGuideEnabled(false);
       setActiveGuideStep(null);
-      setManualGuideMode(false);
+      setDismissedGuideSteps({});
       return;
     }
 
@@ -142,7 +151,12 @@ export function useSimulatorCustomerGuide({
       return;
     }
 
-    setManualGuideMode(true);
+    setGuideEnabled(true);
+    setDismissedGuideSteps((prev) => {
+      const nextDismissed = { ...prev };
+      delete nextDismissed[currentStepGuide];
+      return nextDismissed;
+    });
     setActiveGuideStep(currentStepGuide);
   };
 
@@ -150,11 +164,9 @@ export function useSimulatorCustomerGuide({
     if (!activeGuideStep) return;
 
     rememberGuideStepAsSeen(activeGuideStep);
+    setDismissedGuideSteps((prev) => ({ ...prev, [activeGuideStep]: true }));
     setActiveGuideStep(null);
-    setManualGuideMode(false);
   };
-
-  const guideEnabled = Boolean(activeGuideStep);
 
   return {
     activeGuideStep,

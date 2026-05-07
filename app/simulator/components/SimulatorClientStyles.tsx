@@ -398,7 +398,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           box-sizing: border-box;
         }
 
-        .pageInnerCustomerIntroWithGuide {
+        .pageInner.pageInnerCustomerIntroWithGuide {
           padding-top: calc(env(safe-area-inset-top, 0px) + 104px);
         }
 
@@ -2236,6 +2236,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             padding: 8px 10px 24px;
           }
 
+          .pageInner.pageInnerCustomerIntroWithGuide {
+            padding-top: calc(env(safe-area-inset-top, 0px) + 94px);
+          }
+
           .backButton {
             margin: 8px 0 8px 10px;
             padding: 9px 13px;
@@ -2602,8 +2606,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             font-size: 11px;
           }
 
+        }
+
         @media (min-width: 768px) {
-          .pageInnerCustomerIntroWithGuide {
+          .pageInner.pageInnerCustomerIntroWithGuide {
             padding-top: calc(env(safe-area-inset-top, 0px) + 116px);
           }
 
