@@ -61,6 +61,8 @@ export default function SimulatorApplyStep({
         previewAspectRatio={previewAspectRatio}
         previewHasRealSpace={previewHasRealSpace}
         colors={colors}
+        activeZoneKey={activeZoneKey}
+        onZoneClick={onOpenFilmSheet}
       />
 
       <div className="zoneApplyGrid">

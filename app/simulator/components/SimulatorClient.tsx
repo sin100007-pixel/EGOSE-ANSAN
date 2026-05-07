@@ -278,7 +278,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     : step === "space"
       ? "시뮬레이션할 공간을 먼저 선택해주세요."
       : step === "apply"
-        ? "이미지 아래에 구역 버튼을 눌러 필름을 적용하세요."
+        ? "이미지의 체크무늬 구역이나 아래 구역 버튼을 눌러 필름을 적용하세요."
         : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요.";
 
   return (

@@ -905,6 +905,12 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           background: transparent;
         }
 
+        .sceneStageClickable {
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
+
         .maskedTransparencyLayer,
         .maskedFilmLayer {
           position: absolute;
@@ -937,6 +943,11 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           z-index: 3;
           background-position: center;
           background-repeat: repeat;
+        }
+
+        .maskedTransparencyLayerActive,
+        .maskedFilmLayerActive {
+          filter: brightness(1.04) saturate(1.06);
         }
 
         .sceneBaseImage,

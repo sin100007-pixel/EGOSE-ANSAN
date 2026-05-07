@@ -1,5 +1,8 @@
+import { useCallback } from "react";
+import type { MouseEvent } from "react";
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
+import { useMaskZonePicker } from "../../hooks/useMaskZonePicker";
 
 type SimulatorScenePreviewProps = {
   selectedSpace: SimulatorSpace | null;
@@ -14,6 +17,8 @@ type SimulatorScenePreviewProps = {
   viewportClassName?: string;
   exportKeyPrefix?: string;
   compactEmpty?: boolean;
+  activeZoneKey?: string;
+  onZoneClick?: (zoneKey: string) => void;
 };
 
 export default function SimulatorScenePreview({
@@ -26,7 +31,20 @@ export default function SimulatorScenePreview({
   viewportClassName = "",
   exportKeyPrefix = "",
   compactEmpty = false,
+  activeZoneKey = "",
+  onZoneClick,
 }: SimulatorScenePreviewProps) {
+  const { findZoneKeyAtPointer } = useMaskZonePicker(maskZones);
+
+  const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (!onZoneClick) return;
+
+    const zoneKey = findZoneKeyAtPointer(event.clientX, event.clientY, event.currentTarget);
+    if (!zoneKey) return;
+
+    onZoneClick(zoneKey);
+  }, [findZoneKeyAtPointer, onZoneClick]);
+
   return (
     <div
       className={`previewViewport ${viewportClassName}`.trim()}
@@ -35,7 +53,11 @@ export default function SimulatorScenePreview({
       }}
     >
       {previewHasRealSpace ? (
-        <div className="sceneStage">
+        <div
+          className={`sceneStage ${onZoneClick ? "sceneStageClickable" : ""}`.trim()}
+          onClick={handleSceneClick}
+          title={onZoneClick ? "체크무늬 구역을 누르면 필름을 선택할 수 있어요" : undefined}
+        >
           {maskZones.map((zone) => {
             const film = zoneFilmMap[zone.key];
             const key = exportKeyPrefix ? `${exportKeyPrefix}-${zone.key}` : zone.key;
@@ -45,7 +67,7 @@ export default function SimulatorScenePreview({
                 <div
                   key={key}
                   aria-hidden="true"
-                  className="maskedFilmLayer"
+                  className={`maskedFilmLayer ${activeZoneKey === zone.key ? "maskedFilmLayerActive" : ""}`.trim()}
                   style={{
                     backgroundImage: `url("${film.image_url}")`,
                     backgroundSize: `${zone.patternSize || 220}px auto`,
@@ -60,7 +82,7 @@ export default function SimulatorScenePreview({
               <div
                 key={key}
                 aria-hidden="true"
-                className="maskedTransparencyLayer"
+                className={`maskedTransparencyLayer ${activeZoneKey === zone.key ? "maskedTransparencyLayerActive" : ""}`.trim()}
                 style={{
                   WebkitMaskImage: `url("${zone.mask_url}")`,
                   maskImage: `url("${zone.mask_url}")`,
