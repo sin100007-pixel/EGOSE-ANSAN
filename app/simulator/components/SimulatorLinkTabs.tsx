@@ -15,20 +15,24 @@ const COLORS = {
   soft: "rgba(255,255,255,0.70)",
 };
 
-const TAB_ITEMS: Array<{
-  key: SimulatorLinkTabsProps["active"];
-  href: string;
-  label: string;
-}> = [
+const TAB_ITEMS = [
   { key: "new", href: "/simulator/links/new", label: "링크 생성" },
   { key: "presets", href: "/simulator/presets", label: "프리셋" },
   { key: "manage", href: "/simulator/links/manage", label: "링크 관리" },
   { key: "settings", href: "/simulator/settings", label: "소개 설정" },
-];
+] as const satisfies ReadonlyArray<{
+  key: SimulatorLinkTabsProps["active"];
+  href:
+    | "/simulator/links/new"
+    | "/simulator/presets"
+    | "/simulator/links/manage"
+    | "/simulator/settings";
+  label: string;
+}>;
 
 export default function SimulatorLinkTabs({ active }: SimulatorLinkTabsProps) {
   const router = useRouter();
-  const [movingTo, setMovingTo] = useState("");
+  const [movingTo, setMovingTo] = useState<SimulatorLinkTabsProps["active"] | "">("");
 
   const prefetchTabs = () => {
     TAB_ITEMS.forEach((item) => {
