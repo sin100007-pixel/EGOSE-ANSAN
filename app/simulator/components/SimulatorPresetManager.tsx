@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
+import SimulatorFilmSearchPanel from "./shared/SimulatorFilmSearchPanel";
+import SimulatorFilmResultCard from "./shared/SimulatorFilmResultCard";
+import SimulatorSamplePreview from "./shared/SimulatorSamplePreview";
+import SimulatorSelectedFilmList from "./shared/SimulatorSelectedFilmList";
+import {
+  DEFAULT_PALETTE_COLOR_OPTIONS,
+  DEFAULT_PALETTE_MAIN_OPTIONS,
+  orderPaletteValues,
+  uniqueClean,
+} from "./shared/SimulatorPaletteFilter";
 import type { SimulatorFilm } from "../types";
 
 type PresetSummary = {
@@ -39,78 +49,6 @@ const COLORS = {
   soft: "rgba(255,255,255,0.70)",
   white: "#FFFFFF",
 };
-
-const DEFAULT_PALETTE_MAIN_OPTIONS = ["솔리드", "우드", "스톤", "메탈", "페브릭레더"];
-
-const DEFAULT_PALETTE_COLOR_OPTIONS = [
-  "흰색",
-  "아이보리",
-  "베이지",
-  "옐로/골드",
-  "연브라운",
-  "브라운",
-  "진브라운",
-  "다크브라운",
-  "검정/차콜",
-  "회색/실버",
-  "블루",
-  "그린",
-  "레드/핑크",
-  "퍼플",
-];
-
-const PALETTE_COLOR_SWATCH: Record<string, string> = {
-  흰색: "#F8F6EF",
-  아이보리: "#EFE2C8",
-  베이지: "#CDBA99",
-  "옐로/골드": "#C9A04D",
-  연브라운: "#B98252",
-  브라운: "#8A5A35",
-  진브라운: "#5A3926",
-  다크브라운: "#3E2A20",
-  "회색/실버": "#9A9A94",
-  "검정/차콜": "#222222",
-  그린: "#6F8A5B",
-  블루: "#3D65B8",
-  "레드/핑크": "#C95E6D",
-  퍼플: "#7A5A9A",
-};
-
-function getFilmName(film: SimulatorFilm) {
-  return film.full_name || film.product_code_1 || film.color_name || "필름";
-}
-
-function getFilmCode(film: SimulatorFilm) {
-  return [film.product_code_1, film.product_code_2].filter(Boolean).join(" / ");
-}
-
-function getFilmThumbUrl(film: SimulatorFilm) {
-  return film.thumb_url || film.image_url || "";
-}
-
-function orderPaletteValues(values: string[], preferred: string[]) {
-  const orderMap = new Map(preferred.map((value, index) => [value, index]));
-
-  return [...values].sort((a, b) => {
-    const ai = orderMap.has(a) ? orderMap.get(a)! : 999;
-    const bi = orderMap.has(b) ? orderMap.get(b)! : 999;
-
-    if (ai !== bi) return ai - bi;
-    return a.localeCompare(b, "ko");
-  });
-}
-
-function uniqueClean(values: unknown) {
-  if (!Array.isArray(values)) return [];
-
-  return Array.from(
-    new Set(
-      values
-        .map((value) => (typeof value === "string" ? value.trim() : ""))
-        .filter(Boolean)
-    )
-  );
-}
 
 function formatDate(value?: string | null) {
   if (!value) return "";
@@ -578,210 +516,60 @@ export default function SimulatorPresetManager() {
 
             <div className="fieldSectionLabel">프리셋 할 제품 찾기</div>
 
-            <div className="filmPicker">
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void searchFilms({ updateFacets: false });
-                }}
-                className="searchRow"
-              >
-                <input
-                  value={filmQuery}
-                  onChange={(event) => setFilmQuery(event.target.value)}
-                  placeholder="제품번호/색상명 검색 예: 122, 화이트, SG"
-                />
-                <button type="submit">{filmLoading ? "검색중" : "검색"}</button>
-              </form>
-
-              <div className="filterToolbar">
-                <button
-                  type="button"
-                  onClick={() => setPaletteOpen((prev) => !prev)}
-                  className={`paletteToggle ${activePaletteCount > 0 ? "paletteToggleActive" : ""}`}
-                >
-                  <span>색상으로 찾기</span>
-                  <strong>{activePaletteCount > 0 ? `${activePaletteCount}개 적용중` : "열기"}</strong>
-                </button>
-
-                {activePaletteCount > 0 ? (
-                  <button type="button" onClick={resetPaletteFilters} className="smallResetButton">
-                    색상 초기화
-                  </button>
-                ) : null}
-              </div>
-
-              {activePaletteCount > 0 ? (
-                <div className="activeFilterList">
-                  {selectedPaletteMain ? (
-                    <button type="button" onClick={() => handlePaletteMainClick(selectedPaletteMain)}>
-                      {selectedPaletteMain} ×
-                    </button>
-                  ) : null}
-                  {selectedPaletteSub ? (
-                    <button type="button" onClick={() => handlePaletteSubClick(selectedPaletteSub)}>
-                      {selectedPaletteSub} ×
-                    </button>
-                  ) : null}
-                  {selectedPaletteColors.map((color) => (
-                    <button key={color} type="button" onClick={() => handlePaletteColorClick(color)}>
-                      {color} ×
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {paletteOpen ? (
-                <div className="palettePanel">
-                  <div className="palettePanelHeader">
-                    <div>
-                      <strong>색상 팔레트</strong>
-                      <p>필요할 때만 열어서 고르고, 결과 목록은 넓게 유지합니다.</p>
-                    </div>
-                    <button type="button" onClick={() => setPaletteOpen(false)}>
-                      접기
-                    </button>
-                  </div>
-
-                  <div className="paletteGroup">
-                    <div className="paletteLabelRow">
-                      <span>1차 분류</span>
-                    </div>
-                    <div className="paletteChipRow">
-                      {paletteMainOptions.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => handlePaletteMainClick(item)}
-                          className={`paletteChip ${selectedPaletteMain === item ? "paletteChipActive" : ""}`}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {selectedPaletteMain ? (
-                    <div className="paletteGroup">
-                      <div className="paletteLabelRow">
-                        <span>2차 분류</span>
-                        <em>선택사항</em>
-                      </div>
-                      <div className="paletteChipRow">
-                        <button
-                          type="button"
-                          onClick={() => handlePaletteSubClick("")}
-                          className={`paletteChip ${!selectedPaletteSub ? "paletteChipActive" : ""}`}
-                        >
-                          전체
-                        </button>
-                        {paletteSubOptions.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => handlePaletteSubClick(item)}
-                            className={`paletteChip ${selectedPaletteSub === item ? "paletteChipActive" : ""}`}
-                          >
-                            {item}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="paletteGroup">
-                    <div className="paletteLabelRow">
-                      <span>색상</span>
-                      <em>{selectedPaletteColors.length > 0 ? selectedPaletteColors.join(", ") : "전체"}</em>
-                    </div>
-                    <div className="paletteColorGrid">
-                      {paletteColorOptions.map((item) => {
-                        const active = selectedPaletteColors.includes(item);
-
-                        return (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => handlePaletteColorClick(item)}
-                            className={`paletteColorChip ${active ? "paletteColorChipActive" : ""}`}
-                            aria-pressed={active}
-                          >
-                            <i style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }} />
-                            <span>{item}</span>
-                            {active ? <b aria-hidden="true">✓</b> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
+            <SimulatorFilmSearchPanel
+              className="filmPicker"
+              query={filmQuery}
+              loading={filmLoading}
+              placeholder="제품번호/색상명 검색 예: 122, 화이트, SG"
+              onQueryChange={setFilmQuery}
+              onSearch={() => void searchFilms({ updateFacets: false })}
+              palette={{
+                open: paletteOpen,
+                activeCount: activePaletteCount,
+                selectedMain: selectedPaletteMain,
+                selectedSub: selectedPaletteSub,
+                selectedColors: selectedPaletteColors,
+                mainOptions: paletteMainOptions,
+                subOptions: paletteSubOptions,
+                colorOptions: paletteColorOptions,
+                onToggleOpen: () => setPaletteOpen((prev) => !prev),
+                onClose: () => setPaletteOpen(false),
+                onReset: resetPaletteFilters,
+                onMainClick: handlePaletteMainClick,
+                onSubClick: handlePaletteSubClick,
+                onColorClick: handlePaletteColorClick,
+              }}
+            >
               <div className="pickerStatusBar">
                 <span>검색 결과 {filmSearchResults.length}개</span>
                 <strong>선택한 필름 {selectedFilms.length}개</strong>
               </div>
 
-              {selectedFilms.length > 0 ? (
-                <div className="selectedFilmList" aria-label="선택한 필름 목록">
-                  {selectedFilms.map((film) => (
-                    <button
-                      key={film.id}
-                      type="button"
-                      onClick={() => removeFilm(film.id)}
-                      title="누르면 선택 해제"
-                    >
-                      {getFilmName(film)} ×
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="hintBox compactHint">
-                  검색 결과에서 필름을 누르면 프리셋에 담깁니다.
-                </div>
-              )}
+              <SimulatorSelectedFilmList
+                films={selectedFilms}
+                onRemove={removeFilm}
+                emptyText="검색 결과에서 필름을 누르면 프리셋에 담깁니다."
+                emptyClassName="hintBox compactHint"
+                ariaLabel="선택한 필름 목록"
+                buttonTitle="누르면 선택 해제"
+              />
 
               <div className="filmResultGrid">
                 {filmSearchResults.length > 0 ? (
                   filmSearchResults.map((film) => {
                     const active = selectedFilmIds.has(film.id);
-                    const thumb = getFilmThumbUrl(film);
 
                     return (
-                      <div
+                      <SimulatorFilmResultCard
                         key={film.id}
-                        className={`filmResultCard ${active ? "filmResultCardActive" : ""}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleFilm(film)}
-                          className="filmResultSelectButton"
-                          title={active ? "누르면 프리셋에서 제거" : "누르면 프리셋에 담기"}
-                        >
-                          <div className="filmResultThumb">
-                            {thumb ? (
-                              <img
-                                src={thumb}
-                                alt={getFilmName(film)}
-                                loading="lazy"
-                                decoding="async"
-                              />
-                            ) : null}
-                          </div>
-                          <div className="filmResultName">{getFilmName(film)}</div>
-                        </button>
-
-                        <div className="filmResultActionRow">
-                          <button
-                            type="button"
-                            onClick={() => toggleSamplePreview(film)}
-                            className={`filmResultSampleButton ${previewSampleFilm?.id === film.id ? "filmResultSampleButtonActive" : ""}`}
-                            disabled={!film.sample_url}
-                          >
-                            {film.sample_url ? "샘플사진 보기" : "샘플 준비중"}
-                          </button>
-                        </div>
-                      </div>
+                        film={film}
+                        active={active}
+                        variant="preset"
+                        previewActive={previewSampleFilm?.id === film.id}
+                        onSelect={toggleFilm}
+                        onPreview={toggleSamplePreview}
+                        selectTitle={active ? "누르면 프리셋에서 제거" : "누르면 프리셋에 담기"}
+                      />
                     );
                   })
                 ) : filmLoading ? (
@@ -795,40 +583,11 @@ export default function SimulatorPresetManager() {
                 ) : null}
               </div>
 
-              {previewSampleFilm?.sample_url ? (
-                <div className="sampleBubbleBackdrop" onClick={() => setPreviewSampleFilm(null)}>
-                  <div className="sampleBubble" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewSampleFilm(null)}
-                      className="sampleBubbleClose"
-                    >
-                      닫기
-                    </button>
-
-                    <div className="sampleBubbleLabel">필름봇 샘플사진</div>
-                    <div className="sampleBubbleTitle">{getFilmName(previewSampleFilm)}</div>
-
-                    {getFilmCode(previewSampleFilm) ? (
-                      <div className="sampleBubbleCode">{getFilmCode(previewSampleFilm)}</div>
-                    ) : null}
-
-                    <div className="sampleBubbleImageWrap">
-                      <img
-                        src={previewSampleFilm.sample_url}
-                        alt={`${getFilmName(previewSampleFilm)} 샘플사진`}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
-
-                    <p className="sampleBubbleText">
-                      실제 확대 질감을 참고할 수 있도록 필름봇용 샘플사진을 보여드리고 있어요.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+              <SimulatorSamplePreview
+                film={previewSampleFilm}
+                onClose={() => setPreviewSampleFilm(null)}
+              />
+            </SimulatorFilmSearchPanel>
 
             {error ? <div className="errorBox">{error}</div> : null}
             {message ? <div className="messageBox">{message}</div> : null}
@@ -904,7 +663,7 @@ export default function SimulatorPresetManager() {
 
       <SimulatorLinkTabs active="presets" />
 
-      <style jsx>{`
+      <style jsx global>{`
         .page {
           min-height: 100vh;
           padding-bottom: 96px;
