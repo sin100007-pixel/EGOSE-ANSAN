@@ -1,6 +1,6 @@
 import type { SimulatorFilm, SimulatorSpace } from "../types";
 
-type MaskZoneDefinition = {
+export type MaskZoneDefinition = {
   key: string;
   label: string;
   mask_url: string;

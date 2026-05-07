@@ -7,22 +7,25 @@ import { toPng } from "html-to-image";
 import type { ContractorProfile, SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorClientStyles from "./SimulatorClientStyles";
+import SimulatorSpaceStep from "./client/SimulatorSpaceStep";
+import SimulatorApplyStep from "./client/SimulatorApplyStep";
+import SimulatorDecisionStep from "./client/SimulatorDecisionStep";
+import SimulatorBottomStepNav from "./client/SimulatorBottomStepNav";
+import SimulatorCustomerGuideModal from "./client/SimulatorCustomerGuideModal";
+import SimulatorFilmSheet from "./client/SimulatorFilmSheet";
+import SimulatorDecisionExportCard from "./client/SimulatorDecisionExportCard";
 import {
-  PALETTE_MAIN_OPTIONS,
   PALETTE_COLOR_OPTIONS,
-  PALETTE_COLOR_SWATCH,
   KAKAO_SW_RESET_KEY,
   orderPaletteColors,
   formatDateTime,
   getFilmName,
-  getFilmCode,
   mergeFilmsById,
   filterFilmsLocally,
   buildLocalPaletteFacets,
   isFabricFilm,
   readMaskZones,
   readPreviewAspectRatio,
-  getSpaceThumbnail,
   isKakaoInAppBrowser,
   clearProblemBrowserCachesOnce,
   makeKakaoFetchInit,
@@ -31,7 +34,6 @@ import {
   normalizeFilmForKakao,
   normalizeSpaceForKakao,
   preloadImage,
-  getFilmThumbUrl,
   getPhoneHref,
   getKakaoHref,
 } from "../lib/client-utils";
@@ -1212,713 +1214,99 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   onStart={() => setStep("space")}
 />
           ) : step === "space" ? (
-            <section className="spaceSelectCard">
-              <div className="sectionHeader">
-                <div>
-                  <div className="sectionLabel">공간 선택</div>
-                  <h2 className="sectionTitle">어디에 필름을 적용해볼까요?</h2>
-                </div>
-                <div className="spaceCount">{state.spaces.length || 0}개 공간</div>
-              </div>
-
-              <div className="spaceGrid">
-                {state.spaces.length > 0 ? (
-                  state.spaces.map((space) => {
-                    const thumbnail = getSpaceThumbnail(space);
-                    const active = selectedSpace?.id === space.id;
-                    const thumbZones = readMaskZones(space);
-                    const thumbAspectRatio = readPreviewAspectRatio(space);
-                    const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
-
-                    return (
-                      <button
-                        key={space.id}
-                        type="button"
-                        onClick={() => selectSpaceAndGoApply(space.id)}
-                        className={`spaceCard ${active ? "spaceCardActive" : ""}`}
-                      >
-                        <div className="spaceThumb" style={{ aspectRatio: thumbAspectRatio }}>
-                          {hasSceneThumb ? (
-                            <div className="spaceThumbStage">
-                              {thumbZones.map((zone) => (
-                                <div
-                                  key={zone.key}
-                                  aria-hidden="true"
-                                  className="spaceThumbCheckerLayer"
-                                  style={{
-                                    WebkitMaskImage: `url("${zone.mask_url}")`,
-                                    maskImage: `url("${zone.mask_url}")`,
-                                  }}
-                                />
-                              ))}
-
-                              {space.base_image_url ? (
-                                <img src={space.base_image_url} alt="공간 원본" className="spaceThumbBaseImage" />
-                              ) : null}
-
-                              {space.overlay_image_url ? (
-                                <img src={space.overlay_image_url} alt={space.name} className="spaceThumbOverlayImage" />
-                              ) : null}
-                            </div>
-                          ) : thumbnail ? (
-                            <img src={thumbnail} alt={space.name} />
-                          ) : (
-                            <div className="spaceThumbEmpty">이미지 준비중</div>
-                          )}
-                        </div>
-
-                        <div className="spaceInfo">
-                          <div>
-                            <div className="spaceName">{space.name}</div>
-                            <div className="spaceDesc">{space.description || "선택하면 색상 적용 화면으로 이동합니다."}</div>
-                          </div>
-
-                          <span className="spaceGoBadge">선택</span>
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="emptyFilmBox">등록된 공간이 없습니다.</div>
-                )}
-              </div>
-            </section>
+            <SimulatorSpaceStep
+              spaces={state.spaces}
+              selectedSpace={selectedSpace}
+              onSelectSpace={selectSpaceAndGoApply}
+            />
           ) : step === "apply" ? (
-            <section className="applyCard">
-              <div className="applyTopRow">
-                <div>
-                  <div className="sectionLabel">색상 적용</div>
-                  <h2 className="spaceTitle">{selectedSpace?.name || "공간 없음"}</h2>
-                </div>
-
-                <button type="button" onClick={() => setStep("space")} className="changeSpaceButton">
-                  공간 변경
-                </button>
-              </div>
-
-              <div
-                className="previewViewport"
-                style={{
-                  aspectRatio: previewAspectRatio,
-                }}
-              >
-                {previewHasRealSpace ? (
-                  <div className="sceneStage">
-                    {maskZones.map((zone) => {
-                      const film = zoneFilmMap[zone.key];
-
-                      if (film?.image_url) {
-                        return (
-                          <div
-                            key={zone.key}
-                            aria-hidden="true"
-                            className="maskedFilmLayer"
-                            style={{
-                              backgroundImage: `url("${film.image_url}")`,
-                              backgroundSize: `${zone.patternSize || 220}px auto`,
-                              WebkitMaskImage: `url("${zone.mask_url}")`,
-                              maskImage: `url("${zone.mask_url}")`,
-                            }}
-                          />
-                        );
-                      }
-
-                      return (
-                        <div
-                          key={zone.key}
-                          aria-hidden="true"
-                          className="maskedTransparencyLayer"
-                          style={{
-                            WebkitMaskImage: `url("${zone.mask_url}")`,
-                            maskImage: `url("${zone.mask_url}")`,
-                          }}
-                        />
-                      );
-                    })}
-
-                    {selectedSpace?.base_image_url ? (
-                      <img src={selectedSpace.base_image_url} alt="공간 원본" className="sceneBaseImage" />
-                    ) : null}
-
-                    {selectedSpace?.overlay_image_url ? (
-                      <img src={selectedSpace.overlay_image_url} alt="공간 오버레이" className="sceneOverlayImage" />
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="emptyPreviewWrap">
-                    <div className="emptyPreviewBox">
-                      <div className="emptyPreviewInner">
-                        <div style={{ color: COLORS.cream, fontWeight: 900, marginBottom: 6 }}>
-                          공간 이미지 등록 전 테스트 화면
-                        </div>
-                        <div style={{ color: COLORS.soft, fontSize: 14, lineHeight: 1.6 }}>
-                          실제 공간 PNG와 구역별 마스크 PNG가 준비되면 이 영역에 적용됩니다.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="zoneApplyGrid">
-                {maskZones.map((zone) => {
-                  const active = activeZoneKey === zone.key;
-                  const film = zoneFilmMap[zone.key] || null;
-
-                  return (
-                    <button
-                      key={zone.key}
-                      type="button"
-                      onClick={() => openFilmSheet(zone.key)}
-                      className={`zoneApplyButton ${active ? "zoneApplyButtonActive" : ""}`}
-                    >
-                      <span>{zone.label}</span>
-                      <strong className={!film ? "zoneFilmPrompt" : undefined}>
-                        {film ? getFilmName(film) : "이곳을 눌러 필름선택"}
-                      </strong>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="applyActionRow">
-                {selectedFilm ? (
-                  <button type="button" onClick={() => applyFilmToAllZones(selectedFilm)} className="smallActionButton">
-                    선택 필름 전체 적용
-                  </button>
-                ) : null}
-
-                {activeZone && zoneFilmMap[activeZone.key] ? (
-                  <button type="button" onClick={() => clearZoneFilm(activeZone.key)} className="smallActionButton">
-                    현재 구역 지우기
-                  </button>
-                ) : null}
-
-                {Object.keys(zoneFilmMap).length > 0 ? (
-                  <button type="button" onClick={clearAllZones} className="smallActionButton">
-                    전체 초기화
-                  </button>
-                ) : null}
-              </div>
-
-              <p className="applyWarningText">
-                *실물 필름과는 차이가있습니다. 유의해주세요.*
-              </p>
-
-              <div className="applyDecisionRow">
-                <button
-                  type="button"
-                  onClick={goDecisionStep}
-                  className="decisionNextButton"
-                  disabled={!maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]))}
-                >
-                  결정확정으로 넘어가기
-                </button>
-              </div>
-            </section>
+            <SimulatorApplyStep
+              selectedSpace={selectedSpace}
+              maskZones={maskZones}
+              activeZoneKey={activeZoneKey}
+              activeZone={activeZone}
+              zoneFilmMap={zoneFilmMap}
+              selectedFilm={selectedFilm}
+              previewAspectRatio={previewAspectRatio}
+              previewHasRealSpace={previewHasRealSpace}
+              colors={COLORS}
+              onBackToSpace={() => setStep("space")}
+              onOpenFilmSheet={openFilmSheet}
+              onApplyFilmToAllZones={applyFilmToAllZones}
+              onClearZoneFilm={clearZoneFilm}
+              onClearAllZones={clearAllZones}
+              onGoDecisionStep={goDecisionStep}
+            />
           ) : (
-            <section className="decisionCard">
-              <div className="applyTopRow">
-                <div>
-                  <div className="sectionLabel">결정 확정</div>
-                  <h2 className="spaceTitle">선택 결과 확인</h2>
-                </div>
-
-                <button type="button" onClick={() => setStep("apply")} className="changeSpaceButton">
-                  색상 다시 선택
-                </button>
-              </div>
-
-              <div className="decisionSummary">
-                <div className="decisionSpaceName">{selectedSpace?.name || "공간 없음"}</div>
-
-                <div className="decisionZoneList">
-                  {maskZones.map((zone) => {
-                    const film = zoneFilmMap[zone.key] || null;
-
-                    return (
-                      <div key={zone.key} className="decisionZoneItem">
-                        <span>{zone.label}</span>
-                        <strong>{film ? getFilmName(film) : "미선택"}</strong>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {hasFabricWarning ? (
-                  <div className="decisionFabricWarning">
-                    선택된 필름에 패브릭필름이 있습니다. 시뮬레이션상 불가피하게 왜곡이 심한 종류이므로 주의 부탁드립니다.
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="decisionActionGrid">
-                <section className="decisionActionCard">
-                  <div className="decisionActionIcon">1</div>
-                  <h3>결정 결과 전송</h3>
-                  <p>
-                    선택한 구역별 필름 결과를 보낼 수 있습니다. 휴대폰에서는 공유창이 열리고, 지원하지 않는 경우 결과가 복사됩니다.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void shareDecisionResult()}
-                    className="primaryDecisionButton"
-                    disabled={isDecisionSharing}
-                  >
-                    {isDecisionSharing ? "전송 준비 중..." : "시뮬레이션 결과 전송"}
-                  </button>
-                  {decisionMessage ? <div className="decisionMessage">{decisionMessage}</div> : null}
-                </section>
-
-                <section className="decisionActionCard">
-                  <div className="decisionActionIcon">2</div>
-                  <h3>샘플 안내</h3>
-                  <p>
-                    거래처의 매장에 방문하시면 필름 실물을 보실수 있고, 샘플 받을 수있도록 준비해놨습니다.
-                  </p>
-                  <div className="storeInfoBox">
-                    <strong>이고세(주)</strong>
-                    <span>경기도 안산시 상록구 안산천서로 237 1층 안산이고세</span>
-                    <span>Tel. 031-486-6882</span>
-                  </div>
-                </section>
-
-                <section className="decisionActionCard">
-                  <div className="decisionActionIcon">3</div>
-                  <h3>카카오톡 문의</h3>
-                  <p>
-                    궁금하신게 있으시면 카카오톡으로 연락주세요.
-                  </p>
-                  {kakaoHref ? (
-                    <a
-                      href={kakaoHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="primaryDecisionButton"
-                    >
-                      카카오톡 문의하기
-                    </a>
-                  ) : (
-                    <button type="button" className="primaryDecisionButton" disabled>
-                      카카오톡 링크 준비중
-                    </button>
-                  )}
-                </section>
-              </div>
-            </section>
+            <SimulatorDecisionStep
+              selectedSpace={selectedSpace}
+              maskZones={maskZones}
+              zoneFilmMap={zoneFilmMap}
+              hasFabricWarning={hasFabricWarning}
+              kakaoHref={kakaoHref}
+              decisionMessage={decisionMessage}
+              isDecisionSharing={isDecisionSharing}
+              onBackToApply={() => setStep("apply")}
+              onShareDecisionResult={() => void shareDecisionResult()}
+            />
           )}
         </div>
 
         {!state.loading ? (
-        <nav className={`bottomStepNav ${hasIntroStep ? "bottomStepNavFour" : ""}`} aria-label="시뮬레이터 단계 이동">
-          {hasIntroStep ? (
-            <button
-              type="button"
-              onClick={() => setStep("intro")}
-              className={step === "intro" ? "bottomStepButtonActive" : ""}
-            >
-              <span>1</span>
-              소개
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => setStep("space")}
-            className={step === "space" ? "bottomStepButtonActive" : ""}
-          >
-            <span>{hasIntroStep ? 2 : 1}</span>
-            공간선택
-          </button>
-
-          <button
-            type="button"
-            onClick={goApplyStep}
-            className={step === "apply" ? "bottomStepButtonActive" : ""}
-          >
-            <span>{hasIntroStep ? 3 : 2}</span>
-            색상적용
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStep("decision")}
-            className={step === "decision" ? "bottomStepButtonActive" : ""}
-          >
-            <span>{hasIntroStep ? 4 : 3}</span>
-            결정확정
-          </button>
-        </nav>
+          <SimulatorBottomStepNav
+            step={step}
+            hasIntroStep={hasIntroStep}
+            onIntro={() => setStep("intro")}
+            onSpace={() => setStep("space")}
+            onApply={goApplyStep}
+            onDecision={() => setStep("decision")}
+          />
         ) : null}
 
         {currentGuide ? (
-          <div className="customerGuideOverlay" role="presentation" onClick={closeCustomerGuide}>
-            <section
-              className="customerGuideModal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="customer-guide-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="customerGuideTopRow">
-                <div className="customerGuideBadge">고객 사용 가이드 · {currentGuide.stepLabel}</div>
-                <button
-                  type="button"
-                  onClick={closeCustomerGuide}
-                  className="customerGuideClose"
-                  aria-label="가이드 닫기"
-                >
-                  ×
-                </button>
-              </div>
-
-              <h3 id="customer-guide-title" className="customerGuideTitle">
-                {currentGuide.title}
-              </h3>
-
-              <div className="customerGuideBody">
-                {currentGuide.body.map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-              </div>
-
-              <button type="button" onClick={closeCustomerGuide} className="customerGuidePrimaryButton">
-                {currentGuide.buttonLabel}
-              </button>
-            </section>
-          </div>
+          <SimulatorCustomerGuideModal guide={currentGuide} onClose={closeCustomerGuide} />
         ) : null}
 
         {isFilmSheetOpen ? (
-          <div className="sheetOverlay" role="presentation" onClick={closeFilmSheet}>
-            <section
-              className="filmSheet"
-              role="dialog"
-              aria-modal="true"
-              aria-label="필름 선택"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="sheetHandle" />
-
-              <div className="sheetHeader">
-                <div>
-                  <div className="sectionLabel">필름 선택</div>
-                  <h3>{activeZone?.label || "구역"}에 적용할 필름</h3>
-                  <p>팔레트로 고르거나 제품번호/색상명으로 검색할 수 있습니다.</p>
-                </div>
-
-                <button type="button" onClick={closeFilmSheet} className="sheetCloseButton">
-                  닫기
-                </button>
-              </div>
-
-              <div className="palettePanel">
-                <div className="paletteGroup">
-                  <div className="paletteHeaderRow">
-                    <span>1차 분류</span>
-                    {(selectedPaletteMain || selectedPaletteSub || selectedPaletteColors.length > 0) ? (
-                      <button type="button" onClick={resetPaletteFilters} className="paletteResetButton">
-                        초기화
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <div className="paletteChipRow">
-                    {PALETTE_MAIN_OPTIONS.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => handlePaletteMainClick(item)}
-                        className={`paletteChip ${selectedPaletteMain === item ? "paletteChipActive" : ""}`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {selectedPaletteMain ? (
-                  <div className="paletteGroup">
-                    <div className="paletteHeaderRow">
-                      <span>2차 분류</span>
-                      <em>선택사항</em>
-                    </div>
-
-                    <div className="paletteChipRow">
-                      <button
-                        type="button"
-                        onClick={() => handlePaletteSubClick("")}
-                        className={`paletteChip ${!selectedPaletteSub ? "paletteChipActive" : ""}`}
-                      >
-                        전체
-                      </button>
-
-                      {paletteSubOptions.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => handlePaletteSubClick(item)}
-                          className={`paletteChip ${selectedPaletteSub === item ? "paletteChipActive" : ""}`}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="paletteGroup">
-                  <div className="paletteHeaderRow">
-                    <span>색상 팔레트</span>
-                    <em>
-                      {selectedPaletteColors.length > 0
-                        ? selectedPaletteColors.join(", ")
-                        : "전체"}
-                    </em>
-                  </div>
-
-                  <div className="paletteColorRow">
-                    {paletteColorOptions.map((item) => {
-                      const isColorSelected = selectedPaletteColors.includes(item);
-
-                      return (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => handlePaletteColorClick(item)}
-                          className={`paletteColorChip paletteColorChipIconOnly ${isColorSelected ? "paletteColorChipActive" : ""}`}
-                          aria-label={`${item}${isColorSelected ? " 선택됨" : ""}`}
-                          aria-pressed={isColorSelected}
-                          title={item}
-                        >
-                          <i
-                            aria-hidden="true"
-                            style={{ background: PALETTE_COLOR_SWATCH[item] || "#DDD" }}
-                          />
-                          {isColorSelected ? (
-                            <span className="paletteColorCheck" aria-hidden="true">
-                              ✓
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void searchFilms(filmQuery, { includeFacets: false });
-                }}
-                className="sheetSearchForm"
-              >
-                <input
-                  value={filmQuery}
-                  onChange={(event) => setFilmQuery(event.target.value)}
-                  placeholder="예: 122, SG122, 화이트"
-                  className="searchInput"
-                />
-
-                <button type="submit" className="searchButton">
-                  검색
-                </button>
-              </form>
-
-              {filmLoading && state.films.length > 0 ? (
-                <div className="sheetLoadingText">필름 목록 업데이트 중...</div>
-              ) : null}
-
-              {filmError ? (
-                <div style={{ color: "#ffd6d6", fontSize: 14, marginBottom: 10 }}>{filmError}</div>
-              ) : null}
-
-              <div className="sheetFilmGrid">
-                {state.films.length > 0 ? (
-                  state.films.map((film) => {
-                    const active = selectedFilm?.id === film.id;
-
-                    return (
-                      <div
-                        key={film.id}
-                        className={`sheetFilmItem ${active ? "sheetFilmItemActive" : ""}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => void handleFilmClick(film)}
-                          disabled={applyingFilmId !== null}
-                          className="sheetFilmSelectButton"
-                        >
-                          <div className="sheetFilmThumb">
-                            {getFilmThumbUrl(film) ? (
-                              <img
-                                src={getFilmThumbUrl(film)}
-                                alt={getFilmName(film)}
-                                loading="lazy"
-                                decoding="async"
-                              />
-                            ) : null}
-                          </div>
-
-                          <div className="sheetFilmName">{getFilmName(film)}</div>
-                        </button>
-
-                        <div className="sheetFilmActionRow">
-                          <button
-                            type="button"
-                            onClick={() => toggleSamplePreview(film)}
-                            className={`sheetFilmSampleButton ${previewSampleFilm?.id === film.id ? "sheetFilmSampleButtonActive" : ""}`}
-                            disabled={!film.sample_url}
-                          >
-                            {film.sample_url ? "샘플사진 보기" : "샘플 준비중"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : filmLoading ? (
-                  Array.from({ length: 8 }).map((_, index) => (
-                    <div key={`sheet-film-skeleton-${index}`} className="sheetFilmSkeletonItem" aria-hidden="true">
-                      <div className="sheetFilmSkeletonThumb" />
-                      <div className="sheetFilmSkeletonLine" />
-                      <div className="sheetFilmSkeletonLine short" />
-                    </div>
-                  ))
-                ) : (
-                  <div className="emptyFilmBox">표시할 필름이 없습니다.</div>
-                )}
-              </div>
-
-              {previewSampleFilm?.sample_url ? (
-                <div className="sheetSampleBubbleBackdrop" onClick={() => setPreviewSampleFilm(null)}>
-                  <div className="sheetSampleBubble" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewSampleFilm(null)}
-                      className="sheetSampleBubbleClose"
-                    >
-                      닫기
-                    </button>
-
-                    <div className="sheetSampleBubbleLabel">필름봇 샘플사진</div>
-                    <div className="sheetSampleBubbleTitle">{getFilmName(previewSampleFilm)}</div>
-
-                    {getFilmCode(previewSampleFilm) ? (
-                      <div className="sheetSampleBubbleCode">{getFilmCode(previewSampleFilm)}</div>
-                    ) : null}
-
-                    <div className="sheetSampleBubbleImageWrap">
-                      <img
-                        src={previewSampleFilm.sample_url}
-                        alt={`${getFilmName(previewSampleFilm)} 샘플사진`}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
-
-                    <p className="sheetSampleBubbleText">
-                      실제 확대 질감을 참고할 수 있도록 필름봇용 샘플사진을 보여드리고 있어요.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          </div>
+          <SimulatorFilmSheet
+            activeZone={activeZone}
+            films={state.films}
+            filmQuery={filmQuery}
+            filmLoading={filmLoading}
+            filmError={filmError}
+            selectedFilm={selectedFilm}
+            selectedPaletteMain={selectedPaletteMain}
+            selectedPaletteSub={selectedPaletteSub}
+            selectedPaletteColors={selectedPaletteColors}
+            paletteSubOptions={paletteSubOptions}
+            paletteColorOptions={paletteColorOptions}
+            applyingFilmId={applyingFilmId}
+            previewSampleFilm={previewSampleFilm}
+            onClose={closeFilmSheet}
+            onResetPaletteFilters={resetPaletteFilters}
+            onPaletteMainClick={handlePaletteMainClick}
+            onPaletteSubClick={handlePaletteSubClick}
+            onPaletteColorClick={handlePaletteColorClick}
+            onFilmQueryChange={setFilmQuery}
+            onSearchFilms={() => void searchFilms(filmQuery, { includeFacets: false })}
+            onFilmClick={(film) => void handleFilmClick(film)}
+            onToggleSamplePreview={toggleSamplePreview}
+            onCloseSamplePreview={() => setPreviewSampleFilm(null)}
+          />
         ) : null}
       </div>
 
-      <div className="decisionExportStage" aria-hidden="true">
-        <div ref={decisionExportRef} className="decisionExportCard">
-          <div className="decisionExportHeader">
-            <div className="decisionExportBadge">필름 시뮬레이션 결과</div>
-            <h2>{selectedSpace?.name || "선택 공간"}</h2>
-            {state.link?.installer_name ? <p>시공자: {state.link.installer_name}</p> : null}
-          </div>
-
-          <div className="decisionExportPreview">
-            <div
-              className="previewViewport decisionExportViewport"
-              style={{
-                aspectRatio: previewAspectRatio,
-              }}
-            >
-              {previewHasRealSpace ? (
-                <div className="sceneStage">
-                  {maskZones.map((zone) => {
-                    const film = zoneFilmMap[zone.key];
-
-                    if (film?.image_url) {
-                      return (
-                        <div
-                          key={`export-${zone.key}`}
-                          aria-hidden="true"
-                          className="maskedFilmLayer"
-                          style={{
-                            backgroundImage: `url("${film.image_url}")`,
-                            backgroundSize: `${zone.patternSize || 220}px auto`,
-                            WebkitMaskImage: `url("${zone.mask_url}")`,
-                            maskImage: `url("${zone.mask_url}")`,
-                          }}
-                        />
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={`export-${zone.key}`}
-                        aria-hidden="true"
-                        className="maskedTransparencyLayer"
-                        style={{
-                          WebkitMaskImage: `url("${zone.mask_url}")`,
-                          maskImage: `url("${zone.mask_url}")`,
-                        }}
-                      />
-                    );
-                  })}
-
-                  {selectedSpace?.base_image_url ? (
-                    <img src={selectedSpace.base_image_url} alt="공간 원본" className="sceneBaseImage" />
-                  ) : null}
-
-                  {selectedSpace?.overlay_image_url ? (
-                    <img src={selectedSpace.overlay_image_url} alt="공간 오버레이" className="sceneOverlayImage" />
-                  ) : null}
-                </div>
-              ) : (
-                <div className="emptyPreviewWrap">
-                  <div className="emptyPreviewBox">
-                    <div className="emptyPreviewInner">
-                      <div style={{ color: COLORS.cream, fontWeight: 900, marginBottom: 6 }}>
-                        공간 이미지 등록 전 테스트 화면
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="decisionExportList">
-            {maskZones.map((zone) => {
-              const film = zoneFilmMap[zone.key] || null;
-
-              return (
-                <div key={`export-row-${zone.key}`} className="decisionExportRow">
-                  <span>{zone.label}</span>
-                  <strong>{film ? getFilmName(film) : "미선택"}</strong>
-                </div>
-              );
-            })}
-          </div>
-
-          {hasFabricWarning ? (
-            <div className="decisionExportWarning">
-              선택된 필름에 패브릭필름이 있습니다. 시뮬레이션상 불가피하게 왜곡이 심한 종류이므로 주의 부탁드립니다.
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <SimulatorDecisionExportCard
+        exportRef={decisionExportRef}
+        selectedSpace={selectedSpace}
+        maskZones={maskZones}
+        zoneFilmMap={zoneFilmMap}
+        link={state.link}
+        previewAspectRatio={previewAspectRatio}
+        previewHasRealSpace={previewHasRealSpace}
+        hasFabricWarning={hasFabricWarning}
+        colors={COLORS}
+      />
 
       <SimulatorClientStyles colors={COLORS} />
     </main>
