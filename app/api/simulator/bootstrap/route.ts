@@ -89,6 +89,11 @@ async function proxyKakaoImage(req: NextRequest) {
     });
   }
 
+  const publicAssetResponse = await readPublicSimulatorAssetResponse(req, targetUrl);
+  if (publicAssetResponse) {
+    return publicAssetResponse;
+  }
+
   try {
     const upstream = await fetch(targetUrl.toString(), {
       cache: "no-store",
@@ -142,6 +147,54 @@ function getImageMimeType(filePath: string) {
   if (lower.endsWith(".gif")) return "image/gif";
   if (lower.endsWith(".svg")) return "image/svg+xml";
   return "application/octet-stream";
+}
+
+function getSafePublicSimulatorAssetFilePath(pathname: string) {
+  const decodedPathname = decodeURIComponent(String(pathname || "").split("?")[0].split("#")[0]);
+
+  if (!decodedPathname.startsWith("/simulator/") || decodedPathname.includes("\0")) {
+    return "";
+  }
+
+  if (!/\.(png|jpe?g|webp|gif|svg)$/i.test(decodedPathname)) {
+    return "";
+  }
+
+  const publicRoot = path.join(process.cwd(), "public");
+  const filePath = path.normalize(path.join(publicRoot, decodedPathname.replace(/^\/+/, "")));
+  const publicRootWithSeparator = publicRoot.endsWith(path.sep) ? publicRoot : `${publicRoot}${path.sep}`;
+
+  if (!filePath.startsWith(publicRootWithSeparator)) {
+    return "";
+  }
+
+  return filePath;
+}
+
+async function readPublicSimulatorAssetResponse(req: NextRequest, targetUrl: URL) {
+  if (targetUrl.origin !== req.nextUrl.origin) return null;
+
+  const filePath = getSafePublicSimulatorAssetFilePath(targetUrl.pathname);
+  if (!filePath) return null;
+
+  try {
+    const file = await readFile(filePath);
+
+    return new NextResponse(file, {
+      status: 200,
+      headers: {
+        ...KAKAO_NO_STORE_HEADERS,
+        "Content-Type": getImageMimeType(filePath),
+        "Content-Length": String(file.byteLength),
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
+    return new NextResponse("Image not found", {
+      status: 404,
+      headers: KAKAO_NO_STORE_HEADERS,
+    });
+  }
 }
 
 async function toInlinePublicAsset(src: string | null | undefined) {
@@ -699,10 +752,7 @@ export async function GET(req: NextRequest) {
       spacesError ? [] : ((spaces || []) as SimulatorSpaceRow[]),
       !hasToken
     );
-    const shouldInlineBootstrapSpaceAssets = req.nextUrl.searchParams.get("inline_assets") === "1";
-    const responseSpaces = shouldInlineBootstrapSpaceAssets
-      ? await maybeInlineSpaceAssets(req, resolvedSpaces)
-      : resolvedSpaces;
+    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(
@@ -722,13 +772,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const shouldKeepLegacyFilmBootstrap = req.nextUrl.searchParams.get("legacy_films") === "1";
+    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req);
 
-    // 첫 소개 화면은 시공자 소개/공간 정보만 있으면 그릴 수 있습니다.
-    // 기존에는 카카오톡/삼성/웨일 계열에서 추천 필름 200개와 검색 말뭉치 최대 3000개를
-    // bootstrap 응답에 같이 실어 첫 화면이 늦어졌습니다.
-    // 이제 필름 목록은 첫 화면 렌더링 뒤 /films에서 따로 prefetch하거나,
-    // 사용자가 색상 선택창을 열 때 요청합니다.
+    // 일반 Chrome/Edge에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
+    // 추천 필름과 검색용 3000개 말뭉치는 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
+    // 카카오/삼성/웨일/네이버 인앱브라우저는 기존 안정화 방식이 local search_films에 의존하므로 유지합니다.
     if (!shouldKeepLegacyFilmBootstrap) {
       return jsonSimulatorCache(req, {
         setupNeeded: false,
