@@ -63,7 +63,6 @@ export function useSimulatorFilmSearch({
   const initialSheetFilmsRef = useRef<SimulatorFilm[]>([]);
   const allKnownFilmsRef = useRef<SimulatorFilm[]>([]);
   const initialSheetRequestKeyRef = useRef("");
-  const hasBootstrapSearchCorpusRef = useRef(false);
   const selectedPaletteMainRef = useRef("");
   const selectedPaletteSubRef = useRef("");
   const selectedPaletteColorsRef = useRef<string[]>([]);
@@ -185,28 +184,29 @@ export function useSimulatorFilmSearch({
   useEffect(() => {
     if (!isKakaoInAppBrowser()) return;
 
-    let timer: number | undefined;
-
     try {
       const resetDone = window.sessionStorage.getItem(KAKAO_SW_RESET_KEY);
       if (resetDone === "1") return;
 
       window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
 
-      // 첫 소개 화면 렌더링과 경쟁하지 않도록 캐시 정리는 뒤로 미룹니다.
-      // API와 이미지는 별도 cache-buster/no-store를 사용하므로 첫 화면이 이 작업을 기다릴 필요가 없습니다.
-      timer = window.setTimeout(() => {
-        void clearProblemBrowserCachesOnce();
-      }, 1500);
-    } catch {
-      // 카카오톡 인앱브라우저에서 sessionStorage/CacheStorage 접근이 막히는 경우는 무시합니다.
-    }
+      void clearProblemBrowserCachesOnce();
 
-    return () => {
-      if (timer !== undefined) {
-        window.clearTimeout(timer);
-      }
-    };
+      void Promise.all([
+        "serviceWorker" in navigator
+          ? navigator.serviceWorker
+              .getRegistrations()
+              .then((registrations) =>
+                Promise.all(registrations.map((registration) => registration.unregister()))
+              )
+          : Promise.resolve(),
+        "caches" in window
+          ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          : Promise.resolve(),
+      ]);
+    } catch {
+      // 카카오톡 인앱브라우저에서 CacheStorage 접근이 막히는 경우는 무시합니다.
+    }
   }, []);
 
   useEffect(() => {
@@ -216,6 +216,8 @@ export function useSimulatorFilmSearch({
       setState((prev) => ({ ...prev, loading: true, message: "" }));
 
       try {
+        await clearProblemBrowserCachesOnce();
+
         const params = new URLSearchParams();
         if (token) params.set("token", token);
         const res = await fetch(
@@ -263,7 +265,6 @@ export function useSimulatorFilmSearch({
         }
 
         if (nextSearchFilms.length > 0) {
-          hasBootstrapSearchCorpusRef.current = true;
           rememberFilms(nextSearchFilms);
         }
 
@@ -324,7 +325,7 @@ export function useSimulatorFilmSearch({
     // 카카오톡/삼성/웨일 계열은 필름 선택창을 열자마자 API를 다시 부르면
     // 추천 필름 목록과 팔레트가 브라우저 캐시/응답 순서에 따라 바뀌는 경우가 있습니다.
     // 검색/팔레트 상태는 그대로 유지하고, 필요 시 로컬 말뭉치로만 처리합니다.
-    if (isKakaoInAppBrowser() && hasBootstrapSearchCorpusRef.current && getLocalFilmSource(false).length > 0) {
+    if (isKakaoInAppBrowser()) {
       setFilmLoading(false);
       return false;
     }
@@ -363,7 +364,7 @@ export function useSimulatorFilmSearch({
     setFilmLoading(true);
     setFilmError("");
 
-    if (isKakaoInAppBrowser() && hasBootstrapSearchCorpusRef.current && getLocalFilmSource(false).length > 0) {
+    if (isKakaoInAppBrowser() && getLocalFilmSource(false).length > 0) {
       if (isInitialSheetRequest) {
         restoreInitialSheetFilms();
       } else {
@@ -381,7 +382,7 @@ export function useSimulatorFilmSearch({
     }
 
     try {
-      void clearProblemBrowserCachesOnce();
+      await clearProblemBrowserCachesOnce();
 
       const params = new URLSearchParams();
       if (q) params.set("q", q);
@@ -493,6 +494,11 @@ export function useSimulatorFilmSearch({
     initialSheetRequestKeyRef.current = requestKey;
 
     const prefetchInitialFilms = () => {
+      if (isKakaoInAppBrowser()) {
+        restoreInitialSheetFilms();
+        return;
+      }
+
       void searchFilms("", {
         paletteMain: "",
         paletteSub: "",

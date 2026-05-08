@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import type { SimulatorFilm } from "../types";
@@ -36,14 +36,8 @@ type SimulatorClientProps = {
   mode: "installer" | "customer";
 };
 
-const KAKAO_BACK_GUARD_HASH_PREFIX = "__egose_simulator_back_guard";
-const KAKAO_INITIAL_BACK_BUFFER = 5;
 
-type EgoseBackTrapWindow = Window & {
-  __egoseKakaoBackTrapInstalled?: boolean;
-  __egoseKakaoBackTrapDepth?: number;
-  __egoseKakaoBackTrapBaseHref?: string;
-};
+const KAKAO_BACK_GUARD_HASH = "__egose_simulator_back_guard";
 
 function isKakaoTalkInAppBrowserForBack() {
   if (typeof navigator === "undefined") return false;
@@ -51,73 +45,27 @@ function isKakaoTalkInAppBrowserForBack() {
   return /KAKAOTALK/i.test(navigator.userAgent || "");
 }
 
-function getSafeHistoryState() {
-  if (typeof window === "undefined") return {};
-  const currentState = window.history.state;
-  return currentState && typeof currentState === "object" ? currentState : {};
-}
-
 function getUrlWithoutEgoseBackGuard(value: string) {
   try {
     const url = new URL(value);
 
-    if (url.hash.startsWith(`#${KAKAO_BACK_GUARD_HASH_PREFIX}`)) {
+    if (url.hash === `#${KAKAO_BACK_GUARD_HASH}`) {
       url.hash = "";
     }
 
     return url.toString();
   } catch {
-    return value.replace(new RegExp(`#${KAKAO_BACK_GUARD_HASH_PREFIX}[^#]*$`), "");
+    return value.replace(`#${KAKAO_BACK_GUARD_HASH}`, "");
   }
 }
 
-function getUrlWithEgoseBackGuard(value: string, depth: number) {
+function getUrlWithEgoseBackGuard(value: string) {
   try {
     const url = new URL(getUrlWithoutEgoseBackGuard(value));
-    url.hash = `${KAKAO_BACK_GUARD_HASH_PREFIX}_${depth}`;
+    url.hash = KAKAO_BACK_GUARD_HASH;
     return url.toString();
   } catch {
-    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH_PREFIX}_${depth}`;
-  }
-}
-
-function installKakaoInitialBackTrap() {
-  if (typeof window === "undefined" || !isKakaoTalkInAppBrowserForBack()) return;
-
-  const trapWindow = window as EgoseBackTrapWindow;
-  if (trapWindow.__egoseKakaoBackTrapInstalled) return;
-
-  trapWindow.__egoseKakaoBackTrapInstalled = true;
-  trapWindow.__egoseKakaoBackTrapBaseHref = getUrlWithoutEgoseBackGuard(window.location.href);
-  trapWindow.__egoseKakaoBackTrapDepth = 0;
-
-  try {
-    const baseHref = trapWindow.__egoseKakaoBackTrapBaseHref;
-    window.history.replaceState(
-      {
-        ...getSafeHistoryState(),
-        __egoseSimulatorBackBase: true,
-      },
-      "",
-      baseHref
-    );
-
-    for (let index = 0; index < KAKAO_INITIAL_BACK_BUFFER; index += 1) {
-      const currentDepth: number = trapWindow.__egoseKakaoBackTrapDepth ?? 0;
-      const nextDepth: number = currentDepth + 1;
-      trapWindow.__egoseKakaoBackTrapDepth = nextDepth;
-      window.history.pushState(
-        {
-          ...getSafeHistoryState(),
-          __egoseSimulatorBackTrap: true,
-          __egoseSimulatorBackDepth: nextDepth,
-        },
-        "",
-        getUrlWithEgoseBackGuard(baseHref, nextDepth)
-      );
-    }
-  } catch {
-    // 일부 인앱브라우저가 history 조작을 막아도 화면 진입은 계속되어야 합니다.
+    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}`;
   }
 }
 
@@ -130,14 +78,14 @@ function requestKakaoInAppBrowserClose() {
     return false;
   }
 
-  window.location.href = /iPhone|iPad|iPod/i.test(ua)
+  const closeUrl = /iPhone|iPad|iPod/i.test(ua)
     ? "kakaoweb://closeBrowser"
     : "kakaotalk://inappbrowser/close";
 
+  window.location.href = closeUrl;
+
   return true;
 }
-
-installKakaoInitialBackTrap();
 
 type SimulatorUndoSnapshot = {
   step: SimulatorStep;
@@ -261,6 +209,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const artificialHistoryDepthRef = useRef(0);
   const pushHistoryTrapRef = useRef<(() => void) | null>(null);
 
+  const rememberVisibleApplySnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
+    if (!snapshot) return null;
+
+    return {
+      ...snapshot,
+      isFilmSheetOpen: false,
+      previewSampleFilm: null,
+    };
+  }, []);
+
   const snapshotKey = (snapshot: SimulatorUndoSnapshot) => {
     const zoneEntries = Object.entries(snapshot.zoneFilmMap)
       .map(([zoneKey, film]) => `${zoneKey}:${film?.id ?? "none"}`)
@@ -323,6 +281,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     undoStackRef.current = [...stack.slice(-79), snapshot];
+
+    // 실행취소 1개가 생길 때 브라우저 히스토리도 1칸 추가합니다.
+    // 이렇게 해야 모바일/카카오톡/크롬 뒤로가기 버튼을 빠르게 눌러도
+    // 앱 밖으로 빠지지 않고 내부 실행취소가 먼저 처리됩니다.
     pushHistoryTrapRef.current?.();
   }, [state.expired, state.loading, state.setupNeeded]);
 
@@ -367,23 +329,25 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
   }, [goBackOneSimulatorAction]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
     const depthKey = "__egoseSimulatorBackDepth";
     const isKakaoTalkBackMode = isKakaoTalkInAppBrowserForBack();
-    const trapWindow = window as EgoseBackTrapWindow;
     const baseHref = isKakaoTalkBackMode
-      ? trapWindow.__egoseKakaoBackTrapBaseHref || getUrlWithoutEgoseBackGuard(window.location.href)
+      ? getUrlWithoutEgoseBackGuard(window.location.href)
       : window.location.href;
-    const initialBuffer = isKakaoTalkBackMode ? KAKAO_INITIAL_BACK_BUFFER : 2;
+    const trapHref = isKakaoTalkBackMode
+      ? getUrlWithEgoseBackGuard(baseHref)
+      : baseHref;
+    const INITIAL_HISTORY_BUFFER = isKakaoTalkBackMode ? 1 : 6;
 
-    if (isKakaoTalkBackMode) {
-      installKakaoInitialBackTrap();
-      artificialHistoryDepthRef.current = trapWindow.__egoseKakaoBackTrapDepth || 0;
-    }
+    const getSafeHistoryState = () => {
+      const currentState = window.history.state;
+      return currentState && typeof currentState === "object" ? currentState : {};
+    };
 
     const replaceBaseState = () => {
       const currentState = getSafeHistoryState();
@@ -407,14 +371,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         return;
       }
 
+      const currentState = getSafeHistoryState();
       const nextDepth = artificialHistoryDepthRef.current + 1;
-      const trapHref = isKakaoTalkBackMode
-        ? getUrlWithEgoseBackGuard(baseHref, nextDepth)
-        : baseHref;
 
+      // Next.js App Router는 history.state 안에 내부 라우팅 정보를 보관합니다.
+      // 이 값을 덮어쓰면 뒤로가기 시 같은 페이지가 다시 로딩되는 것처럼 보일 수 있어
+      // 반드시 기존 state를 보존한 채 시뮬레이터용 표식만 추가합니다.
+      // 카카오톡 인앱브라우저는 같은 URL pushState를 첫 뒤로가기에서 무시하는 경우가 있어
+      // 해시만 다른 가드 URL을 사용해 실제 히스토리 1칸을 확실히 만듭니다.
       window.history.pushState(
         {
-          ...getSafeHistoryState(),
+          ...currentState,
           [trapKey]: true,
           [depthKey]: nextDepth,
         },
@@ -423,53 +390,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       );
 
       artificialHistoryDepthRef.current = nextDepth;
-
-      if (isKakaoTalkBackMode) {
-        trapWindow.__egoseKakaoBackTrapDepth = nextDepth;
-      }
     };
 
     const refillTrapBuffer = () => {
-      while (artificialHistoryDepthRef.current < initialBuffer) {
+      // 모바일/인앱브라우저에서는 뒤로가기를 빠르게 두 번 이상 누를 때
+      // popstate 처리보다 브라우저 종료가 먼저 일어나는 경우가 있어,
+      // 시작 시 같은 화면에 안전장치를 확보합니다.
+      while (artificialHistoryDepthRef.current < INITIAL_HISTORY_BUFFER) {
         pushTrapState();
       }
     };
 
     pushHistoryTrapRef.current = pushTrapState;
 
-    if (!isKakaoTalkBackMode) {
-      replaceBaseState();
-      refillTrapBuffer();
-    } else {
-      // 카카오톡에서는 모듈 로드 시점에 이미 해시 히스토리를 심어둡니다.
-      // 여기서는 부족한 경우만 보충합니다.
-      refillTrapBuffer();
-    }
+    replaceBaseState();
+    refillTrapBuffer();
 
-    let lastBackEventAt = 0;
-
-    const handleBackNavigation = () => {
-      const now = Date.now();
-
-      // 카카오톡 인앱브라우저는 해시 히스토리 이동에서 popstate와 hashchange가
-      // 거의 동시에 들어오는 기기가 있어 같은 뒤로가기를 한 번만 처리합니다.
-      if (now - lastBackEventAt < 120) {
-        return;
-      }
-
-      lastBackEventAt = now;
-
+    const handlePopState = () => {
       if (allowNativeBackRef.current) {
         return;
       }
 
       if (artificialHistoryDepthRef.current > 0) {
         artificialHistoryDepthRef.current -= 1;
-        if (isKakaoTalkBackMode) {
-          trapWindow.__egoseKakaoBackTrapDepth = artificialHistoryDepthRef.current;
-        }
       }
 
+      // 뒤로가기 이벤트가 들어오면 먼저 안전장치를 다시 채워둔 뒤
+      // 시뮬레이터 내부 실행취소를 처리합니다.
       refillTrapBuffer();
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
@@ -481,16 +428,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       setShowExitConfirm(true);
     };
 
-    window.addEventListener("popstate", handleBackNavigation);
-    if (isKakaoTalkBackMode) {
-      window.addEventListener("hashchange", handleBackNavigation);
-    }
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener("popstate", handleBackNavigation);
-      if (isKakaoTalkBackMode) {
-        window.removeEventListener("hashchange", handleBackNavigation);
-      }
+      window.removeEventListener("popstate", handlePopState);
       if (pushHistoryTrapRef.current === pushTrapState) {
         pushHistoryTrapRef.current = null;
       }
@@ -513,7 +454,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const currentFilm = zoneFilmMap[zoneKey] || null;
 
     if (currentFilm?.id !== film.id) {
-      rememberUndoSnapshot();
+      // 필름 선택창 안에서 필름을 고르는 순간의 상태를 그대로 저장하면
+      // 뒤로가기 시 선택창이 다시 열립니다.
+      // 사용자가 기대하는 것은 “방금 적용한 필름만 취소”이므로
+      // 선택창은 닫힌 상태의 적용 화면을 실행취소 지점으로 저장합니다.
+      rememberUndoSnapshot(rememberVisibleApplySnapshot());
     }
 
     setSelectedFilm(film);
@@ -964,7 +909,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                     if (requestKakaoInAppBrowserClose()) {
                       window.setTimeout(() => {
                         allowNativeBackRef.current = false;
-                      }, 1500);
+                      }, 1200);
                       return;
                     }
 
