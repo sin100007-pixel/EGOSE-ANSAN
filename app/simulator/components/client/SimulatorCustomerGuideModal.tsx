@@ -95,8 +95,16 @@ export default function SimulatorCustomerGuideModal({
             {guide.buttonLabel}
           </button>
 
-          <button type="button" onClick={onDisable} className="customerGuideSecondaryButton">
-            다시 보지 않기
+          <button
+            type="button"
+            onClick={onDisable}
+            className="customerGuideSecondaryButton"
+            aria-label="가이드 끄기"
+          >
+            <span className="customerGuideSecondaryButtonLabel">
+              <span>가이드</span>
+              <span>끄기</span>
+            </span>
           </button>
         </div>
       </section>

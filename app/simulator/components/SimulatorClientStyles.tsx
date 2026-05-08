@@ -1539,7 +1539,9 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
         .customerGuideActions {
           display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
           gap: 10px;
+          align-items: stretch;
         }
 
 
@@ -1617,16 +1619,34 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .customerGuideSecondaryButton {
-          width: 100%;
-          min-height: 48px;
-          border-radius: 16px;
+          width: auto;
+          min-width: 74px;
+          height: 52px;
+          min-height: 52px;
+          padding: 0 10px;
+          border-radius: 999px;
           border: 1px solid rgba(238, 224, 197, 0.24);
           background: rgba(255, 255, 255, 0.06);
           color: rgba(255, 255, 255, 0.88);
-          font-size: 15px;
+          font-size: 12px;
           font-weight: 850;
           letter-spacing: -0.03em;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          box-sizing: border-box;
+        }
+
+        .customerGuideSecondaryButtonLabel {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          line-height: 1.02;
+          gap: 2px;
+          white-space: nowrap;
         }
 
         .customerGuideNoticeModal {
@@ -1666,9 +1686,20 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             border-radius: 14px;
           }
 
+          .customerGuideActions {
+            gap: 8px;
+          }
+
           .customerGuideSecondaryButton {
-            min-height: 44px;
-            font-size: 14px;
+            min-width: 68px;
+            height: 52px;
+            min-height: 52px;
+            padding: 0 8px;
+            font-size: 11px;
+          }
+
+          .customerGuideSecondaryButtonLabel {
+            gap: 1px;
           }
 
           .customerGuideNoticeImage {
