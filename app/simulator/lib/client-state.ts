@@ -40,7 +40,8 @@ export const INITIAL_BOOTSTRAP_STATE: BootstrapState = {
 
 export type CustomerGuideInlinePart =
   | { type: "text"; text: string }
-  | { type: "checker"; label?: string };
+  | { type: "checker"; label?: string }
+  | { type: "button"; label: string; variant?: "start" };
 
 export type CustomerGuideSectionLine = string | CustomerGuideInlinePart[];
 
@@ -64,7 +65,11 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
       {
         lines: [
           "원하는 공간에 필름을 미리 적용해볼 수 있어요.",
-          "준비되셨다면 화면 가운데의 [시뮬레이션 시작] 버튼을 눌러주세요.",
+          [
+            { type: "text", text: "준비되셨다면 화면 가운데의 " },
+            { type: "button", label: "시뮬레이션 시작", variant: "start" },
+            { type: "text", text: " 버튼을 눌러주세요." },
+          ],
         ],
       },
     ],

@@ -20,6 +20,18 @@ function renderGuideLine(line: CustomerGuideSectionLine) {
       );
     }
 
+    if (part.type === "button") {
+      return (
+        <span
+          key={`button-${index}`}
+          className={`customerGuideInlineAction ${part.variant === "start" ? "customerGuideInlineActionStart" : ""}`.trim()}
+          aria-hidden="true"
+        >
+          {part.label}
+        </span>
+      );
+    }
+
     return <span key={`text-${index}`}>{part.text}</span>;
   });
 }

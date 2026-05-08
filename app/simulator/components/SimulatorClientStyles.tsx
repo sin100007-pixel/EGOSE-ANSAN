@@ -1547,6 +1547,30 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           font-weight: 800;
         }
 
+        .customerGuideInlineAction {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 38px;
+          margin: 0 4px;
+          padding: 0 16px;
+          border-radius: 999px;
+          vertical-align: middle;
+          white-space: nowrap;
+          font-size: 14px;
+          font-weight: 950;
+          letter-spacing: -0.03em;
+          line-height: 1;
+          box-sizing: border-box;
+        }
+
+        .customerGuideInlineActionStart {
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
+            0 8px 20px rgba(0, 0, 0, 0.18);
+        }
+
         .customerGuideCheckerDot {
           width: 18px;
           height: 18px;
@@ -1576,6 +1600,15 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           letter-spacing: -0.03em;
           cursor: pointer;
           box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+        }
+
+
+        @media (max-width: 520px) {
+          .customerGuideInlineAction {
+            min-height: 34px;
+            padding: 0 14px;
+            font-size: 13px;
+          }
         }
 
         .sheetOverlay {
