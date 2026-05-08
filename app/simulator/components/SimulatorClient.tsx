@@ -122,7 +122,29 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const { isDashboardMoving, goToDashboard } = useDashboardNavigation(mode);
 
+  const {
+    activeGuideStep,
+    currentGuide,
+    guideEnabled,
+    toggleGuideEnabled,
+    closeCustomerGuide,
+  } = useSimulatorCustomerGuide({
+    mode,
+    token,
+    step,
+    hasIntroStep,
+    isFilmSheetOpen,
+    loading: state.loading,
+    expired: state.expired,
+    setupNeeded: state.setupNeeded,
+  });
+
   const goBackOneSimulatorAction = useCallback(() => {
+    if (activeGuideStep) {
+      closeCustomerGuide();
+      return true;
+    }
+
     if (previewSampleFilm) {
       setPreviewSampleFilm(null);
       return true;
@@ -150,9 +172,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     return false;
-  }, [hasIntroStep, isFilmSheetOpen, previewSampleFilm, step]);
+  }, [activeGuideStep, closeCustomerGuide, hasIntroStep, isFilmSheetOpen, previewSampleFilm, step]);
 
   const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
+  const allowNativeBackRef = useRef(false);
 
   useEffect(() => {
     goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
@@ -189,10 +212,27 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     const handlePopState = () => {
-      goBackOneSimulatorActionRef.current();
+      if (allowNativeBackRef.current) {
+        return;
+      }
 
-      // 시뮬레이터 안에서는 모바일/인앱브라우저 뒤로가기가 바로 대시보드나
-      // 이전 외부 페이지로 빠지지 않도록 같은 주소에 안전장치를 다시 올립니다.
+      const handledInsideSimulator = goBackOneSimulatorActionRef.current();
+
+      if (handledInsideSimulator) {
+        // 시뮬레이터 안에서는 모바일/인앱브라우저 뒤로가기가 바로 대시보드나
+        // 이전 외부 페이지로 빠지지 않도록 같은 주소에 안전장치를 다시 올립니다.
+        window.requestAnimationFrame(pushTrapState);
+        return;
+      }
+
+      const shouldExit = window.confirm("시뮬레이션을 종료하시겠습니까? 😢");
+
+      if (shouldExit) {
+        allowNativeBackRef.current = true;
+        window.setTimeout(() => window.history.back(), 0);
+        return;
+      }
+
       window.requestAnimationFrame(pushTrapState);
     };
 
@@ -202,17 +242,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       window.removeEventListener("popstate", handlePopState);
     };
   }, []);
-
-  const { currentGuide, guideEnabled, toggleGuideEnabled, closeCustomerGuide } = useSimulatorCustomerGuide({
-    mode,
-    token,
-    step,
-    hasIntroStep,
-    isFilmSheetOpen,
-    loading: state.loading,
-    expired: state.expired,
-    setupNeeded: state.setupNeeded,
-  });
 
   useEffect(() => {
     if (maskZones.length === 0) return;
