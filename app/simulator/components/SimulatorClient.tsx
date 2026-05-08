@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -27,20 +27,29 @@ import { useDashboardNavigation } from "../hooks/useDashboardNavigation";
 import guideOnImage from "../assets/guide-on.png";
 import guideOffImage from "../assets/guide-off.png";
 
-const SimulatorApplyStep = dynamic(() => import("./client/SimulatorApplyStep"), { ssr: false });
-const SimulatorDecisionStep = dynamic(() => import("./client/SimulatorDecisionStep"), { ssr: false });
+const SimulatorApplyStep = dynamic(
+  () => import("./client/SimulatorApplyStep"),
+  { ssr: false },
+);
+const SimulatorDecisionStep = dynamic(
+  () => import("./client/SimulatorDecisionStep"),
+  { ssr: false },
+);
 const SimulatorCustomerGuideModal = dynamic(
   () => import("./client/SimulatorCustomerGuideModal"),
-  { ssr: false }
+  { ssr: false },
 );
 const SimulatorCustomerGuideNoticeModal = dynamic(
   () => import("./client/SimulatorCustomerGuideNoticeModal"),
-  { ssr: false }
+  { ssr: false },
 );
-const SimulatorFilmSheet = dynamic(() => import("./client/SimulatorFilmSheet"), { ssr: false });
+const SimulatorFilmSheet = dynamic(
+  () => import("./client/SimulatorFilmSheet"),
+  { ssr: false },
+);
 const SimulatorDecisionExportCard = dynamic(
   () => import("./client/SimulatorDecisionExportCard"),
-  { ssr: false }
+  { ssr: false },
 );
 
 type SimulatorClientProps = {
@@ -48,49 +57,48 @@ type SimulatorClientProps = {
   mode: "installer" | "customer";
 };
 
-
-const EGOSE_BACK_GUARD_HASH_PREFIX = "__egose_simulator_back_guard_";
-const LEGACY_EGOSE_BACK_GUARD_HASH = "__egose_simulator_back_guard";
-
-function isEgoseBackGuardHash(hash: string) {
-  const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
-
-  return (
-    normalizedHash === LEGACY_EGOSE_BACK_GUARD_HASH ||
-    normalizedHash.startsWith(EGOSE_BACK_GUARD_HASH_PREFIX)
-  );
-}
+const SIMULATOR_BACK_GUARD_PARAM = "__egose_back_guard";
+const INITIAL_BACK_GUARD_COUNT = 10;
+const POPSTATE_BACK_GUARD_REFILL_COUNT = 6;
+const GUIDE_BACK_GUARD_REFILL_COUNT = 6;
+const RESTORE_BACK_GUARD_REFILL_COUNT = 4;
 
 function getUrlWithoutEgoseBackGuard(value: string) {
   try {
     const url = new URL(value);
+    url.searchParams.delete(SIMULATOR_BACK_GUARD_PARAM);
 
-    if (isEgoseBackGuardHash(url.hash)) {
+    if (
+      url.hash === "#__egose_simulator_back_guard" ||
+      url.hash.startsWith("#__egose_simulator_back_guard_")
+    ) {
       url.hash = "";
     }
 
     return url.toString();
   } catch {
     return value
-      .replace(`#${LEGACY_EGOSE_BACK_GUARD_HASH}`, "")
-      .replace(new RegExp(`#${EGOSE_BACK_GUARD_HASH_PREFIX}[^#?&]*`), "");
+      .replace(/([?&])__egose_back_guard=[^&#]*&?/g, "$1")
+      .replace(/[?&]$/, "")
+      .replace(/#__egose_simulator_back_guard[^&#]*/g, "");
   }
 }
 
-function getUrlWithEgoseBackGuard(value: string, sequence: number) {
-  const guardValue = `${EGOSE_BACK_GUARD_HASH_PREFIX}${sequence}_${Date.now()}`;
-
+function getUrlWithEgoseBackGuard(value: string, guardId: number) {
   try {
     const url = new URL(getUrlWithoutEgoseBackGuard(value));
-    url.hash = guardValue;
+    url.searchParams.set(SIMULATOR_BACK_GUARD_PARAM, String(guardId));
     return url.toString();
   } catch {
-    return `${getUrlWithoutEgoseBackGuard(value)}#${guardValue}`;
+    const cleanUrl = getUrlWithoutEgoseBackGuard(value);
+    const divider = cleanUrl.includes("?") ? "&" : "?";
+    return `${cleanUrl}${divider}${SIMULATOR_BACK_GUARD_PARAM}=${guardId}`;
   }
 }
 
 function requestKakaoInAppBrowserClose() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  if (typeof window === "undefined" || typeof navigator === "undefined")
+    return false;
 
   const ua = navigator.userAgent || "";
 
@@ -136,19 +144,26 @@ const EXIT_CONFIRM_NEXT_LINE_DELAY_MS = 140;
 const RAPID_BACK_EXIT_PRESS_LIMIT = 5;
 const RAPID_BACK_EXIT_WINDOW_MS = 1800;
 
-export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
+export default function SimulatorClient({
+  token = "",
+  mode,
+}: SimulatorClientProps) {
   const [step, setStep] = useState<SimulatorStep>("space");
   const [selectedSpaceId, setSelectedSpaceId] = useState("");
   const [selectedFilm, setSelectedFilm] = useState<SimulatorFilm | null>(null);
   const [activeZoneKey, setActiveZoneKey] = useState("");
-  const [zoneFilmMap, setZoneFilmMap] = useState<Record<string, SimulatorFilm | null>>({});
+  const [zoneFilmMap, setZoneFilmMap] = useState<
+    Record<string, SimulatorFilm | null>
+  >({});
   const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
-  const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
+  const [previewSampleFilm, setPreviewSampleFilm] =
+    useState<SimulatorFilm | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [exitTypingLineIndex, setExitTypingLineIndex] = useState(0);
   const [exitTypingCharCount, setExitTypingCharCount] = useState(0);
-  const [exitTypingPhase, setExitTypingPhase] = useState<ExitConfirmTypingPhase>("typing");
+  const [exitTypingPhase, setExitTypingPhase] =
+    useState<ExitConfirmTypingPhase>("typing");
 
   const {
     state,
@@ -178,20 +193,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   });
 
   const selectedSpace = useMemo(() => {
-    return state.spaces.find((space) => space.id === selectedSpaceId) || state.spaces[0] || null;
+    return (
+      state.spaces.find((space) => space.id === selectedSpaceId) ||
+      state.spaces[0] ||
+      null
+    );
   }, [selectedSpaceId, state.spaces]);
 
-  const maskZones = useMemo(() => readMaskZones(selectedSpace), [selectedSpace]);
+  const maskZones = useMemo(
+    () => readMaskZones(selectedSpace),
+    [selectedSpace],
+  );
 
   const activeZone = useMemo(() => {
-    return maskZones.find((zone) => zone.key === activeZoneKey) || maskZones[0] || null;
+    return (
+      maskZones.find((zone) => zone.key === activeZoneKey) ||
+      maskZones[0] ||
+      null
+    );
   }, [maskZones, activeZoneKey]);
 
   const previewAspectRatio = useMemo(() => {
     return readPreviewAspectRatio(selectedSpace);
   }, [selectedSpace]);
 
-  const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
+  const previewHasRealSpace = Boolean(
+    selectedSpace?.base_image_url || selectedSpace?.overlay_image_url,
+  );
   const hasIntroStep = mode === "customer" && Boolean(state.contractor);
 
   const applyingFilm = useMemo(() => {
@@ -248,17 +276,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const undoStackRef = useRef<SimulatorUndoSnapshot[]>([]);
   const latestSnapshotRef = useRef<SimulatorUndoSnapshot | null>(null);
-  const showExitConfirmRef = useRef(false);
   const activeGuideStepRef = useRef(activeGuideStep);
   const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
+  const showExitConfirmRef = useRef(false);
   const allowNativeBackRef = useRef(false);
   const artificialHistoryDepthRef = useRef(0);
-  const historyTrapSequenceRef = useRef(0);
-  const handlingBackNavigationRef = useRef(false);
-  const pushHistoryTrapRef = useRef<(() => void) | null>(null);
+  const guardSequenceRef = useRef(0);
+  const pushHistoryTrapRef = useRef<((count?: number) => void) | null>(null);
   const rapidBackPressCountRef = useRef(0);
   const rapidBackFirstPressAtRef = useRef(0);
   const rapidBackLastPressAtRef = useRef(0);
+
+  activeGuideStepRef.current = activeGuideStep;
+  showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
 
   const resetRapidBackExitPresses = useCallback(() => {
     rapidBackPressCountRef.current = 0;
@@ -288,15 +318,18 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     return rapidBackPressCountRef.current >= RAPID_BACK_EXIT_PRESS_LIMIT;
   }, []);
 
-  const rememberVisibleApplySnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
-    if (!snapshot) return null;
+  const rememberVisibleApplySnapshot = useCallback(
+    (snapshot = latestSnapshotRef.current) => {
+      if (!snapshot) return null;
 
-    return {
-      ...snapshot,
-      isFilmSheetOpen: false,
-      previewSampleFilm: null,
-    };
-  }, []);
+      return {
+        ...snapshot,
+        isFilmSheetOpen: false,
+        previewSampleFilm: null,
+      };
+    },
+    [],
+  );
 
   const snapshotKey = (snapshot: SimulatorUndoSnapshot) => {
     const zoneEntries = Object.entries(snapshot.zoneFilmMap)
@@ -342,36 +375,24 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     latestSnapshotRef.current = captureSnapshot();
   }, [captureSnapshot]);
 
-  const setExitConfirmVisible = useCallback((visible: boolean) => {
-    showExitConfirmRef.current = visible;
-    setShowExitConfirm(visible);
-  }, []);
-
-  useLayoutEffect(() => {
+  useEffect(() => {
     showExitConfirmRef.current = showExitConfirm;
   }, [showExitConfirm]);
 
-  useLayoutEffect(() => {
-    activeGuideStepRef.current = activeGuideStep;
-    showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
-  }, [activeGuideStep, showGuideDisabledNotice]);
-
-  useLayoutEffect(() => {
-    if (!activeGuideStep || mode !== "customer" || state.loading || state.expired || state.setupNeeded) {
+  useEffect(() => {
+    if (
+      !activeGuideStep ||
+      mode !== "customer" ||
+      state.loading ||
+      state.expired ||
+      state.setupNeeded
+    ) {
       return;
     }
 
-    // 가이드 카드가 떠 있는 상태에서는 브라우저 뒤로가기가 앱 밖으로 빠지기 전에
-    // 반드시 시뮬레이터 내부에서 먼저 잡히도록 즉시 안전 히스토리를 보강합니다.
-    pushHistoryTrapRef.current?.();
-
-    const timer = window.setTimeout(() => {
-      pushHistoryTrapRef.current?.();
-    }, 80);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
+    // 가이드 카드가 보이는 순간에는 브라우저 history가 이미 바닥까지 빠져 있는 경우가 있습니다.
+    // 그래서 1칸만 추가하지 않고 여러 칸을 즉시 심어, 다음 뒤로가기가 앱 종료로 이어지지 않게 막습니다.
+    pushHistoryTrapRef.current?.(GUIDE_BACK_GUARD_REFILL_COUNT);
   }, [activeGuideStep, mode, state.expired, state.loading, state.setupNeeded]);
 
   useEffect(() => {
@@ -382,7 +403,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return;
     }
 
-    const currentLine = EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] || EXIT_CONFIRM_TYPE_LINES[0];
+    const currentLine =
+      EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] ||
+      EXIT_CONFIRM_TYPE_LINES[0];
     const currentLength = currentLine.length;
 
     let timeoutMs = EXIT_CONFIRM_TYPE_SPEED_MS;
@@ -390,7 +413,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     if (exitTypingPhase === "typing") {
       if (exitTypingCharCount < currentLength) {
-        timeoutCallback = () => setExitTypingCharCount((prev) => Math.min(prev + 1, currentLength));
+        timeoutCallback = () =>
+          setExitTypingCharCount((prev) => Math.min(prev + 1, currentLength));
       } else {
         timeoutMs = EXIT_CONFIRM_HOLD_MS;
         timeoutCallback = () => setExitTypingPhase("deleting");
@@ -398,11 +422,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     } else if (exitTypingPhase === "deleting") {
       if (exitTypingCharCount > 0) {
         timeoutMs = EXIT_CONFIRM_DELETE_SPEED_MS;
-        timeoutCallback = () => setExitTypingCharCount((prev) => Math.max(prev - 1, 0));
+        timeoutCallback = () =>
+          setExitTypingCharCount((prev) => Math.max(prev - 1, 0));
       } else {
         timeoutMs = EXIT_CONFIRM_NEXT_LINE_DELAY_MS;
         timeoutCallback = () => {
-          setExitTypingLineIndex((prev) => (prev + 1) % EXIT_CONFIRM_TYPE_LINES.length);
+          setExitTypingLineIndex(
+            (prev) => (prev + 1) % EXIT_CONFIRM_TYPE_LINES.length,
+          );
           setExitTypingPhase("typing");
         };
       }
@@ -416,61 +443,70 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     return () => {
       window.clearTimeout(timer);
     };
-  }, [exitTypingCharCount, exitTypingLineIndex, exitTypingPhase, showExitConfirm]);
+  }, [
+    exitTypingCharCount,
+    exitTypingLineIndex,
+    exitTypingPhase,
+    showExitConfirm,
+  ]);
 
-  const rememberUndoSnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
-    if (!snapshot || state.loading || state.expired || state.setupNeeded) return;
+  const rememberUndoSnapshot = useCallback(
+    (snapshot = latestSnapshotRef.current) => {
+      if (!snapshot || state.loading || state.expired || state.setupNeeded)
+        return;
 
-    setExitConfirmVisible(false);
+      setShowExitConfirm(false);
 
-    const nextKey = snapshotKey(snapshot);
-    const stack = undoStackRef.current;
-    const last = stack[stack.length - 1];
+      const nextKey = snapshotKey(snapshot);
+      const stack = undoStackRef.current;
+      const last = stack[stack.length - 1];
 
-    if (last && snapshotKey(last) === nextKey) {
-      return;
-    }
+      if (last && snapshotKey(last) === nextKey) {
+        return;
+      }
 
-    undoStackRef.current = [...stack.slice(-79), snapshot];
+      undoStackRef.current = [...stack.slice(-79), snapshot];
 
-    // 실행취소 1개가 생길 때 브라우저 히스토리도 1칸 추가합니다.
-    // 이렇게 해야 모바일/카카오톡/크롬 뒤로가기 버튼을 빠르게 눌러도
-    // 앱 밖으로 빠지지 않고 내부 실행취소가 먼저 처리됩니다.
-    pushHistoryTrapRef.current?.();
-  }, [setExitConfirmVisible, state.expired, state.loading, state.setupNeeded]);
+      // 실행취소 1개가 생길 때 브라우저 히스토리도 같이 보강합니다.
+      // 같은 URL pushState는 일부 인앱브라우저에서 접히는 경우가 있어, 실제 URL이 다른 guard를 사용합니다.
+      pushHistoryTrapRef.current?.(2);
+    },
+    [state.expired, state.loading, state.setupNeeded],
+  );
 
-  const restoreUndoSnapshot = useCallback((snapshot: SimulatorUndoSnapshot) => {
-    setStep(snapshot.step);
-    setSelectedSpaceId(snapshot.selectedSpaceId);
-    setSelectedFilm(snapshot.selectedFilm);
-    setActiveZoneKey(snapshot.activeZoneKey);
-    setZoneFilmMap({ ...snapshot.zoneFilmMap });
-    setIsFilmSheetOpen(snapshot.isFilmSheetOpen);
-    setPreviewSampleFilm(snapshot.previewSampleFilm);
-    setDecisionMessage(snapshot.decisionMessage);
-    setApplyingFilmId(null);
-    setFilmError("");
-    setExitConfirmVisible(false);
-  }, [setDecisionMessage, setExitConfirmVisible, setFilmError]);
+  const restoreUndoSnapshot = useCallback(
+    (snapshot: SimulatorUndoSnapshot) => {
+      setStep(snapshot.step);
+      setSelectedSpaceId(snapshot.selectedSpaceId);
+      setSelectedFilm(snapshot.selectedFilm);
+      setActiveZoneKey(snapshot.activeZoneKey);
+      setZoneFilmMap({ ...snapshot.zoneFilmMap });
+      setIsFilmSheetOpen(snapshot.isFilmSheetOpen);
+      setPreviewSampleFilm(snapshot.previewSampleFilm);
+      setDecisionMessage(snapshot.decisionMessage);
+      setApplyingFilmId(null);
+      setFilmError("");
+      setShowExitConfirm(false);
+      pushHistoryTrapRef.current?.(RESTORE_BACK_GUARD_REFILL_COUNT);
+    },
+    [setDecisionMessage, setFilmError],
+  );
 
   const goBackOneSimulatorAction = useCallback(() => {
     if (showExitConfirmRef.current) {
-      setExitConfirmVisible(false);
-      pushHistoryTrapRef.current?.();
+      setShowExitConfirm(false);
       return true;
     }
 
     if (activeGuideStepRef.current) {
-      activeGuideStepRef.current = null;
       closeCustomerGuide();
-      pushHistoryTrapRef.current?.();
+      pushHistoryTrapRef.current?.(GUIDE_BACK_GUARD_REFILL_COUNT);
       return true;
     }
 
     if (showGuideDisabledNoticeRef.current) {
-      showGuideDisabledNoticeRef.current = false;
       closeGuideDisabledNotice();
-      pushHistoryTrapRef.current?.();
+      pushHistoryTrapRef.current?.(GUIDE_BACK_GUARD_REFILL_COUNT);
       return true;
     }
 
@@ -482,16 +518,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     return false;
-  }, [
-    closeCustomerGuide,
-    closeGuideDisabledNotice,
-    restoreUndoSnapshot,
-    setExitConfirmVisible,
-  ]);
+  }, [closeCustomerGuide, closeGuideDisabledNotice, restoreUndoSnapshot]);
 
   const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
   }, [goBackOneSimulatorAction]);
 
@@ -501,12 +532,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
     const depthKey = "__egoseSimulatorBackDepth";
+    const guardIdKey = "__egoseSimulatorBackGuardId";
     const baseHref = getUrlWithoutEgoseBackGuard(window.location.href);
-    const INITIAL_HISTORY_BUFFER = 10;
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
-      return currentState && typeof currentState === "object" ? currentState : {};
+      return currentState && typeof currentState === "object"
+        ? currentState
+        : {};
     };
 
     const replaceBaseState = () => {
@@ -522,7 +555,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [baseKey]: true,
         },
         "",
-        baseHref
+        baseHref,
       );
     };
 
@@ -533,65 +566,50 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
       const currentState = getSafeHistoryState();
       const nextDepth = artificialHistoryDepthRef.current + 1;
+      const nextGuardId = guardSequenceRef.current + 1;
+      guardSequenceRef.current = nextGuardId;
 
       // Next.js App Router는 history.state 안에 내부 라우팅 정보를 보관합니다.
-      // 이 값을 덮어쓰면 뒤로가기 시 같은 페이지가 다시 로딩되는 것처럼 보일 수 있어
-      // 반드시 기존 state를 보존한 채 시뮬레이터용 표식만 추가합니다.
-      // 카카오톡 인앱브라우저는 같은 URL pushState를 첫 뒤로가기에서 무시하는 경우가 있어
-      // 해시만 다른 가드 URL을 사용해 실제 히스토리 1칸을 확실히 만듭니다.
-      historyTrapSequenceRef.current += 1;
-      const nextTrapHref = getUrlWithEgoseBackGuard(baseHref, historyTrapSequenceRef.current);
-
+      // 그래서 기존 state를 보존하고, 시뮬레이터용 표식만 추가합니다.
+      // hash 대신 매번 다른 query guard를 사용해야 카카오톡/크롬이 history 칸을 접지 않습니다.
       window.history.pushState(
         {
           ...currentState,
           [trapKey]: true,
           [depthKey]: nextDepth,
+          [guardIdKey]: nextGuardId,
         },
         "",
-        nextTrapHref
+        getUrlWithEgoseBackGuard(baseHref, nextGuardId),
       );
 
       artificialHistoryDepthRef.current = nextDepth;
     };
 
-    const refillTrapBuffer = () => {
-      // 모바일/인앱브라우저에서는 뒤로가기를 빠르게 두 번 이상 누를 때
-      // popstate 처리보다 브라우저 종료가 먼저 일어나는 경우가 있어,
-      // 시작 시 같은 화면에 안전장치를 확보합니다.
-      while (artificialHistoryDepthRef.current < INITIAL_HISTORY_BUFFER) {
+    const pushTrapStates = (count = 1) => {
+      for (let index = 0; index < count; index += 1) {
         pushTrapState();
       }
     };
 
-    pushHistoryTrapRef.current = pushTrapState;
+    pushHistoryTrapRef.current = pushTrapStates;
 
     replaceBaseState();
-    refillTrapBuffer();
+    pushTrapStates(INITIAL_BACK_GUARD_COUNT);
 
-    const handleBackNavigation = () => {
+    const handlePopState = () => {
       if (allowNativeBackRef.current) {
         return;
       }
-
-      // 일부 모바일 브라우저는 hash 변경과 popstate를 연달아 보낼 수 있습니다.
-      // 같은 뒤로가기 한 번이 두 번 처리되지 않도록 아주 짧게 중복을 막습니다.
-      if (handlingBackNavigationRef.current) {
-        return;
-      }
-
-      handlingBackNavigationRef.current = true;
-      window.setTimeout(() => {
-        handlingBackNavigationRef.current = false;
-      }, 80);
 
       if (artificialHistoryDepthRef.current > 0) {
         artificialHistoryDepthRef.current -= 1;
       }
 
-      // 뒤로가기 이벤트가 들어오면 먼저 안전장치를 다시 채워둔 뒤
-      // 시뮬레이터 내부 실행취소를 처리합니다.
-      refillTrapBuffer();
+      // 뒤로가기 이벤트가 들어오면 무조건 여러 개의 guard를 다시 심습니다.
+      // artificialHistoryDepth 값만 믿고 보충하지 않으면, 일부 브라우저에서 실제 history와 내부 카운트가 어긋나
+      // 다음 뒤로가기가 바로 앱 종료로 이어질 수 있습니다.
+      pushTrapStates(POPSTATE_BACK_GUARD_REFILL_COUNT);
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
@@ -601,31 +619,32 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       if (registerRapidBackExitPress()) {
-        setExitConfirmVisible(true);
+        setShowExitConfirm(true);
         resetRapidBackExitPresses();
         return;
       }
 
-      setExitConfirmVisible(true);
+      setShowExitConfirm(true);
       resetRapidBackExitPresses();
     };
 
-    window.addEventListener("popstate", handleBackNavigation);
-    window.addEventListener("hashchange", handleBackNavigation);
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener("popstate", handleBackNavigation);
-      window.removeEventListener("hashchange", handleBackNavigation);
-      if (pushHistoryTrapRef.current === pushTrapState) {
+      window.removeEventListener("popstate", handlePopState);
+      if (pushHistoryTrapRef.current === pushTrapStates) {
         pushHistoryTrapRef.current = null;
       }
     };
-  }, [registerRapidBackExitPress, resetRapidBackExitPresses, setExitConfirmVisible]);
+  }, [registerRapidBackExitPress, resetRapidBackExitPresses]);
 
   useEffect(() => {
     if (maskZones.length === 0) return;
 
-    if (!activeZoneKey || !maskZones.some((zone) => zone.key === activeZoneKey)) {
+    if (
+      !activeZoneKey ||
+      !maskZones.some((zone) => zone.key === activeZoneKey)
+    ) {
       setActiveZoneKey(maskZones[0].key);
     }
   }, [maskZones, activeZoneKey]);
@@ -674,7 +693,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const applyFilmToAllZones = (film: SimulatorFilm) => {
-    const hasChangedZone = maskZones.some((zone) => zoneFilmMap[zone.key]?.id !== film.id);
+    const hasChangedZone = maskZones.some(
+      (zone) => zoneFilmMap[zone.key]?.id !== film.id,
+    );
 
     if (hasChangedZone) {
       rememberUndoSnapshot();
@@ -692,9 +713,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const openFilmSheet = (zoneKey: string) => {
     const isRestrictedCustomerLink =
-      mode === "customer" &&
-      Boolean(token) &&
-      state.link?.film_scope !== "all";
+      mode === "customer" && Boolean(token) && state.link?.film_scope !== "all";
 
     rememberUndoSnapshot();
 
@@ -795,7 +814,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const mainTitle = mode === "customer" ? "필름 시뮬레이터" : "시뮬레이터";
-  const contractorName = state.contractor?.display_name || state.link?.installer_name || "시공자";
+  const contractorName =
+    state.contractor?.display_name || state.link?.installer_name || "시공자";
   const contractorPhotos = state.contractor?.portfolio_photos || [];
   const phoneHref = getPhoneHref(state.contractor?.phone);
   const kakaoHref = getKakaoHref(state.contractor?.kakao_url);
@@ -814,13 +834,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ? "2단계 색상 적용"
         : "3단계 결정 확정";
 
-  const heroDescription = step === "intro"
-    ? "시공자 소개와 대표 시공사진을 확인한 뒤 시뮬레이션을 시작하세요."
-    : step === "space"
-      ? "시뮬레이션할 공간을 먼저 선택해주세요."
-      : step === "apply"
-        ? "이미지의 체크무늬 구역이나 아래 구역 버튼을 눌러 필름을 적용하세요."
-        : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요.";
+  const heroDescription =
+    step === "intro"
+      ? "시공자 소개와 대표 시공사진을 확인한 뒤 시뮬레이션을 시작하세요."
+      : step === "space"
+        ? "시뮬레이션할 공간을 먼저 선택해주세요."
+        : step === "apply"
+          ? "이미지의 체크무늬 구역이나 아래 구역 버튼을 눌러 필름을 적용하세요."
+          : "선택한 결과를 확인하고 필요한 방법으로 문의해주세요.";
 
   const isCustomerIntroStep = step === "intro" && hasIntroStep;
 
@@ -833,7 +854,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
   const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
-
 
   const exitTypingCurrentLine =
     EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] || EXIT_CONFIRM_TYPE_LINES[0];
@@ -859,17 +879,29 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {applyingFilmId !== null ? (
-          <div className="filmApplyOverlay" aria-live="assertive" aria-label="필름 적용 중">
+          <div
+            className="filmApplyOverlay"
+            aria-live="assertive"
+            aria-label="필름 적용 중"
+          >
             <div className="filmApplyToast">
               <span className="filmApplySpinner" aria-hidden="true" />
               <strong>적용중...</strong>
-              <p>{applyingFilm ? getFilmName(applyingFilm) : "선택한 필름"}을 적용하고 있어요.</p>
+              <p>
+                {applyingFilm ? getFilmName(applyingFilm) : "선택한 필름"}을
+                적용하고 있어요.
+              </p>
             </div>
           </div>
         ) : null}
 
         {mode === "installer" ? (
-          <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
+          <button
+            type="button"
+            onClick={goToDashboard}
+            className="backButton"
+            disabled={isDashboardMoving}
+          >
             ← 대시보드
           </button>
         ) : null}
@@ -893,8 +925,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           </button>
         ) : null}
 
-        <div className={isCustomerIntroStep && showGuideToggle ? "pageInner pageInnerCustomerIntroWithGuide" : "pageInner"}>
-          {(state.loading && mode === "customer") || (step === "intro" && hasIntroStep) ? null : (
+        <div
+          className={
+            isCustomerIntroStep && showGuideToggle
+              ? "pageInner pageInnerCustomerIntroWithGuide"
+              : "pageInner"
+          }
+        >
+          {(state.loading && mode === "customer") ||
+          (step === "intro" && hasIntroStep) ? null : (
             <section className="heroCard">
               <div className="heroTopRow">
                 <div style={{ minWidth: 0 }}>
@@ -908,7 +947,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 {state.link ? (
                   <div className="linkCard linkCardCompact">
                     <div className="linkCardText">
-                      <div>시뮬레이션 만료: {formatDateTime(state.link.expires_at)}</div>
+                      <div>
+                        시뮬레이션 만료: {formatDateTime(state.link.expires_at)}
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -962,7 +1003,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
                 <div className="spaceSkeletonGrid">
                   {Array.from({ length: 4 }).map((_, index) => (
-                    <div key={`space-skeleton-${index}`} className="spaceSkeletonCard" aria-hidden="true">
+                    <div
+                      key={`space-skeleton-${index}`}
+                      className="spaceSkeletonCard"
+                      aria-hidden="true"
+                    >
                       <div className="spaceSkeletonThumb" />
                       <div className="spaceSkeletonName" />
                       <div className="spaceSkeletonDesc" />
@@ -973,12 +1018,22 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             )
           ) : state.expired ? (
             <section style={noticeStyle("danger")}>
-              <strong style={{ display: "block", fontSize: 20, marginBottom: 8 }}>만료된 링크입니다.</strong>
-              <span>{state.message || "시공자에게 새 링크를 요청해주세요."}</span>
+              <strong
+                style={{ display: "block", fontSize: 20, marginBottom: 8 }}
+              >
+                만료된 링크입니다.
+              </strong>
+              <span>
+                {state.message || "시공자에게 새 링크를 요청해주세요."}
+              </span>
             </section>
           ) : state.setupNeeded ? (
             <section style={noticeStyle("warning")}>
-              <strong style={{ display: "block", fontSize: 20, marginBottom: 8 }}>DB 1단계 작업이 필요합니다.</strong>
+              <strong
+                style={{ display: "block", fontSize: 20, marginBottom: 8 }}
+              >
+                DB 1단계 작업이 필요합니다.
+              </strong>
               <span>{state.message}</span>
               <div
                 style={{
@@ -991,7 +1046,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   lineHeight: 1.7,
                 }}
               >
-                Supabase SQL Editor에서 <b>supabase/02_simulator_schema.sql</b> 파일 내용을 먼저 실행하면 됩니다.
+                Supabase SQL Editor에서 <b>supabase/02_simulator_schema.sql</b>{" "}
+                파일 내용을 먼저 실행하면 됩니다.
               </div>
             </section>
           ) : step === "intro" && hasIntroStep ? (
@@ -1064,7 +1120,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             className="simulatorExitConfirmOverlay"
             role="presentation"
             onClick={() => {
-              setExitConfirmVisible(false);
+              setShowExitConfirm(false);
               resetRapidBackExitPresses();
             }}
           >
@@ -1079,12 +1135,21 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 😢
               </div>
 
-              <h3 id="simulator-exit-confirm-title" className="simulatorExitConfirmTitle">
+              <h3
+                id="simulator-exit-confirm-title"
+                className="simulatorExitConfirmTitle"
+              >
                 시뮬레이션을 종료하시겠습니까?
               </h3>
-              <div className="simulatorExitConfirmTypewriter" aria-live="polite">
+              <div
+                className="simulatorExitConfirmTypewriter"
+                aria-live="polite"
+              >
                 <span>{exitTypingText || " "}</span>
-                <span className="simulatorExitConfirmCursor" aria-hidden="true" />
+                <span
+                  className="simulatorExitConfirmCursor"
+                  aria-hidden="true"
+                />
               </div>
 
               <div className="simulatorExitConfirmActions">
@@ -1092,7 +1157,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   type="button"
                   className="simulatorExitConfirmCancel"
                   onClick={() => {
-                    setExitConfirmVisible(false);
+                    setShowExitConfirm(false);
                     resetRapidBackExitPresses();
                   }}
                 >
@@ -1113,7 +1178,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                       return;
                     }
 
-                    const backSteps = Math.max(artificialHistoryDepthRef.current + 1, 3);
+                    const backSteps = Math.max(
+                      artificialHistoryDepthRef.current + 1,
+                      3,
+                    );
                     window.history.go(-backSteps);
                   }}
                 >
@@ -1133,7 +1201,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {showGuideDisabledNotice ? (
-          <SimulatorCustomerGuideNoticeModal onClose={closeGuideDisabledNotice} />
+          <SimulatorCustomerGuideNoticeModal
+            onClose={closeGuideDisabledNotice}
+          />
         ) : null}
 
         {isFilmSheetOpen ? (
@@ -1157,7 +1227,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             onPaletteSubClick={handlePaletteSubClick}
             onPaletteColorClick={handlePaletteColorClick}
             onFilmQueryChange={setFilmQuery}
-            onSearchFilms={() => void searchFilms(filmQuery, { includeFacets: false })}
+            onSearchFilms={() =>
+              void searchFilms(filmQuery, { includeFacets: false })
+            }
             onFilmClick={(film) => void handleFilmClick(film)}
             onToggleSamplePreview={toggleSamplePreview}
             onCloseSamplePreview={() => setPreviewSampleFilm(null)}
@@ -1184,7 +1256,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   );
 }
 
-function noticeStyle(type: "default" | "warning" | "danger" = "default"): CSSProperties {
+function noticeStyle(
+  type: "default" | "warning" | "danger" = "default",
+): CSSProperties {
   const background =
     type === "danger"
       ? "rgba(120,20,20,0.20)"
