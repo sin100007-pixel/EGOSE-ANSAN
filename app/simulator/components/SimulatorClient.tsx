@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import type { SimulatorFilm } from "../types";
@@ -121,6 +121,87 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   });
 
   const { isDashboardMoving, goToDashboard } = useDashboardNavigation(mode);
+
+  const goBackOneSimulatorAction = useCallback(() => {
+    if (previewSampleFilm) {
+      setPreviewSampleFilm(null);
+      return true;
+    }
+
+    if (isFilmSheetOpen) {
+      setIsFilmSheetOpen(false);
+      setPreviewSampleFilm(null);
+      return true;
+    }
+
+    if (step === "decision") {
+      setStep("apply");
+      return true;
+    }
+
+    if (step === "apply") {
+      setStep("space");
+      return true;
+    }
+
+    if (step === "space" && hasIntroStep) {
+      setStep("intro");
+      return true;
+    }
+
+    return false;
+  }, [hasIntroStep, isFilmSheetOpen, previewSampleFilm, step]);
+
+  const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
+
+  useEffect(() => {
+    goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
+  }, [goBackOneSimulatorAction]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const baseKey = "__egoseSimulatorBackBase";
+    const trapKey = "__egoseSimulatorBackTrap";
+    const currentState = window.history.state || {};
+
+    const pushTrapState = () => {
+      window.history.pushState(
+        {
+          ...(window.history.state || {}),
+          [trapKey]: true,
+        },
+        "",
+        window.location.href
+      );
+    };
+
+    if (!currentState[trapKey]) {
+      window.history.replaceState(
+        {
+          ...currentState,
+          [baseKey]: true,
+        },
+        "",
+        window.location.href
+      );
+      pushTrapState();
+    }
+
+    const handlePopState = () => {
+      goBackOneSimulatorActionRef.current();
+
+      // 시뮬레이터 안에서는 모바일/인앱브라우저 뒤로가기가 바로 대시보드나
+      // 이전 외부 페이지로 빠지지 않도록 같은 주소에 안전장치를 다시 올립니다.
+      window.requestAnimationFrame(pushTrapState);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   const { currentGuide, guideEnabled, toggleGuideEnabled, closeCustomerGuide } = useSimulatorCustomerGuide({
     mode,

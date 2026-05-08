@@ -5,6 +5,7 @@ import { jsonNoStore, jsonSimulatorCache } from "../_lib/response";
 import { getSupabase } from "../_lib/supabase";
 import {
   DEFAULT_RECOMMENDED_FILM_LIMIT,
+  SIMULATOR_FILM_SEARCH_RESULT_LIMIT,
   PRODUCT_SELECT,
   mergeProductRows,
   normalizeFilm,
@@ -182,7 +183,7 @@ export async function GET(req: NextRequest) {
       .eq("manufacturer", "삼성필름")
       .eq("is_simulatable", true)
       .or("simulation_image_path.not.is.null,image_path.not.is.null")
-      .limit(100);
+      .limit(SIMULATOR_FILM_SEARCH_RESULT_LIMIT);
 
     const orFilter = q ? buildDbOrFilter(q) : "";
     if (orFilter) query = query.or(orFilter);
@@ -269,7 +270,7 @@ export async function GET(req: NextRequest) {
         const bName = b.item.full_name || b.item.product_code_1 || "";
         return aName.localeCompare(bName, "ko");
       })
-      .slice(0, hasRecommendedFilter ? DEFAULT_RECOMMENDED_FILM_LIMIT : 100)
+      .slice(0, hasRecommendedFilter ? DEFAULT_RECOMMENDED_FILM_LIMIT : SIMULATOR_FILM_SEARCH_RESULT_LIMIT)
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
     return jsonSimulatorCache(req, {

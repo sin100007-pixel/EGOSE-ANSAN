@@ -1,6 +1,7 @@
 import { toPublicImageUrl } from "./image-url";
 
 export const DEFAULT_RECOMMENDED_FILM_LIMIT = 24;
+export const SIMULATOR_FILM_SEARCH_RESULT_LIMIT = 200;
 
 export const PRODUCT_SELECT = `
   id,

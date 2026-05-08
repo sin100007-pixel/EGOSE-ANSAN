@@ -759,7 +759,7 @@ export async function GET(req: NextRequest) {
       .eq("manufacturer", "삼성필름")
       .eq("is_simulatable", true)
       .or("simulation_image_path.not.is.null,image_path.not.is.null")
-      .limit(80);
+      .limit(200);
 
     if (hasToken && filmScope !== "all") {
       productQuery = productQuery.in("id", allowedProductIds);
