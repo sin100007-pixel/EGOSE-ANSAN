@@ -33,10 +33,6 @@ const SimulatorCustomerGuideModal = dynamic(
   () => import("./client/SimulatorCustomerGuideModal"),
   { ssr: false }
 );
-const SimulatorCustomerGuideNoticeModal = dynamic(
-  () => import("./client/SimulatorCustomerGuideNoticeModal"),
-  { ssr: false }
-);
 const SimulatorFilmSheet = dynamic(() => import("./client/SimulatorFilmSheet"), { ssr: false });
 const SimulatorDecisionExportCard = dynamic(
   () => import("./client/SimulatorDecisionExportCard"),
@@ -110,6 +106,22 @@ type SimulatorUndoSnapshot = {
   decisionMessage: string;
 };
 
+type ExitConfirmTypingPhase = "typing" | "holding" | "deleting";
+
+const EXIT_CONFIRM_TYPE_LINES = [
+  "붙였던 필름 떼어내는 중...",
+  "가구를 창고에 넣어 놓는 중...",
+  "재단했던 필름 다시 마는중...",
+  "열린 창문 닫는 중...",
+  "신발 가지런히 정리하는 중...",
+  "필름을 창고에 넣어 놓는중...",
+];
+
+const EXIT_CONFIRM_TYPE_SPEED_MS = 58;
+const EXIT_CONFIRM_DELETE_SPEED_MS = 30;
+const EXIT_CONFIRM_HOLD_MS = 720;
+const EXIT_CONFIRM_NEXT_LINE_DELAY_MS = 140;
+
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const [step, setStep] = useState<SimulatorStep>("space");
   const [selectedSpaceId, setSelectedSpaceId] = useState("");
@@ -120,6 +132,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
   const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [exitTypingLineIndex, setExitTypingLineIndex] = useState(0);
+  const [exitTypingCharCount, setExitTypingCharCount] = useState(0);
+  const [exitTypingPhase, setExitTypingPhase] = useState<ExitConfirmTypingPhase>("typing");
 
   const {
     state,
@@ -203,9 +218,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     guideEnabled,
     toggleGuideEnabled,
     closeCustomerGuide,
-    disableCustomerGuide,
-    showGuideDisabledNotice,
-    closeGuideDisabledNotice,
   } = useSimulatorCustomerGuide({
     mode,
     token,
@@ -281,6 +293,51 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   useEffect(() => {
     showExitConfirmRef.current = showExitConfirm;
   }, [showExitConfirm]);
+
+  useEffect(() => {
+    if (!showExitConfirm) {
+      setExitTypingLineIndex(0);
+      setExitTypingCharCount(0);
+      setExitTypingPhase("typing");
+      return;
+    }
+
+    const currentLine = EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] || EXIT_CONFIRM_TYPE_LINES[0];
+    const currentLength = currentLine.length;
+
+    let timeoutMs = EXIT_CONFIRM_TYPE_SPEED_MS;
+    let timeoutCallback = () => {};
+
+    if (exitTypingPhase === "typing") {
+      if (exitTypingCharCount < currentLength) {
+        timeoutCallback = () => setExitTypingCharCount((prev) => Math.min(prev + 1, currentLength));
+      } else {
+        timeoutMs = EXIT_CONFIRM_HOLD_MS;
+        timeoutCallback = () => setExitTypingPhase("deleting");
+      }
+    } else if (exitTypingPhase === "deleting") {
+      if (exitTypingCharCount > 0) {
+        timeoutMs = EXIT_CONFIRM_DELETE_SPEED_MS;
+        timeoutCallback = () => setExitTypingCharCount((prev) => Math.max(prev - 1, 0));
+      } else {
+        timeoutMs = EXIT_CONFIRM_NEXT_LINE_DELAY_MS;
+        timeoutCallback = () => {
+          setExitTypingLineIndex((prev) => (prev + 1) % EXIT_CONFIRM_TYPE_LINES.length);
+          setExitTypingPhase("typing");
+        };
+      }
+    } else {
+      timeoutMs = EXIT_CONFIRM_HOLD_MS;
+      timeoutCallback = () => setExitTypingPhase("deleting");
+    }
+
+    const timer = window.setTimeout(timeoutCallback, timeoutMs);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [exitTypingCharCount, exitTypingLineIndex, exitTypingPhase, showExitConfirm]);
+
 
   const rememberUndoSnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
     if (!snapshot || state.loading || state.expired || state.setupNeeded) return;
@@ -665,6 +722,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
   const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
 
+  const exitTypingCurrentLine =
+    EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] || EXIT_CONFIRM_TYPE_LINES[0];
+  const exitTypingText = exitTypingCurrentLine.slice(0, exitTypingCharCount);
+
   return (
     <main
       style={{
@@ -902,9 +963,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 시뮬레이션을 종료하시겠습니까?
               </h3>
 
-              <p className="simulatorExitConfirmText">
-                지금까지 선택한 내용은 이 화면을 나가면 이어서 확인하기 어려울 수 있어요.
-              </p>
+              <div className="simulatorExitConfirmTypewriter" aria-live="polite">
+                <span>{exitTypingText || "\u00A0"}</span>
+                <span className="simulatorExitConfirmCursor" aria-hidden="true" />
+              </div>
 
               <div className="simulatorExitConfirmActions">
                 <button
@@ -940,15 +1002,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {currentGuide ? (
-          <SimulatorCustomerGuideModal
-            guide={currentGuide}
-            onClose={closeCustomerGuide}
-            onDisable={disableCustomerGuide}
-          />
-        ) : null}
-
-        {showGuideDisabledNotice ? (
-          <SimulatorCustomerGuideNoticeModal onClose={closeGuideDisabledNotice} />
+          <SimulatorCustomerGuideModal guide={currentGuide} onClose={closeCustomerGuide} />
         ) : null}
 
         {isFilmSheetOpen ? (

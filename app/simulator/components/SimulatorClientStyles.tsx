@@ -1537,13 +1537,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         .customerGuideBody p {
           margin: 0;
         }
-        .customerGuideActions {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 10px;
-          align-items: stretch;
-        }
-
 
         .customerGuideCheckerInline {
           display: inline-flex;
@@ -1552,39 +1545,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           vertical-align: middle;
           color: ${COLORS.cream};
           font-weight: 800;
-        }
-
-        .customerGuideInlineAction {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 38px;
-          margin: 0 4px;
-          padding: 0 16px;
-          border-radius: 999px;
-          vertical-align: middle;
-          white-space: nowrap;
-          font-size: 14px;
-          font-weight: 950;
-          letter-spacing: -0.03em;
-          line-height: 1;
-          box-sizing: border-box;
-        }
-
-        .customerGuideInlineActionStart {
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
-            0 8px 20px rgba(0, 0, 0, 0.18);
-        }
-
-        .customerGuideInlineActionDecision {
-          min-height: 42px;
-          padding: 0 18px;
-          background: ${COLORS.cream};
-          color: ${COLORS.bg};
-          border-radius: 16px;
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
         }
 
         .customerGuideCheckerDot {
@@ -1616,95 +1576,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           letter-spacing: -0.03em;
           cursor: pointer;
           box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
-        }
-
-        .customerGuideSecondaryButton {
-          width: auto;
-          min-width: 74px;
-          height: 52px;
-          min-height: 52px;
-          padding: 0 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(238, 224, 197, 0.24);
-          background: rgba(255, 255, 255, 0.06);
-          color: rgba(255, 255, 255, 0.88);
-          font-size: 12px;
-          font-weight: 850;
-          letter-spacing: -0.03em;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          box-sizing: border-box;
-        }
-
-        .customerGuideSecondaryButtonLabel {
-          display: inline-flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          line-height: 1.02;
-          gap: 2px;
-          white-space: nowrap;
-        }
-
-        .customerGuideNoticeModal {
-          width: min(420px, 100%);
-        }
-
-        .customerGuideNoticeBody {
-          gap: 12px;
-        }
-
-        .customerGuideNoticeImageWrap {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin: 2px 0 4px;
-        }
-
-        .customerGuideNoticeImage {
-          width: 112px;
-          height: auto;
-        }
-
-        .customerGuideNoticeText {
-          text-align: center;
-        }
-
-        @media (max-width: 520px) {
-          .customerGuideInlineAction {
-            min-height: 34px;
-            padding: 0 14px;
-            font-size: 13px;
-          }
-
-          .customerGuideInlineActionDecision {
-            min-height: 38px;
-            padding: 0 14px;
-            border-radius: 14px;
-          }
-
-          .customerGuideActions {
-            gap: 8px;
-          }
-
-          .customerGuideSecondaryButton {
-            min-width: 68px;
-            height: 52px;
-            min-height: 52px;
-            padding: 0 8px;
-            font-size: 11px;
-          }
-
-          .customerGuideSecondaryButtonLabel {
-            gap: 1px;
-          }
-
-          .customerGuideNoticeImage {
-            width: 96px;
-          }
         }
 
         .sheetOverlay {
@@ -2248,18 +2119,46 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .simulatorExitConfirmTitle {
           margin: 0;
-          font-size: 20px;
-          line-height: 1.35;
-          letter-spacing: -0.03em;
+          font-size: 18px;
+          line-height: 1.25;
+          letter-spacing: -0.04em;
           color: ${COLORS.cream};
+          white-space: nowrap;
         }
 
-        .simulatorExitConfirmText {
-          margin: 10px 0 18px;
-          color: rgba(255, 255, 255, 0.74);
+        .simulatorExitConfirmTypewriter {
+          min-height: 24px;
+          margin: 12px 0 18px;
+          color: rgba(255, 255, 255, 0.78);
           font-size: 13px;
           line-height: 1.55;
+          font-weight: 750;
+          letter-spacing: -0.03em;
           word-break: keep-all;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          max-width: 100%;
+        }
+
+        .simulatorExitConfirmCursor {
+          width: 2px;
+          height: 1em;
+          margin-left: 3px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.9);
+          animation: simulatorExitConfirmCursorBlink 0.72s steps(2, start) infinite;
+        }
+
+        @keyframes simulatorExitConfirmCursorBlink {
+          0%, 45% {
+            opacity: 1;
+          }
+
+          46%, 100% {
+            opacity: 0;
+          }
         }
 
         .simulatorExitConfirmActions {
@@ -2289,6 +2188,16 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           background: rgba(255, 255, 255, 0.10);
           color: rgba(255, 255, 255, 0.82);
           border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        @media (max-width: 380px) {
+          .simulatorExitConfirmTitle {
+            font-size: 17px;
+          }
+
+          .simulatorExitConfirmTypewriter {
+            font-size: 12px;
+          }
         }
 
         @media (max-width: 640px) {
