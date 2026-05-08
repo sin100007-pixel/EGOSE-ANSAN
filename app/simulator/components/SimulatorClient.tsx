@@ -287,8 +287,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     };
 
     const pushTrapState = () => {
+      const currentState = window.history.state || {};
+
+      // Next.js App Router는 history.state 안에 내부 라우팅 정보를 보관합니다.
+      // 이 값을 덮어쓰면 뒤로가기 시 같은 페이지가 다시 로딩되는 것처럼 보일 수 있어
+      // 반드시 기존 state를 보존한 채 시뮬레이터용 표식만 추가합니다.
       window.history.pushState(
         {
+          ...currentState,
           [trapKey]: true,
         },
         "",
