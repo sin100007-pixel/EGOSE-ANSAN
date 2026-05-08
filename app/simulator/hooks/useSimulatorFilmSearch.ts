@@ -344,11 +344,15 @@ export function useSimulatorFilmSearch({
     ).slice(0, 1);
     const includeFacets = overrides.includeFacets !== false;
     const useRecommended = overrides.recommended === true;
+    const isKeywordSearch = q.length > 0;
+    const requestPaletteMain = isKeywordSearch ? "" : nextPaletteMain;
+    const requestPaletteSub = isKeywordSearch ? "" : nextPaletteSub;
+    const requestPaletteColors = isKeywordSearch ? [] : nextPaletteColors;
     const isInitialSheetRequest =
       q.length === 0 &&
-      !nextPaletteMain &&
-      !nextPaletteSub &&
-      nextPaletteColors.length === 0;
+      !requestPaletteMain &&
+      !requestPaletteSub &&
+      requestPaletteColors.length === 0;
     const requestSeq = filmSearchSeqRef.current + 1;
 
     filmSearchSeqRef.current = requestSeq;
@@ -365,9 +369,9 @@ export function useSimulatorFilmSearch({
         restoreInitialSheetFilms();
       } else {
         applyLocalFilmFallback(q, {
-          paletteMain: nextPaletteMain,
-          paletteSub: nextPaletteSub,
-          paletteColors: nextPaletteColors,
+          paletteMain: requestPaletteMain,
+          paletteSub: requestPaletteSub,
+          paletteColors: requestPaletteColors,
           includeFacets,
           preferInitialSource: false,
         });
@@ -384,10 +388,10 @@ export function useSimulatorFilmSearch({
       if (q) params.set("q", q);
       if (token) params.set("token", token);
       if (useRecommended) params.set("recommended", "1");
-      if (nextPaletteMain) params.set("palette_main", nextPaletteMain);
-      if (nextPaletteSub) params.set("palette_sub", nextPaletteSub);
+      if (requestPaletteMain) params.set("palette_main", requestPaletteMain);
+      if (requestPaletteSub) params.set("palette_sub", requestPaletteSub);
       if (!includeFacets) params.set("skip_facets", "1");
-      nextPaletteColors.forEach((color) => params.append("palette_color", color));
+      requestPaletteColors.forEach((color) => params.append("palette_color", color));
 
       const res = await fetch(
         buildSimulatorApiUrl("/api/simulator/films", params),
@@ -402,9 +406,9 @@ export function useSimulatorFilmSearch({
 
       if (!res.ok) {
         const recovered = applyLocalFilmFallback(q, {
-          paletteMain: nextPaletteMain,
-          paletteSub: nextPaletteSub,
-          paletteColors: nextPaletteColors,
+          paletteMain: requestPaletteMain,
+          paletteSub: requestPaletteSub,
+          paletteColors: requestPaletteColors,
           includeFacets,
           preferInitialSource: isInitialSheetRequest && useRecommended,
         });
@@ -420,11 +424,11 @@ export function useSimulatorFilmSearch({
         ? json.items.map((film: SimulatorFilm) => normalizeFilmForKakao(film))
         : [];
 
-      if (nextFilms.length === 0 && (q || nextPaletteMain || nextPaletteSub || nextPaletteColors.length > 0)) {
+      if (nextFilms.length === 0 && (q || requestPaletteMain || requestPaletteSub || requestPaletteColors.length > 0)) {
         const recovered = applyLocalFilmFallback(q, {
-          paletteMain: nextPaletteMain,
-          paletteSub: nextPaletteSub,
-          paletteColors: nextPaletteColors,
+          paletteMain: requestPaletteMain,
+          paletteSub: requestPaletteSub,
+          paletteColors: requestPaletteColors,
           includeFacets,
           preferInitialSource: isInitialSheetRequest && useRecommended,
         });
@@ -433,7 +437,7 @@ export function useSimulatorFilmSearch({
       }
 
       if (json.facets) {
-        updatePaletteFacets(json, nextPaletteMain, nextPaletteSub);
+        updatePaletteFacets(json, requestPaletteMain, requestPaletteSub);
       }
       if (nextFilms.length > 0) {
         rememberFilms(nextFilms);
@@ -453,9 +457,9 @@ export function useSimulatorFilmSearch({
       }
 
       const recovered = applyLocalFilmFallback(q, {
-        paletteMain: nextPaletteMain,
-        paletteSub: nextPaletteSub,
-        paletteColors: nextPaletteColors,
+        paletteMain: requestPaletteMain,
+        paletteSub: requestPaletteSub,
+        paletteColors: requestPaletteColors,
         includeFacets,
         preferInitialSource: isInitialSheetRequest && useRecommended,
       });

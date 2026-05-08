@@ -188,6 +188,10 @@ export default function SimulatorPresetManager() {
     const paletteMain = options.paletteMain !== undefined ? options.paletteMain : selectedPaletteMain;
     const paletteSub = options.paletteSub !== undefined ? options.paletteSub : selectedPaletteSub;
     const paletteColors = (options.paletteColors !== undefined ? options.paletteColors : selectedPaletteColors).slice(0, 1);
+    const isKeywordSearch = q.length > 0;
+    const requestPaletteMain = isKeywordSearch ? "" : paletteMain;
+    const requestPaletteSub = isKeywordSearch ? "" : paletteSub;
+    const requestPaletteColors = isKeywordSearch ? [] : paletteColors;
     const updateFacets = options.updateFacets === true;
     const silent = options.silent === true;
     const useRecommended = options.recommended === true;
@@ -201,9 +205,9 @@ export default function SimulatorPresetManager() {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (useRecommended) params.set("recommended", "1");
-      if (paletteMain) params.set("palette_main", paletteMain);
-      if (paletteSub) params.set("palette_sub", paletteSub);
-      paletteColors.forEach((color) => params.append("palette_color", color));
+      if (requestPaletteMain) params.set("palette_main", requestPaletteMain);
+      if (requestPaletteSub) params.set("palette_sub", requestPaletteSub);
+      requestPaletteColors.forEach((color) => params.append("palette_color", color));
       if (!updateFacets) params.set("skip_facets", "1");
 
       const res = await fetch(`/api/simulator/films?${params.toString()}`, {
@@ -219,7 +223,7 @@ export default function SimulatorPresetManager() {
       }
 
       setFilmSearchResults(Array.isArray(json.items) ? json.items : []);
-      if (updateFacets) updatePaletteFacets(json, paletteMain, paletteSub);
+      if (updateFacets) updatePaletteFacets(json, requestPaletteMain, requestPaletteSub);
     } catch {
       if (requestId === searchRequestRef.current && !silent) {
         setError("필름 검색 중 오류가 발생했습니다.");
@@ -275,7 +279,8 @@ export default function SimulatorPresetManager() {
     setSelectedPaletteMain("");
     setSelectedPaletteSub("");
     setSelectedPaletteColors([]);
-    void searchFilms({ paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true, recommended: true });
+    setFilmQuery("");
+    void searchFilms({ query: "", paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true, recommended: true });
   };
 
   const handlePaletteMainClick = (value: string) => {
@@ -284,8 +289,10 @@ export default function SimulatorPresetManager() {
     setSelectedPaletteMain(nextMain);
     setSelectedPaletteSub("");
     setSelectedPaletteColors([]);
+    setFilmQuery("");
 
     void searchFilms({
+      query: "",
       paletteMain: nextMain,
       paletteSub: "",
       paletteColors: [],
@@ -298,8 +305,10 @@ export default function SimulatorPresetManager() {
 
     setSelectedPaletteSub(nextSub);
     setSelectedPaletteColors([]);
+    setFilmQuery("");
 
     void searchFilms({
+      query: "",
       paletteMain: selectedPaletteMain,
       paletteSub: nextSub,
       paletteColors: [],
@@ -311,8 +320,10 @@ export default function SimulatorPresetManager() {
     const nextColors = selectedPaletteColors.includes(value) ? [] : [value];
 
     setSelectedPaletteColors(nextColors);
+    setFilmQuery("");
 
     void searchFilms({
+      query: "",
       paletteMain: selectedPaletteMain,
       paletteSub: selectedPaletteSub,
       paletteColors: nextColors,

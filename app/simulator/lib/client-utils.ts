@@ -178,12 +178,15 @@ export function filterFilmsLocally(
     paletteColors: string[];
   }
 ) {
-  const paletteColorSet = new Set(options.paletteColors);
+  const isKeywordSearch = options.keyword.trim().length > 0;
+  const paletteColorSet = new Set(isKeywordSearch ? [] : options.paletteColors);
+  const paletteMain = isKeywordSearch ? "" : options.paletteMain;
+  const paletteSub = isKeywordSearch ? "" : options.paletteSub;
 
   return films
     .filter((film) => {
-      if (options.paletteMain && film.palette_main !== options.paletteMain) return false;
-      if (options.paletteSub && film.palette_sub !== options.paletteSub) return false;
+      if (paletteMain && film.palette_main !== paletteMain) return false;
+      if (paletteSub && film.palette_sub !== paletteSub) return false;
       if (paletteColorSet.size > 0 && !paletteColorSet.has(String(film.palette_color || ""))) {
         return false;
       }

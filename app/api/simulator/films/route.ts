@@ -158,14 +158,22 @@ export async function GET(req: NextRequest) {
       paletteColors.length === 0;
     const hasRecommendedFilter = isInitialRecommendedRequest && recommendedProductIds.length > 0;
 
+    // 검색어가 있을 때는 1차/2차/색상 팔레트가 선택되어 있어도
+    // 제품번호/색상명 검색이 전체 필름 범위에서 먼저 작동해야 합니다.
+    // 단, 고객 링크의 직접선택/프리셋 제한 범위는 그대로 유지합니다.
+    const isKeywordSearch = q.length > 0;
+    const effectivePaletteMain = isKeywordSearch ? "" : paletteMain;
+    const effectivePaletteSub = isKeywordSearch ? "" : paletteSub;
+    const effectivePaletteColors = isKeywordSearch ? [] : paletteColors;
+
     const facets = skipFacets
       ? null
       : await safeReadPaletteFacets(supabase, {
           hasToken,
           filmScope,
           allowedProductIds,
-          paletteMain,
-          paletteSub,
+          paletteMain: effectivePaletteMain,
+          paletteSub: effectivePaletteSub,
         });
 
     let query = supabase
@@ -179,12 +187,12 @@ export async function GET(req: NextRequest) {
     const orFilter = q ? buildDbOrFilter(q) : "";
     if (orFilter) query = query.or(orFilter);
 
-    if (paletteMain) query = query.eq("palette_main", paletteMain);
-    if (paletteSub) query = query.eq("palette_sub", paletteSub);
-    if (paletteColors.length === 1) {
-      query = query.eq("palette_color", paletteColors[0]);
-    } else if (paletteColors.length > 1) {
-      query = query.in("palette_color", paletteColors);
+    if (effectivePaletteMain) query = query.eq("palette_main", effectivePaletteMain);
+    if (effectivePaletteSub) query = query.eq("palette_sub", effectivePaletteSub);
+    if (effectivePaletteColors.length === 1) {
+      query = query.eq("palette_color", effectivePaletteColors[0]);
+    } else if (effectivePaletteColors.length > 1) {
+      query = query.in("palette_color", effectivePaletteColors);
     }
 
     if (hasToken && filmScope !== "all") {
@@ -211,12 +219,12 @@ export async function GET(req: NextRequest) {
           .or("simulation_image_path.not.is.null,image_path.not.is.null")
           .limit(3000);
 
-        if (paletteMain) fallbackQuery = fallbackQuery.eq("palette_main", paletteMain);
-        if (paletteSub) fallbackQuery = fallbackQuery.eq("palette_sub", paletteSub);
-        if (paletteColors.length === 1) {
-          fallbackQuery = fallbackQuery.eq("palette_color", paletteColors[0]);
-        } else if (paletteColors.length > 1) {
-          fallbackQuery = fallbackQuery.in("palette_color", paletteColors);
+        if (effectivePaletteMain) fallbackQuery = fallbackQuery.eq("palette_main", effectivePaletteMain);
+        if (effectivePaletteSub) fallbackQuery = fallbackQuery.eq("palette_sub", effectivePaletteSub);
+        if (effectivePaletteColors.length === 1) {
+          fallbackQuery = fallbackQuery.eq("palette_color", effectivePaletteColors[0]);
+        } else if (effectivePaletteColors.length > 1) {
+          fallbackQuery = fallbackQuery.in("palette_color", effectivePaletteColors);
         }
 
         if (hasToken && filmScope !== "all") {
