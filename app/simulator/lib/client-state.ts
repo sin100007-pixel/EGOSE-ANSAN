@@ -41,7 +41,7 @@ export const INITIAL_BOOTSTRAP_STATE: BootstrapState = {
 export type CustomerGuideInlinePart =
   | { type: "text"; text: string }
   | { type: "checker"; label?: string }
-  | { type: "button"; label: string; variant?: "start" };
+  | { type: "button"; label: string; variant?: "start" | "decision" };
 
 export type CustomerGuideSectionLine = string | CustomerGuideInlinePart[];
 
@@ -99,7 +99,6 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
             { type: "checker", label: "체크무늬" },
             { type: "text", text: "를 클릭" },
           ],
-          "이미지 하단의 구역 버튼 클릭",
         ],
       },
       {
@@ -111,7 +110,11 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
       {
         heading: "[결정확정]",
         lines: [
-          "마음에 드는 색을 찾으셨으면 하단에 결정확정을 눌러주세요.",
+          [
+            { type: "text", text: "마음에 드는 색을 찾으셨으면 하단에 " },
+            { type: "button", label: "결정확정으로 넘어가기", variant: "decision" },
+            { type: "text", text: " 버튼을 눌러주세요." },
+          ],
         ],
       },
     ],

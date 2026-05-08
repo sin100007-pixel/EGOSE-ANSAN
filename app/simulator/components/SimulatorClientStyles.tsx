@@ -1576,6 +1576,15 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             0 8px 20px rgba(0, 0, 0, 0.18);
         }
 
+        .customerGuideInlineActionDecision {
+          min-height: 42px;
+          padding: 0 18px;
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          border-radius: 16px;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+        }
+
         .customerGuideCheckerDot {
           width: 18px;
           height: 18px;
@@ -1649,6 +1658,12 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             min-height: 34px;
             padding: 0 14px;
             font-size: 13px;
+          }
+
+          .customerGuideInlineActionDecision {
+            min-height: 38px;
+            padding: 0 14px;
+            border-radius: 14px;
           }
 
           .customerGuideSecondaryButton {

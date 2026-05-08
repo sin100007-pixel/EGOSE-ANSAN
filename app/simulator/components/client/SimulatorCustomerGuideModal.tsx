@@ -22,10 +22,17 @@ function renderGuideLine(line: CustomerGuideSectionLine) {
     }
 
     if (part.type === "button") {
+      const buttonVariantClass =
+        part.variant === "start"
+          ? "customerGuideInlineActionStart"
+          : part.variant === "decision"
+            ? "customerGuideInlineActionDecision"
+            : "";
+
       return (
         <span
           key={`button-${index}`}
-          className={`customerGuideInlineAction ${part.variant === "start" ? "customerGuideInlineActionStart" : ""}`.trim()}
+          className={`customerGuideInlineAction ${buttonVariantClass}`.trim()}
           aria-hidden="true"
         >
           {part.label}
