@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -49,36 +49,43 @@ type SimulatorClientProps = {
 };
 
 
-const KAKAO_BACK_GUARD_HASH = "__egose_simulator_back_guard";
-const INITIAL_HISTORY_BUFFER = 8;
+const EGOSE_BACK_GUARD_HASH_PREFIX = "__egose_simulator_back_guard_";
+const LEGACY_EGOSE_BACK_GUARD_HASH = "__egose_simulator_back_guard";
 
-function isKakaoTalkInAppBrowserForBack() {
-  if (typeof navigator === "undefined") return false;
+function isEgoseBackGuardHash(hash: string) {
+  const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
 
-  return /KAKAOTALK/i.test(navigator.userAgent || "");
+  return (
+    normalizedHash === LEGACY_EGOSE_BACK_GUARD_HASH ||
+    normalizedHash.startsWith(EGOSE_BACK_GUARD_HASH_PREFIX)
+  );
 }
 
 function getUrlWithoutEgoseBackGuard(value: string) {
   try {
     const url = new URL(value);
 
-    if (url.hash.startsWith(`#${KAKAO_BACK_GUARD_HASH}`)) {
+    if (isEgoseBackGuardHash(url.hash)) {
       url.hash = "";
     }
 
     return url.toString();
   } catch {
-    return value.replace(new RegExp(`#${KAKAO_BACK_GUARD_HASH}[^#]*$`), "");
+    return value
+      .replace(`#${LEGACY_EGOSE_BACK_GUARD_HASH}`, "")
+      .replace(new RegExp(`#${EGOSE_BACK_GUARD_HASH_PREFIX}[^#?&]*`), "");
   }
 }
 
-function getUrlWithEgoseBackGuard(value: string, depth: number) {
+function getUrlWithEgoseBackGuard(value: string, sequence: number) {
+  const guardValue = `${EGOSE_BACK_GUARD_HASH_PREFIX}${sequence}_${Date.now()}`;
+
   try {
     const url = new URL(getUrlWithoutEgoseBackGuard(value));
-    url.hash = `${KAKAO_BACK_GUARD_HASH}_${depth}`;
+    url.hash = guardValue;
     return url.toString();
   } catch {
-    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}_${depth}`;
+    return `${getUrlWithoutEgoseBackGuard(value)}#${guardValue}`;
   }
 }
 
@@ -242,17 +249,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const undoStackRef = useRef<SimulatorUndoSnapshot[]>([]);
   const latestSnapshotRef = useRef<SimulatorUndoSnapshot | null>(null);
   const showExitConfirmRef = useRef(false);
+  const activeGuideStepRef = useRef(activeGuideStep);
+  const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
   const allowNativeBackRef = useRef(false);
   const artificialHistoryDepthRef = useRef(0);
+  const historyTrapSequenceRef = useRef(0);
+  const handlingBackNavigationRef = useRef(false);
   const pushHistoryTrapRef = useRef<(() => void) | null>(null);
   const rapidBackPressCountRef = useRef(0);
   const rapidBackFirstPressAtRef = useRef(0);
   const rapidBackLastPressAtRef = useRef(0);
-  const activeGuideStepRef = useRef(activeGuideStep);
-  const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
-
-  activeGuideStepRef.current = activeGuideStep;
-  showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
 
   const resetRapidBackExitPresses = useCallback(() => {
     rapidBackPressCountRef.current = 0;
@@ -336,18 +342,36 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     latestSnapshotRef.current = captureSnapshot();
   }, [captureSnapshot]);
 
-  useEffect(() => {
+  const setExitConfirmVisible = useCallback((visible: boolean) => {
+    showExitConfirmRef.current = visible;
+    setShowExitConfirm(visible);
+  }, []);
+
+  useLayoutEffect(() => {
     showExitConfirmRef.current = showExitConfirm;
   }, [showExitConfirm]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    activeGuideStepRef.current = activeGuideStep;
+    showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
+  }, [activeGuideStep, showGuideDisabledNotice]);
+
+  useLayoutEffect(() => {
     if (!activeGuideStep || mode !== "customer" || state.loading || state.expired || state.setupNeeded) {
       return;
     }
 
-    // 가이드 카드가 떠 있는 상태에서는 모바일/인앱브라우저 뒤로가기가
-    // 앱 밖으로 빠지지 않고 먼저 가이드 카드만 닫히도록 히스토리 안전장치를 1칸 추가합니다.
+    // 가이드 카드가 떠 있는 상태에서는 브라우저 뒤로가기가 앱 밖으로 빠지기 전에
+    // 반드시 시뮬레이터 내부에서 먼저 잡히도록 즉시 안전 히스토리를 보강합니다.
     pushHistoryTrapRef.current?.();
+
+    const timer = window.setTimeout(() => {
+      pushHistoryTrapRef.current?.();
+    }, 80);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [activeGuideStep, mode, state.expired, state.loading, state.setupNeeded]);
 
   useEffect(() => {
@@ -397,7 +421,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const rememberUndoSnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
     if (!snapshot || state.loading || state.expired || state.setupNeeded) return;
 
-    setShowExitConfirm(false);
+    setExitConfirmVisible(false);
 
     const nextKey = snapshotKey(snapshot);
     const stack = undoStackRef.current;
@@ -413,7 +437,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     // 이렇게 해야 모바일/카카오톡/크롬 뒤로가기 버튼을 빠르게 눌러도
     // 앱 밖으로 빠지지 않고 내부 실행취소가 먼저 처리됩니다.
     pushHistoryTrapRef.current?.();
-  }, [state.expired, state.loading, state.setupNeeded]);
+  }, [setExitConfirmVisible, state.expired, state.loading, state.setupNeeded]);
 
   const restoreUndoSnapshot = useCallback((snapshot: SimulatorUndoSnapshot) => {
     setStep(snapshot.step);
@@ -426,26 +450,27 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setDecisionMessage(snapshot.decisionMessage);
     setApplyingFilmId(null);
     setFilmError("");
-    showExitConfirmRef.current = false;
-    setShowExitConfirm(false);
-  }, [setDecisionMessage, setFilmError]);
+    setExitConfirmVisible(false);
+  }, [setDecisionMessage, setExitConfirmVisible, setFilmError]);
 
   const goBackOneSimulatorAction = useCallback(() => {
     if (showExitConfirmRef.current) {
-      showExitConfirmRef.current = false;
-      setShowExitConfirm(false);
+      setExitConfirmVisible(false);
+      pushHistoryTrapRef.current?.();
       return true;
     }
 
     if (activeGuideStepRef.current) {
       activeGuideStepRef.current = null;
       closeCustomerGuide();
+      pushHistoryTrapRef.current?.();
       return true;
     }
 
     if (showGuideDisabledNoticeRef.current) {
       showGuideDisabledNoticeRef.current = false;
       closeGuideDisabledNotice();
+      pushHistoryTrapRef.current?.();
       return true;
     }
 
@@ -457,11 +482,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     return false;
-  }, [closeCustomerGuide, closeGuideDisabledNotice, restoreUndoSnapshot]);
+  }, [
+    closeCustomerGuide,
+    closeGuideDisabledNotice,
+    restoreUndoSnapshot,
+    setExitConfirmVisible,
+  ]);
 
   const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
   }, [goBackOneSimulatorAction]);
 
@@ -471,8 +501,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
     const depthKey = "__egoseSimulatorBackDepth";
-    const isKakaoTalkBackMode = isKakaoTalkInAppBrowserForBack();
     const baseHref = getUrlWithoutEgoseBackGuard(window.location.href);
+    const INITIAL_HISTORY_BUFFER = 10;
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
@@ -503,15 +533,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
       const currentState = getSafeHistoryState();
       const nextDepth = artificialHistoryDepthRef.current + 1;
-      const trapHref = isKakaoTalkBackMode
-        ? getUrlWithEgoseBackGuard(baseHref, nextDepth)
-        : baseHref;
 
       // Next.js App Router는 history.state 안에 내부 라우팅 정보를 보관합니다.
       // 이 값을 덮어쓰면 뒤로가기 시 같은 페이지가 다시 로딩되는 것처럼 보일 수 있어
       // 반드시 기존 state를 보존한 채 시뮬레이터용 표식만 추가합니다.
       // 카카오톡 인앱브라우저는 같은 URL pushState를 첫 뒤로가기에서 무시하는 경우가 있어
-      // 해시 번호를 바꿔 실제 히스토리 1칸을 확실히 만듭니다.
+      // 해시만 다른 가드 URL을 사용해 실제 히스토리 1칸을 확실히 만듭니다.
+      historyTrapSequenceRef.current += 1;
+      const nextTrapHref = getUrlWithEgoseBackGuard(baseHref, historyTrapSequenceRef.current);
+
       window.history.pushState(
         {
           ...currentState,
@@ -519,7 +549,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [depthKey]: nextDepth,
         },
         "",
-        trapHref
+        nextTrapHref
       );
 
       artificialHistoryDepthRef.current = nextDepth;
@@ -534,24 +564,26 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
     };
 
-    const refillTimerIds: number[] = [];
-
-    const refillTrapBufferAgainSoon = () => {
-      [0, 80, 220].forEach((delay) => {
-        const timerId = window.setTimeout(refillTrapBuffer, delay);
-        refillTimerIds.push(timerId);
-      });
-    };
-
     pushHistoryTrapRef.current = pushTrapState;
 
     replaceBaseState();
     refillTrapBuffer();
 
-    const handlePopState = () => {
+    const handleBackNavigation = () => {
       if (allowNativeBackRef.current) {
         return;
       }
+
+      // 일부 모바일 브라우저는 hash 변경과 popstate를 연달아 보낼 수 있습니다.
+      // 같은 뒤로가기 한 번이 두 번 처리되지 않도록 아주 짧게 중복을 막습니다.
+      if (handlingBackNavigationRef.current) {
+        return;
+      }
+
+      handlingBackNavigationRef.current = true;
+      window.setTimeout(() => {
+        handlingBackNavigationRef.current = false;
+      }, 80);
 
       if (artificialHistoryDepthRef.current > 0) {
         artificialHistoryDepthRef.current -= 1;
@@ -560,36 +592,35 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       // 뒤로가기 이벤트가 들어오면 먼저 안전장치를 다시 채워둔 뒤
       // 시뮬레이터 내부 실행취소를 처리합니다.
       refillTrapBuffer();
-      refillTrapBufferAgainSoon();
-
-      if (registerRapidBackExitPress()) {
-        showExitConfirmRef.current = true;
-        setShowExitConfirm(true);
-        resetRapidBackExitPresses();
-        return;
-      }
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
       if (handledInsideSimulator) {
+        resetRapidBackExitPresses();
         return;
       }
 
-      showExitConfirmRef.current = true;
-      setShowExitConfirm(true);
+      if (registerRapidBackExitPress()) {
+        setExitConfirmVisible(true);
+        resetRapidBackExitPresses();
+        return;
+      }
+
+      setExitConfirmVisible(true);
       resetRapidBackExitPresses();
     };
 
-    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", handleBackNavigation);
+    window.addEventListener("hashchange", handleBackNavigation);
 
     return () => {
-      window.removeEventListener("popstate", handlePopState);
-      refillTimerIds.forEach((timerId) => window.clearTimeout(timerId));
+      window.removeEventListener("popstate", handleBackNavigation);
+      window.removeEventListener("hashchange", handleBackNavigation);
       if (pushHistoryTrapRef.current === pushTrapState) {
         pushHistoryTrapRef.current = null;
       }
     };
-  }, [registerRapidBackExitPress, resetRapidBackExitPresses]);
+  }, [registerRapidBackExitPress, resetRapidBackExitPresses, setExitConfirmVisible]);
 
   useEffect(() => {
     if (maskZones.length === 0) return;
@@ -1033,8 +1064,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             className="simulatorExitConfirmOverlay"
             role="presentation"
             onClick={() => {
-              showExitConfirmRef.current = false;
-              setShowExitConfirm(false);
+              setExitConfirmVisible(false);
               resetRapidBackExitPresses();
             }}
           >
@@ -1062,8 +1092,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   type="button"
                   className="simulatorExitConfirmCancel"
                   onClick={() => {
-                    showExitConfirmRef.current = false;
-                    setShowExitConfirm(false);
+                    setExitConfirmVisible(false);
                     resetRapidBackExitPresses();
                   }}
                 >
