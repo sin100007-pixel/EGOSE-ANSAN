@@ -61,23 +61,25 @@ function getUrlWithoutEgoseBackGuard(value: string) {
   try {
     const url = new URL(value);
 
-    if (url.hash === `#${KAKAO_BACK_GUARD_HASH}`) {
+    if (url.hash.startsWith(`#${KAKAO_BACK_GUARD_HASH}`)) {
       url.hash = "";
     }
 
     return url.toString();
   } catch {
-    return value.replace(`#${KAKAO_BACK_GUARD_HASH}`, "");
+    return value.replace(new RegExp(`#${KAKAO_BACK_GUARD_HASH}[^?#]*`, "g"), "");
   }
 }
 
-function getUrlWithEgoseBackGuard(value: string) {
+function getUrlWithEgoseBackGuard(value: string, depth: number) {
+  const safeDepth = Number.isFinite(depth) ? Math.max(1, Math.floor(depth)) : 1;
+
   try {
     const url = new URL(getUrlWithoutEgoseBackGuard(value));
-    url.hash = KAKAO_BACK_GUARD_HASH;
+    url.hash = `${KAKAO_BACK_GUARD_HASH}-${safeDepth}`;
     return url.toString();
   } catch {
-    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}`;
+    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}-${safeDepth}`;
   }
 }
 
@@ -248,6 +250,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const rapidBackFirstPressAtRef = useRef(0);
   const rapidBackLastPressAtRef = useRef(0);
   const activeGuideStepRef = useRef(activeGuideStep);
+  const currentGuideVisibleRef = useRef(Boolean(currentGuide));
   const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
 
   const resetRapidBackExitPresses = useCallback(() => {
@@ -339,6 +342,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   useEffect(() => {
     activeGuideStepRef.current = activeGuideStep;
   }, [activeGuideStep]);
+
+  useEffect(() => {
+    currentGuideVisibleRef.current = Boolean(currentGuide);
+  }, [currentGuide]);
 
   useEffect(() => {
     showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
@@ -439,23 +446,45 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
   }, [mode, setDecisionMessage, setFilmError]);
 
+  const handleCloseCustomerGuide = useCallback(() => {
+    activeGuideStepRef.current = null;
+    currentGuideVisibleRef.current = false;
+    closeCustomerGuide();
+    pushHistoryTrapRef.current?.();
+  }, [closeCustomerGuide]);
+
+  const handleDisableCustomerGuide = useCallback(() => {
+    activeGuideStepRef.current = null;
+    currentGuideVisibleRef.current = false;
+    disableCustomerGuide();
+    pushHistoryTrapRef.current?.();
+  }, [disableCustomerGuide]);
+
+  const handleCloseGuideDisabledNotice = useCallback(() => {
+    showGuideDisabledNoticeRef.current = false;
+    closeGuideDisabledNotice();
+    pushHistoryTrapRef.current?.();
+  }, [closeGuideDisabledNotice]);
+
+  const handleToggleGuideEnabled = useCallback(() => {
+    toggleGuideEnabled();
+    pushHistoryTrapRef.current?.();
+  }, [toggleGuideEnabled]);
+
   const goBackOneSimulatorAction = useCallback(() => {
     if (showExitConfirmRef.current) {
       setShowExitConfirm(false);
+      pushHistoryTrapRef.current?.();
       return true;
     }
 
-    if (activeGuideStepRef.current) {
-      activeGuideStepRef.current = null;
-      closeCustomerGuide();
-      pushHistoryTrapRef.current?.();
+    if (activeGuideStepRef.current || currentGuideVisibleRef.current) {
+      handleCloseCustomerGuide();
       return true;
     }
 
     if (showGuideDisabledNoticeRef.current) {
-      showGuideDisabledNoticeRef.current = false;
-      closeGuideDisabledNotice();
-      pushHistoryTrapRef.current?.();
+      handleCloseGuideDisabledNotice();
       return true;
     }
 
@@ -468,8 +497,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     return false;
   }, [
-    closeCustomerGuide,
-    closeGuideDisabledNotice,
+    handleCloseCustomerGuide,
+    handleCloseGuideDisabledNotice,
     restoreUndoSnapshot,
   ]);
 
@@ -485,14 +514,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
     const depthKey = "__egoseSimulatorBackDepth";
-    const isKakaoTalkBackMode = isKakaoTalkInAppBrowserForBack();
-    const baseHref = isKakaoTalkBackMode
-      ? getUrlWithoutEgoseBackGuard(window.location.href)
-      : window.location.href;
-    const trapHref = isKakaoTalkBackMode
-      ? getUrlWithEgoseBackGuard(baseHref)
-      : baseHref;
-    const INITIAL_HISTORY_BUFFER = isKakaoTalkBackMode ? 1 : 6;
+    const baseHref = getUrlWithoutEgoseBackGuard(window.location.href);
+    const INITIAL_HISTORY_BUFFER = isKakaoTalkInAppBrowserForBack() ? 10 : 8;
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
@@ -502,7 +525,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const replaceBaseState = () => {
       const currentState = getSafeHistoryState();
 
-      if (currentState[baseKey]) {
+      if (currentState[baseKey] && getUrlWithoutEgoseBackGuard(window.location.href) === window.location.href) {
         return;
       }
 
@@ -536,7 +559,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [depthKey]: nextDepth,
         },
         "",
-        trapHref
+        getUrlWithEgoseBackGuard(baseHref, nextDepth)
       );
 
       artificialHistoryDepthRef.current = nextDepth;
@@ -572,9 +595,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       if (registerRapidBackExitPress()) {
         activeGuideStepRef.current = null;
         showGuideDisabledNoticeRef.current = false;
+        currentGuideVisibleRef.current = false;
         closeCustomerGuide();
         closeGuideDisabledNotice();
         setShowExitConfirm(true);
+        pushHistoryTrapRef.current?.();
         resetRapidBackExitPresses();
         return;
       }
@@ -586,6 +611,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       setShowExitConfirm(true);
+      pushHistoryTrapRef.current?.();
       resetRapidBackExitPresses();
     };
 
@@ -855,7 +881,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           <button
             type="button"
             className="guideToggleFloatingButton"
-            onClick={toggleGuideEnabled}
+            onClick={handleToggleGuideEnabled}
             aria-pressed={guideEnabled}
             aria-label={guideEnabled ? "가이드 끄기" : "가이드 켜기"}
           >
@@ -1104,13 +1130,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         {currentGuide ? (
           <SimulatorCustomerGuideModal
             guide={currentGuide}
-            onClose={closeCustomerGuide}
-            onDisable={disableCustomerGuide}
+            onClose={handleCloseCustomerGuide}
+            onDisable={handleDisableCustomerGuide}
           />
         ) : null}
 
         {showGuideDisabledNotice ? (
-          <SimulatorCustomerGuideNoticeModal onClose={closeGuideDisabledNotice} />
+          <SimulatorCustomerGuideNoticeModal onClose={handleCloseGuideDisabledNotice} />
         ) : null}
 
         {isFilmSheetOpen ? (
