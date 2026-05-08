@@ -33,6 +33,10 @@ const SimulatorCustomerGuideModal = dynamic(
   () => import("./client/SimulatorCustomerGuideModal"),
   { ssr: false }
 );
+const SimulatorCustomerGuideNoticeModal = dynamic(
+  () => import("./client/SimulatorCustomerGuideNoticeModal"),
+  { ssr: false }
+);
 const SimulatorFilmSheet = dynamic(() => import("./client/SimulatorFilmSheet"), { ssr: false });
 const SimulatorDecisionExportCard = dynamic(
   () => import("./client/SimulatorDecisionExportCard"),
@@ -218,6 +222,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     guideEnabled,
     toggleGuideEnabled,
     closeCustomerGuide,
+    disableCustomerGuide,
+    showGuideDisabledNotice,
+    closeGuideDisabledNotice,
   } = useSimulatorCustomerGuide({
     mode,
     token,
@@ -337,7 +344,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       window.clearTimeout(timer);
     };
   }, [exitTypingCharCount, exitTypingLineIndex, exitTypingPhase, showExitConfirm]);
-
 
   const rememberUndoSnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
     if (!snapshot || state.loading || state.expired || state.setupNeeded) return;
@@ -722,6 +728,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
   const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
 
+
   const exitTypingCurrentLine =
     EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] || EXIT_CONFIRM_TYPE_LINES[0];
   const exitTypingText = exitTypingCurrentLine.slice(0, exitTypingCharCount);
@@ -962,9 +969,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               <h3 id="simulator-exit-confirm-title" className="simulatorExitConfirmTitle">
                 시뮬레이션을 종료하시겠습니까?
               </h3>
-
               <div className="simulatorExitConfirmTypewriter" aria-live="polite">
-                <span>{exitTypingText || "\u00A0"}</span>
+                <span>{exitTypingText || " "}</span>
                 <span className="simulatorExitConfirmCursor" aria-hidden="true" />
               </div>
 
@@ -1002,7 +1008,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {currentGuide ? (
-          <SimulatorCustomerGuideModal guide={currentGuide} onClose={closeCustomerGuide} />
+          <SimulatorCustomerGuideModal
+            guide={currentGuide}
+            onClose={closeCustomerGuide}
+            onDisable={disableCustomerGuide}
+          />
+        ) : null}
+
+        {showGuideDisabledNotice ? (
+          <SimulatorCustomerGuideNoticeModal onClose={closeGuideDisabledNotice} />
         ) : null}
 
         {isFilmSheetOpen ? (
