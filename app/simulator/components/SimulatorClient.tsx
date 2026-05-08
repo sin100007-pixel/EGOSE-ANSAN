@@ -36,6 +36,21 @@ type SimulatorClientProps = {
   mode: "installer" | "customer";
 };
 
+type SimulatorBackSnapshot = {
+  step: SimulatorStep;
+  selectedSpaceId: string;
+  selectedFilm: SimulatorFilm | null;
+  activeZoneKey: string;
+  zoneFilmMap: Record<string, SimulatorFilm | null>;
+  isFilmSheetOpen: boolean;
+  previewSampleFilm: SimulatorFilm | null;
+  decisionMessage: string;
+};
+
+type SimulatorBackResult = "handled" | "exit";
+
+const SIMULATOR_HISTORY_GUARD_KEY = "egoseSimulatorBackGuard";
+
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const [step, setStep] = useState<SimulatorStep>("space");
   const [selectedSpaceId, setSelectedSpaceId] = useState("");
@@ -45,6 +60,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [isFilmSheetOpen, setIsFilmSheetOpen] = useState(false);
   const [applyingFilmId, setApplyingFilmId] = useState<number | null>(null);
   const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
+  const simulatorUndoStackRef = useRef<SimulatorBackSnapshot[]>([]);
+  const currentSnapshotRef = useRef<SimulatorBackSnapshot | null>(null);
+  const isRestoringSnapshotRef = useRef(false);
+  const historyGuardReadyRef = useRef(false);
+  const allowRealBrowserBackRef = useRef(false);
 
   const {
     state,
@@ -122,13 +142,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const { isDashboardMoving, goToDashboard } = useDashboardNavigation(mode);
 
-  const {
-    activeGuideStep,
-    currentGuide,
-    guideEnabled,
-    toggleGuideEnabled,
-    closeCustomerGuide,
-  } = useSimulatorCustomerGuide({
+  const { currentGuide, guideEnabled, toggleGuideEnabled, closeCustomerGuide } = useSimulatorCustomerGuide({
     mode,
     token,
     step,
@@ -139,109 +153,163 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setupNeeded: state.setupNeeded,
   });
 
-  const goBackOneSimulatorAction = useCallback(() => {
-    if (activeGuideStep) {
-      closeCustomerGuide();
-      return true;
-    }
-
-    if (previewSampleFilm) {
-      setPreviewSampleFilm(null);
-      return true;
-    }
-
-    if (isFilmSheetOpen) {
-      setIsFilmSheetOpen(false);
-      setPreviewSampleFilm(null);
-      return true;
-    }
-
-    if (step === "decision") {
-      setStep("apply");
-      return true;
-    }
-
-    if (step === "apply") {
-      setStep("space");
-      return true;
-    }
-
-    if (step === "space" && hasIntroStep) {
-      setStep("intro");
-      return true;
-    }
-
-    return false;
-  }, [activeGuideStep, closeCustomerGuide, hasIntroStep, isFilmSheetOpen, previewSampleFilm, step]);
-
-  const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
-  const allowNativeBackRef = useRef(false);
-
   useEffect(() => {
-    goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
-  }, [goBackOneSimulatorAction]);
+    currentSnapshotRef.current = {
+      step,
+      selectedSpaceId,
+      selectedFilm,
+      activeZoneKey,
+      zoneFilmMap,
+      isFilmSheetOpen,
+      previewSampleFilm,
+      decisionMessage,
+    };
+  }, [
+    activeZoneKey,
+    decisionMessage,
+    isFilmSheetOpen,
+    previewSampleFilm,
+    selectedFilm,
+    selectedSpaceId,
+    step,
+    zoneFilmMap,
+  ]);
+
+  const pushUndoSnapshot = useCallback(() => {
+    if (isRestoringSnapshotRef.current) return;
+
+    const snapshot = currentSnapshotRef.current;
+    if (!snapshot) return;
+
+    const stack = simulatorUndoStackRef.current;
+    const last = stack[stack.length - 1];
+    const nextSnapshot: SimulatorBackSnapshot = {
+      ...snapshot,
+      zoneFilmMap: { ...snapshot.zoneFilmMap },
+    };
+
+    if (last && areSimulatorBackSnapshotsSame(last, nextSnapshot)) {
+      return;
+    }
+
+    stack.push(nextSnapshot);
+
+    if (stack.length > 30) {
+      stack.splice(0, stack.length - 30);
+    }
+  }, []);
+
+  const restoreUndoSnapshot = useCallback((snapshot: SimulatorBackSnapshot) => {
+    isRestoringSnapshotRef.current = true;
+    setStep(snapshot.step);
+    setSelectedSpaceId(snapshot.selectedSpaceId);
+    setSelectedFilm(snapshot.selectedFilm);
+    setActiveZoneKey(snapshot.activeZoneKey);
+    setZoneFilmMap({ ...snapshot.zoneFilmMap });
+    setIsFilmSheetOpen(snapshot.isFilmSheetOpen);
+    setPreviewSampleFilm(snapshot.previewSampleFilm);
+    setDecisionMessage(snapshot.decisionMessage);
+
+    window.setTimeout(() => {
+      isRestoringSnapshotRef.current = false;
+    }, 0);
+  }, [setDecisionMessage]);
+
+  const runWithUndo = useCallback((updater: () => void) => {
+    pushUndoSnapshot();
+    updater();
+  }, [pushUndoSnapshot]);
+
+  const handleSimulatorBack = useCallback((): SimulatorBackResult => {
+    if (currentGuide) {
+      closeCustomerGuide();
+      return "handled";
+    }
+
+    const previousSnapshot = simulatorUndoStackRef.current.pop();
+    if (previousSnapshot) {
+      restoreUndoSnapshot(previousSnapshot);
+      return "handled";
+    }
+
+    const currentSnapshot = currentSnapshotRef.current;
+    const currentStep = currentSnapshot?.step || step;
+    const firstStep = hasIntroStep ? "intro" : "space";
+
+    if (currentStep === firstStep) {
+      const confirmed = window.confirm("시뮬레이션을 종료하시겠습니까? 😢");
+
+      if (confirmed) {
+        allowRealBrowserBackRef.current = true;
+        window.history.back();
+        return "exit";
+      }
+
+      return "handled";
+    }
+
+    if (currentStep === "decision") {
+      setStep("apply");
+      return "handled";
+    }
+
+    if (currentStep === "apply") {
+      setStep("space");
+      return "handled";
+    }
+
+    if (currentStep === "space" && hasIntroStep) {
+      setStep("intro");
+      return "handled";
+    }
+
+    return "handled";
+  }, [closeCustomerGuide, currentGuide, hasIntroStep, restoreUndoSnapshot, setStep, step]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const baseKey = "__egoseSimulatorBackBase";
-    const trapKey = "__egoseSimulatorBackTrap";
-    const currentState = window.history.state || {};
-
-    const pushTrapState = () => {
+    const pushHistoryGuard = () => {
       window.history.pushState(
-        {
-          ...(window.history.state || {}),
-          [trapKey]: true,
-        },
+        { ...(window.history.state || {}), [SIMULATOR_HISTORY_GUARD_KEY]: true },
         "",
         window.location.href
       );
     };
 
-    if (!currentState[trapKey]) {
-      window.history.replaceState(
-        {
-          ...currentState,
-          [baseKey]: true,
-        },
-        "",
-        window.location.href
-      );
-      pushTrapState();
+    if (!historyGuardReadyRef.current) {
+      try {
+        window.history.replaceState(
+          { ...(window.history.state || {}), egoseSimulatorBase: true },
+          "",
+          window.location.href
+        );
+        pushHistoryGuard();
+        historyGuardReadyRef.current = true;
+      } catch {
+        return;
+      }
     }
 
-    const handlePopState = () => {
-      if (allowNativeBackRef.current) {
+    const onPopState = () => {
+      if (allowRealBrowserBackRef.current) {
+        allowRealBrowserBackRef.current = false;
         return;
       }
 
-      const handledInsideSimulator = goBackOneSimulatorActionRef.current();
+      const result = handleSimulatorBack();
 
-      if (handledInsideSimulator) {
-        // 시뮬레이터 안에서는 모바일/인앱브라우저 뒤로가기가 바로 대시보드나
-        // 이전 외부 페이지로 빠지지 않도록 같은 주소에 안전장치를 다시 올립니다.
-        window.requestAnimationFrame(pushTrapState);
-        return;
+      if (result === "handled") {
+        pushHistoryGuard();
       }
-
-      const shouldExit = window.confirm("시뮬레이션을 종료하시겠습니까? 😢");
-
-      if (shouldExit) {
-        allowNativeBackRef.current = true;
-        window.setTimeout(() => window.history.back(), 0);
-        return;
-      }
-
-      window.requestAnimationFrame(pushTrapState);
     };
 
-    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", onPopState);
 
     return () => {
-      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("popstate", onPopState);
     };
-  }, []);
+  }, [handleSimulatorBack]);
 
   useEffect(() => {
     if (maskZones.length === 0) return;
@@ -264,28 +332,36 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const clearZoneFilm = (zoneKey: string) => {
-    setZoneFilmMap((prev) => ({
-      ...prev,
-      [zoneKey]: null,
-    }));
+    runWithUndo(() => {
+      setZoneFilmMap((prev) => ({
+        ...prev,
+        [zoneKey]: null,
+      }));
+    });
   };
 
   const clearAllZones = () => {
-    setZoneFilmMap({});
+    runWithUndo(() => {
+      setZoneFilmMap({});
+    });
   };
 
   const applyFilmToAllZones = (film: SimulatorFilm) => {
-    setSelectedFilm(film);
+    runWithUndo(() => {
+      setSelectedFilm(film);
 
-    const next: Record<string, SimulatorFilm> = {};
-    maskZones.forEach((zone) => {
-      next[zone.key] = film;
+      const next: Record<string, SimulatorFilm> = {};
+      maskZones.forEach((zone) => {
+        next[zone.key] = film;
+      });
+
+      setZoneFilmMap(next);
     });
-
-    setZoneFilmMap(next);
   };
 
   const openFilmSheet = (zoneKey: string) => {
+    pushUndoSnapshot();
+
     const isRestrictedCustomerLink =
       mode === "customer" &&
       Boolean(token) &&
@@ -316,15 +392,45 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const selectSpaceAndGoApply = (spaceId: string) => {
-    setSelectedSpaceId(spaceId);
-    setStep("apply");
+    runWithUndo(() => {
+      setSelectedSpaceId(spaceId);
+      setStep("apply");
+    });
+  };
+
+  const startSimulationFromIntro = () => {
+    if (step === "space") return;
+
+    runWithUndo(() => {
+      setStep("space");
+    });
+  };
+
+  const goIntroStep = () => {
+    if (!hasIntroStep || step === "intro") return;
+
+    runWithUndo(() => {
+      setStep("intro");
+    });
+  };
+
+  const goSpaceStep = () => {
+    if (step === "space") return;
+
+    runWithUndo(() => {
+      setStep("space");
+    });
   };
 
   const goApplyStep = () => {
-    if (!selectedSpace && state.spaces[0]?.id) {
-      setSelectedSpaceId(state.spaces[0].id);
-    }
-    setStep("apply");
+    if (step === "apply") return;
+
+    runWithUndo(() => {
+      if (!selectedSpace && state.spaces[0]?.id) {
+        setSelectedSpaceId(state.spaces[0].id);
+      }
+      setStep("apply");
+    });
   };
 
   const goDecisionStep = () => {
@@ -334,8 +440,18 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return;
     }
 
-    setDecisionMessage("");
-    setStep("decision");
+    runWithUndo(() => {
+      setDecisionMessage("");
+      setStep("decision");
+    });
+  };
+
+  const goDecisionStepFromNav = () => {
+    if (step === "decision") return;
+
+    runWithUndo(() => {
+      setStep("decision");
+    });
   };
 
   const handleFilmClick = async (film: SimulatorFilm) => {
@@ -353,6 +469,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         await preloadImage(film.image_url);
       }
 
+      pushUndoSnapshot();
       applyFilmToZone(targetZoneKey, film);
       setPreviewSampleFilm(null);
       closeFilmSheet();
@@ -366,6 +483,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const toggleSamplePreview = (film: SimulatorFilm) => {
     if (!film.sample_url) return;
 
+    pushUndoSnapshot();
     setPreviewSampleFilm((prev) => (prev?.id === film.id ? null : film));
   };
 
@@ -577,7 +695,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               brandColor={state.contractor?.brand_color}
               showHero={false}
               showStartButton
-              onStart={() => setStep("space")}
+              onStart={startSimulationFromIntro}
             />
           ) : step === "space" ? (
             <SimulatorSpaceStep
@@ -622,10 +740,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           <SimulatorBottomStepNav
             step={step}
             hasIntroStep={hasIntroStep}
-            onIntro={() => setStep("intro")}
-            onSpace={() => setStep("space")}
+            onIntro={goIntroStep}
+            onSpace={goSpaceStep}
             onApply={goApplyStep}
-            onDecision={() => setStep("decision")}
+            onDecision={goDecisionStepFromNav}
           />
         ) : null}
 
@@ -677,6 +795,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       <SimulatorClientStyles colors={COLORS} />
     </main>
   );
+}
+
+function areSimulatorBackSnapshotsSame(a: SimulatorBackSnapshot, b: SimulatorBackSnapshot) {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function noticeStyle(type: "default" | "warning" | "danger" = "default"): CSSProperties {
