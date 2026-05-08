@@ -125,8 +125,8 @@ const EXIT_CONFIRM_TYPE_SPEED_MS = 58;
 const EXIT_CONFIRM_DELETE_SPEED_MS = 30;
 const EXIT_CONFIRM_HOLD_MS = 2000;
 const EXIT_CONFIRM_NEXT_LINE_DELAY_MS = 140;
-const RAPID_BACK_EXIT_PRESS_LIMIT = 5;
-const RAPID_BACK_EXIT_WINDOW_MS = 1800;
+const RAPID_BACK_EXIT_PRESS_LIMIT = 3;
+const RAPID_BACK_EXIT_WINDOW_MS = 2000;
 
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const [step, setStep] = useState<SimulatorStep>("space");
@@ -247,6 +247,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const rapidBackPressCountRef = useRef(0);
   const rapidBackFirstPressAtRef = useRef(0);
   const rapidBackLastPressAtRef = useRef(0);
+  const activeGuideStepRef = useRef(activeGuideStep);
+  const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
 
   const resetRapidBackExitPresses = useCallback(() => {
     rapidBackPressCountRef.current = 0;
@@ -335,6 +337,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   }, [showExitConfirm]);
 
   useEffect(() => {
+    activeGuideStepRef.current = activeGuideStep;
+  }, [activeGuideStep]);
+
+  useEffect(() => {
+    showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
+  }, [showGuideDisabledNotice]);
+
+  useEffect(() => {
     if (!activeGuideStep || mode !== "customer" || state.loading || state.expired || state.setupNeeded) {
       return;
     }
@@ -421,7 +431,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setApplyingFilmId(null);
     setFilmError("");
     setShowExitConfirm(false);
-  }, [setDecisionMessage, setFilmError]);
+
+    if (mode === "customer" && (snapshot.step === "intro" || snapshot.step === "space" || snapshot.step === "apply")) {
+      window.setTimeout(() => {
+        pushHistoryTrapRef.current?.();
+      }, 0);
+    }
+  }, [mode, setDecisionMessage, setFilmError]);
 
   const goBackOneSimulatorAction = useCallback(() => {
     if (showExitConfirmRef.current) {
@@ -429,13 +445,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return true;
     }
 
-    if (activeGuideStep) {
+    if (activeGuideStepRef.current) {
+      activeGuideStepRef.current = null;
       closeCustomerGuide();
+      pushHistoryTrapRef.current?.();
       return true;
     }
 
-    if (showGuideDisabledNotice) {
+    if (showGuideDisabledNoticeRef.current) {
+      showGuideDisabledNoticeRef.current = false;
       closeGuideDisabledNotice();
+      pushHistoryTrapRef.current?.();
       return true;
     }
 
@@ -448,11 +468,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     return false;
   }, [
-    activeGuideStep,
     closeCustomerGuide,
     closeGuideDisabledNotice,
     restoreUndoSnapshot,
-    showGuideDisabledNotice,
   ]);
 
   const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
@@ -552,6 +570,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       refillTrapBuffer();
 
       if (registerRapidBackExitPress()) {
+        activeGuideStepRef.current = null;
+        showGuideDisabledNoticeRef.current = false;
+        closeCustomerGuide();
+        closeGuideDisabledNotice();
         setShowExitConfirm(true);
         resetRapidBackExitPresses();
         return;
