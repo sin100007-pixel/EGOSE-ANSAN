@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -49,36 +49,39 @@ type SimulatorClientProps = {
 };
 
 
-const EGOSE_BACK_GUARD_SEARCH_PARAM = "__egose_back_guard";
+const SIMULATOR_BACK_GUARD_HASH_PREFIX = "__egose_simulator_back_guard_";
+const SIMULATOR_BACK_GUARD_TOP_LEVEL = 3;
 
-function getUrlWithoutEgoseBackGuard(value: string) {
+function getUrlWithoutSimulatorBackGuard(value: string) {
   try {
     const url = new URL(value);
-    url.searchParams.delete(EGOSE_BACK_GUARD_SEARCH_PARAM);
 
-    if (url.hash.startsWith("#__egose_simulator_back_guard")) {
+    if (url.hash.startsWith(`#${SIMULATOR_BACK_GUARD_HASH_PREFIX}`)) {
       url.hash = "";
     }
 
     return url.toString();
   } catch {
-    return value
-      .replace(/([?&])__egose_back_guard=[^&#]*&?/, "$1")
-      .replace(/[?&]$/, "")
-      .replace(/#__egose_simulator_back_guard[^?&#]*/, "");
+    return value.replace(/#__egose_simulator_back_guard_\d+$/, "");
   }
 }
 
-function getUrlWithEgoseBackGuard(value: string, guardId: number) {
+function getUrlWithSimulatorBackGuard(value: string, level: number) {
   try {
-    const url = new URL(getUrlWithoutEgoseBackGuard(value));
-    url.searchParams.set(EGOSE_BACK_GUARD_SEARCH_PARAM, String(guardId));
+    const url = new URL(getUrlWithoutSimulatorBackGuard(value));
+    url.hash = `${SIMULATOR_BACK_GUARD_HASH_PREFIX}${level}`;
     return url.toString();
   } catch {
-    const cleanValue = getUrlWithoutEgoseBackGuard(value);
-    const divider = cleanValue.includes("?") ? "&" : "?";
-    return `${cleanValue}${divider}${EGOSE_BACK_GUARD_SEARCH_PARAM}=${guardId}`;
+    return `${getUrlWithoutSimulatorBackGuard(value)}#${SIMULATOR_BACK_GUARD_HASH_PREFIX}${level}`;
   }
+}
+
+function readSimulatorBackGuardLevelFromUrl(value: string) {
+  const match = value.match(/#__egose_simulator_back_guard_(\d+)$/);
+  if (!match) return 0;
+
+  const level = Number(match[1]);
+  return Number.isFinite(level) ? level : 0;
 }
 
 function requestKakaoInAppBrowserClose() {
@@ -241,10 +244,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const undoStackRef = useRef<SimulatorUndoSnapshot[]>([]);
   const latestSnapshotRef = useRef<SimulatorUndoSnapshot | null>(null);
   const showExitConfirmRef = useRef(false);
-  const activeGuideStepRef = useRef<typeof activeGuideStep>(null);
-  const showGuideDisabledNoticeRef = useRef(false);
+  const activeGuideStepRef = useRef(activeGuideStep);
+  const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
   const allowNativeBackRef = useRef(false);
-  const pushHistoryTrapRef = useRef<(() => void) | null>(null);
+  const backGuardRepairPopCountRef = useRef(0);
+  const backGuardActionLockRef = useRef(false);
   const rapidBackPressCountRef = useRef(0);
   const rapidBackFirstPressAtRef = useRef(0);
   const rapidBackLastPressAtRef = useRef(0);
@@ -331,21 +335,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     latestSnapshotRef.current = captureSnapshot();
   }, [captureSnapshot]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     showExitConfirmRef.current = showExitConfirm;
-    activeGuideStepRef.current = activeGuideStep;
-    showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
-  }, [activeGuideStep, showExitConfirm, showGuideDisabledNotice]);
+  }, [showExitConfirm]);
 
   useEffect(() => {
-    if (!activeGuideStep || mode !== "customer" || state.loading || state.expired || state.setupNeeded) {
-      return;
-    }
+    activeGuideStepRef.current = activeGuideStep;
+  }, [activeGuideStep]);
 
-    // 가이드 카드가 떠 있는 상태에서는 모바일/인앱브라우저 뒤로가기가
-    // 앱 밖으로 빠지지 않고 먼저 가이드 카드만 닫히도록 히스토리 안전장치를 1칸 추가합니다.
-    pushHistoryTrapRef.current?.();
-  }, [activeGuideStep, mode, state.expired, state.loading, state.setupNeeded]);
+  useEffect(() => {
+    showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
+  }, [showGuideDisabledNotice]);
 
   useEffect(() => {
     if (!showExitConfirm) {
@@ -405,11 +405,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     undoStackRef.current = [...stack.slice(-79), snapshot];
-
-    // 실행취소 1개가 생길 때 브라우저 히스토리도 1칸 추가합니다.
-    // 이렇게 해야 모바일/카카오톡/크롬 뒤로가기 버튼을 빠르게 눌러도
-    // 앱 밖으로 빠지지 않고 내부 실행취소가 먼저 처리됩니다.
-    pushHistoryTrapRef.current?.();
   }, [state.expired, state.loading, state.setupNeeded]);
 
   const restoreUndoSnapshot = useCallback((snapshot: SimulatorUndoSnapshot) => {
@@ -433,14 +428,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     if (activeGuideStepRef.current) {
-      activeGuideStepRef.current = null;
       closeCustomerGuide();
+      activeGuideStepRef.current = null;
       return true;
     }
 
     if (showGuideDisabledNoticeRef.current) {
-      showGuideDisabledNoticeRef.current = false;
       closeGuideDisabledNotice();
+      showGuideDisabledNoticeRef.current = false;
       return true;
     }
 
@@ -467,116 +462,135 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const guardKey = "__egoseSimulatorBackGuard";
+    const guardKey = "__egoseSimulatorBackGuardLevel";
     const baseKey = "__egoseSimulatorBackBase";
-    let guardId = Date.now();
-    let isCurrentEntryGuard = false;
-    let isDisposed = false;
+    const baseHref = getUrlWithoutSimulatorBackGuard(window.location.href);
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
       return currentState && typeof currentState === "object" ? currentState : {};
     };
 
-    const getCleanHref = () => getUrlWithoutEgoseBackGuard(window.location.href);
+    const readGuardLevel = (historyState: unknown) => {
+      if (historyState && typeof historyState === "object") {
+        const rawLevel = (historyState as Record<string, unknown>)[guardKey];
+        const level = typeof rawLevel === "number" ? rawLevel : Number(rawLevel || 0);
 
-    const replaceCurrentEntryAsBase = () => {
+        if (Number.isFinite(level) && level >= 0) {
+          return level;
+        }
+      }
+
+      return readSimulatorBackGuardLevelFromUrl(window.location.href);
+    };
+
+    const replaceBaseState = () => {
       const currentState = getSafeHistoryState();
 
       window.history.replaceState(
         {
           ...currentState,
           [baseKey]: true,
-          [guardKey]: false,
+          [guardKey]: 0,
         },
         "",
-        getCleanHref()
+        baseHref
       );
-
-      isCurrentEntryGuard = false;
     };
 
-    const pushSingleBackGuard = () => {
-      if (allowNativeBackRef.current || isDisposed || isCurrentEntryGuard) {
+    const pushPermanentGuardStates = () => {
+      for (let level = 1; level <= SIMULATOR_BACK_GUARD_TOP_LEVEL; level += 1) {
+        const currentState = getSafeHistoryState();
+
+        window.history.pushState(
+          {
+            ...currentState,
+            [baseKey]: true,
+            [guardKey]: level,
+          },
+          "",
+          getUrlWithSimulatorBackGuard(baseHref, level)
+        );
+      }
+    };
+
+    const ensureTopGuardFallback = () => {
+      window.setTimeout(() => {
+        if (allowNativeBackRef.current) return;
+
+        const currentLevel = readGuardLevel(window.history.state);
+
+        if (currentLevel >= SIMULATOR_BACK_GUARD_TOP_LEVEL) {
+          return;
+        }
+
+        // 일부 인앱브라우저가 history.go(앞으로)를 무시하는 경우를 대비한 예비 복구입니다.
+        // 이 경우에도 현재 페이지 안에 다시 안전 가드 3칸을 만들고 다음 뒤로가기를 잡습니다.
+        pushPermanentGuardStates();
+      }, 120);
+    };
+
+    const moveBackToTopGuard = (currentLevel: number) => {
+      const safeLevel = Math.max(0, Math.min(currentLevel, SIMULATOR_BACK_GUARD_TOP_LEVEL));
+      const forwardSteps = SIMULATOR_BACK_GUARD_TOP_LEVEL - safeLevel;
+
+      if (forwardSteps <= 0) {
         return;
       }
 
-      const currentState = getSafeHistoryState();
-      const nextGuardId = guardId + 1;
-      guardId = nextGuardId;
-
-      // Next.js App Router가 history.state 안에 보관하는 내부 값을 보존하면서
-      // 시뮬레이터용 뒤로가기 잠금문만 1칸 추가합니다.
-      // 여러 칸을 쌓아 depth를 세는 방식은 카카오/크롬에서 실제 history와
-      // ref 값이 어긋날 수 있어, 항상 “현재 페이지 바로 앞 1칸”만 유지합니다.
-      window.history.pushState(
-        {
-          ...currentState,
-          [baseKey]: false,
-          [guardKey]: true,
-          guardId: nextGuardId,
-        },
-        "",
-        getUrlWithEgoseBackGuard(getCleanHref(), nextGuardId)
-      );
-
-      isCurrentEntryGuard = true;
+      backGuardRepairPopCountRef.current += 1;
+      window.history.go(forwardSteps);
+      ensureTopGuardFallback();
     };
 
-    const rearmBackGuard = () => {
-      if (!allowNativeBackRef.current && !isDisposed) {
-        pushSingleBackGuard();
-      }
+    replaceBaseState();
+    pushPermanentGuardStates();
 
-      // 일부 인앱브라우저는 popstate 직후 pushState 반영이 한 박자 늦을 수 있어
-      // 짧은 보충 호출을 한 번 더 둡니다. 이미 guard 위에 있으면 no-op입니다.
-      window.setTimeout(() => {
-        if (!allowNativeBackRef.current && !isDisposed) {
-          pushSingleBackGuard();
-        }
-      }, 30);
-    };
-
-    pushHistoryTrapRef.current = pushSingleBackGuard;
-
-    replaceCurrentEntryAsBase();
-    pushSingleBackGuard();
-
-    const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
       if (allowNativeBackRef.current) {
         return;
       }
 
-      // 사용자가 뒤로가기를 누르면 guard entry에서 base entry로 이동한 상태입니다.
-      // 이 순간 앱 밖으로 나가기 전에 시뮬레이터 내부 상태를 먼저 소비하고,
-      // 처리 직후 다시 guard entry를 세웁니다.
-      isCurrentEntryGuard = false;
+      const currentLevel = readGuardLevel(event.state);
+
+      if (backGuardRepairPopCountRef.current > 0 && currentLevel === SIMULATOR_BACK_GUARD_TOP_LEVEL) {
+        backGuardRepairPopCountRef.current -= 1;
+        return;
+      }
+
+      moveBackToTopGuard(currentLevel);
+
+      // 카카오/크롬에서 물리 뒤로가기를 빠르게 두 번 누르면 popstate가 연속으로 들어올 수 있습니다.
+      // 이때 내부 동작을 두 번 소비하지 말고, 우선 히스토리 위치만 안전한 맨 위 가드로 복구합니다.
+      if (backGuardActionLockRef.current) {
+        return;
+      }
+
+      backGuardActionLockRef.current = true;
+      window.setTimeout(() => {
+        backGuardActionLockRef.current = false;
+      }, 320);
 
       if (registerRapidBackExitPress()) {
         setShowExitConfirm(true);
         resetRapidBackExitPresses();
-        rearmBackGuard();
         return;
       }
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
-      if (!handledInsideSimulator) {
-        setShowExitConfirm(true);
-        resetRapidBackExitPresses();
+      if (handledInsideSimulator) {
+        return;
       }
 
-      rearmBackGuard();
+      setShowExitConfirm(true);
+      resetRapidBackExitPresses();
     };
 
     window.addEventListener("popstate", handlePopState);
 
     return () => {
-      isDisposed = true;
       window.removeEventListener("popstate", handlePopState);
-      if (pushHistoryTrapRef.current === pushSingleBackGuard) {
-        pushHistoryTrapRef.current = null;
-      }
     };
   }, [registerRapidBackExitPress, resetRapidBackExitPresses]);
 
@@ -1071,9 +1085,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                       return;
                     }
 
-                    // 현재 guard entry와 그 아래 base entry를 함께 지나가야
-                    // 실제 이전 화면으로 나갈 수 있습니다.
-                    window.history.go(-2);
+                    window.history.go(-(SIMULATOR_BACK_GUARD_TOP_LEVEL + 1));
                   }}
                 >
                   종료하기
