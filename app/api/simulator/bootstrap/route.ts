@@ -26,6 +26,7 @@ export const fetchCache = "force-no-store";
 
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
 const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
+const FAST_BOOTSTRAP_PARAM = "fast";
 
 function getAllowedProxyUrl(req: NextRequest, rawSrc: string | null) {
   const value = String(rawSrc || "").trim();
@@ -500,6 +501,8 @@ export async function GET(req: NextRequest) {
     return proxyKakaoImage(req);
   }
 
+  const isFastBootstrap = req.nextUrl.searchParams.get(FAST_BOOTSTRAP_PARAM) === "1";
+
   const supabase = getSupabase();
 
   if (!supabase) {
@@ -699,7 +702,12 @@ export async function GET(req: NextRequest) {
       spacesError ? [] : ((spaces || []) as SimulatorSpaceRow[]),
       !hasToken
     );
-    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
+    // 첫 진입용 fast bootstrap에서는 공간 이미지/마스크를 data URL로 인라인하지 않습니다.
+    // 문제 브라우저에서도 이미지는 클라이언트의 프록시/캐시버스터로 처리하고,
+    // 소개/공간 첫 화면 JSON 크기를 작게 유지합니다.
+    const responseSpaces = isFastBootstrap
+      ? resolvedSpaces
+      : await maybeInlineSpaceAssets(req, resolvedSpaces);
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(
@@ -719,7 +727,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req);
+    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req) && !isFastBootstrap;
 
     // 일반 Chrome/Edge에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
     // 추천 필름과 검색용 3000개 말뭉치는 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.

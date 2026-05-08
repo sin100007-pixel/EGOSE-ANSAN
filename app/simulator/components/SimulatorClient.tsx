@@ -3,16 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import type { SimulatorFilm } from "../types";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorClientStyles from "./SimulatorClientStyles";
 import SimulatorSpaceStep from "./client/SimulatorSpaceStep";
-import SimulatorApplyStep from "./client/SimulatorApplyStep";
-import SimulatorDecisionStep from "./client/SimulatorDecisionStep";
 import SimulatorBottomStepNav from "./client/SimulatorBottomStepNav";
-import SimulatorCustomerGuideModal from "./client/SimulatorCustomerGuideModal";
-import SimulatorFilmSheet from "./client/SimulatorFilmSheet";
-import SimulatorDecisionExportCard from "./client/SimulatorDecisionExportCard";
 import { COLORS, type SimulatorStep } from "../lib/client-state";
 import {
   formatDateTime,
@@ -30,6 +26,18 @@ import { useDecisionResultShare } from "../hooks/useDecisionResultShare";
 import { useDashboardNavigation } from "../hooks/useDashboardNavigation";
 import guideOnImage from "../assets/guide-on.png";
 import guideOffImage from "../assets/guide-off.png";
+
+const SimulatorApplyStep = dynamic(() => import("./client/SimulatorApplyStep"), { ssr: false });
+const SimulatorDecisionStep = dynamic(() => import("./client/SimulatorDecisionStep"), { ssr: false });
+const SimulatorCustomerGuideModal = dynamic(
+  () => import("./client/SimulatorCustomerGuideModal"),
+  { ssr: false }
+);
+const SimulatorFilmSheet = dynamic(() => import("./client/SimulatorFilmSheet"), { ssr: false });
+const SimulatorDecisionExportCard = dynamic(
+  () => import("./client/SimulatorDecisionExportCard"),
+  { ssr: false }
+);
 
 type SimulatorClientProps = {
   token?: string;
@@ -957,17 +965,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
       </div>
 
-      <SimulatorDecisionExportCard
-        exportRef={decisionExportRef}
-        selectedSpace={selectedSpace}
-        maskZones={maskZones}
-        zoneFilmMap={zoneFilmMap}
-        link={state.link}
-        previewAspectRatio={previewAspectRatio}
-        previewHasRealSpace={previewHasRealSpace}
-        hasFabricWarning={hasFabricWarning}
-        colors={COLORS}
-      />
+      {step === "decision" ? (
+        <SimulatorDecisionExportCard
+          exportRef={decisionExportRef}
+          selectedSpace={selectedSpace}
+          maskZones={maskZones}
+          zoneFilmMap={zoneFilmMap}
+          link={state.link}
+          previewAspectRatio={previewAspectRatio}
+          previewHasRealSpace={previewHasRealSpace}
+          hasFabricWarning={hasFabricWarning}
+          colors={COLORS}
+        />
+      ) : null}
 
       <SimulatorClientStyles colors={COLORS} />
     </main>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import type { SimulatorFilm, SimulatorLinkInfo, SimulatorSpace } from "../types";
 import type { MaskZoneDefinition } from "../lib/client-utils";
 import { getFilmName } from "../lib/client-utils";
@@ -63,6 +62,8 @@ export function useDecisionResultShare({
     if (!decisionExportRef.current) {
       throw new Error("이미지로 저장할 영역을 찾을 수 없습니다.");
     }
+
+    const { toPng } = await import("html-to-image");
 
     return toPng(decisionExportRef.current, {
       cacheBust: true,
