@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
       .eq("manufacturer", "삼성필름")
       .eq("is_simulatable", true)
       .or("simulation_image_path.not.is.null,image_path.not.is.null")
-      .limit(80);
+      .limit(100);
 
     const orFilter = q ? buildDbOrFilter(q) : "";
     if (orFilter) query = query.or(orFilter);
@@ -261,7 +261,7 @@ export async function GET(req: NextRequest) {
         const bName = b.item.full_name || b.item.product_code_1 || "";
         return aName.localeCompare(bName, "ko");
       })
-      .slice(0, hasRecommendedFilter ? DEFAULT_RECOMMENDED_FILM_LIMIT : 60)
+      .slice(0, hasRecommendedFilter ? DEFAULT_RECOMMENDED_FILM_LIMIT : 100)
       .map(({ item }: { item: ProductRow; score: number }) => normalizeFilm(item));
 
     return jsonSimulatorCache(req, {

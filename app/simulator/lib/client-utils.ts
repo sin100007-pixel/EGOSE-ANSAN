@@ -197,7 +197,7 @@ export function filterFilmsLocally(
       const bName = b.film.full_name || b.film.product_code_1 || "";
       return aName.localeCompare(bName, "ko");
     })
-    .slice(0, 60)
+    .slice(0, 100)
     .map(({ film }) => film);
 }
 
