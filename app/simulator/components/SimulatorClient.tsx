@@ -156,6 +156,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const showExitConfirmRef = useRef(false);
   const allowNativeBackRef = useRef(false);
   const artificialHistoryDepthRef = useRef(0);
+  const pushHistoryTrapRef = useRef<(() => void) | null>(null);
+
+  const rememberVisibleApplySnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
+    if (!snapshot) return null;
+
+    return {
+      ...snapshot,
+      isFilmSheetOpen: false,
+      previewSampleFilm: null,
+    };
+  }, []);
 
   const snapshotKey = (snapshot: SimulatorUndoSnapshot) => {
     const zoneEntries = Object.entries(snapshot.zoneFilmMap)
@@ -218,7 +229,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return;
     }
 
-    undoStackRef.current = [...stack.slice(-39), snapshot];
+    undoStackRef.current = [...stack.slice(-79), snapshot];
+
+    // 실행취소 1개가 생길 때 브라우저 히스토리도 1칸 추가합니다.
+    // 이렇게 해야 모바일/카카오톡/크롬 뒤로가기 버튼을 빠르게 눌러도
+    // 앱 밖으로 빠지지 않고 내부 실행취소가 먼저 처리됩니다.
+    pushHistoryTrapRef.current?.();
   }, [state.expired, state.loading, state.setupNeeded]);
 
   const restoreUndoSnapshot = useCallback((snapshot: SimulatorUndoSnapshot) => {
@@ -267,10 +283,17 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
+    const depthKey = "__egoseSimulatorBackDepth";
     const href = window.location.href;
+    const INITIAL_HISTORY_BUFFER = 6;
+
+    const getSafeHistoryState = () => {
+      const currentState = window.history.state;
+      return currentState && typeof currentState === "object" ? currentState : {};
+    };
 
     const replaceBaseState = () => {
-      const currentState = window.history.state || {};
+      const currentState = getSafeHistoryState();
 
       if (currentState[baseKey]) {
         return;
@@ -287,7 +310,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     };
 
     const pushTrapState = () => {
-      const currentState = window.history.state || {};
+      if (allowNativeBackRef.current) {
+        return;
+      }
+
+      const currentState = getSafeHistoryState();
+      const nextDepth = artificialHistoryDepthRef.current + 1;
 
       // Next.js App Router는 history.state 안에 내부 라우팅 정보를 보관합니다.
       // 이 값을 덮어쓰면 뒤로가기 시 같은 페이지가 다시 로딩되는 것처럼 보일 수 있어
@@ -296,19 +324,28 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         {
           ...currentState,
           [trapKey]: true,
+          [depthKey]: nextDepth,
         },
         "",
         href
       );
-      artificialHistoryDepthRef.current += 1;
+
+      artificialHistoryDepthRef.current = nextDepth;
     };
 
-    replaceBaseState();
+    const refillTrapBuffer = () => {
+      // 모바일/인앱브라우저에서는 뒤로가기를 빠르게 두 번 이상 누를 때
+      // popstate 처리보다 브라우저 종료가 먼저 일어나는 경우가 있어,
+      // 시작 시 같은 URL의 안전장치를 여러 칸 확보합니다.
+      while (artificialHistoryDepthRef.current < INITIAL_HISTORY_BUFFER) {
+        pushTrapState();
+      }
+    };
 
-    // 모바일/인앱브라우저에서 뒤로가기를 빠르게 두 번 눌러도 외부 페이지로 바로 빠지지 않도록
-    // 같은 URL의 안전장치를 두 칸 쌓아둡니다.
-    pushTrapState();
-    pushTrapState();
+    pushHistoryTrapRef.current = pushTrapState;
+
+    replaceBaseState();
+    refillTrapBuffer();
 
     const handlePopState = () => {
       if (allowNativeBackRef.current) {
@@ -319,9 +356,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         artificialHistoryDepthRef.current -= 1;
       }
 
-      // 뒤로가기 이벤트가 들어오면 먼저 안전장치를 다시 올려두고,
-      // 그 다음 시뮬레이터 내부 동작을 실행합니다.
-      pushTrapState();
+      // 뒤로가기 이벤트가 들어오면 먼저 안전장치를 다시 채워둔 뒤
+      // 시뮬레이터 내부 실행취소를 처리합니다.
+      refillTrapBuffer();
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
@@ -336,6 +373,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      if (pushHistoryTrapRef.current === pushTrapState) {
+        pushHistoryTrapRef.current = null;
+      }
     };
   }, []);
 
@@ -355,7 +395,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const currentFilm = zoneFilmMap[zoneKey] || null;
 
     if (currentFilm?.id !== film.id) {
-      rememberUndoSnapshot();
+      // 필름 선택창 안에서 필름을 고르는 순간의 상태를 그대로 저장하면
+      // 뒤로가기 시 선택창이 다시 열립니다.
+      // 사용자가 기대하는 것은 “방금 적용한 필름만 취소”이므로
+      // 선택창은 닫힌 상태의 적용 화면을 실행취소 지점으로 저장합니다.
+      rememberUndoSnapshot(rememberVisibleApplySnapshot());
     }
 
     setSelectedFilm(film);
