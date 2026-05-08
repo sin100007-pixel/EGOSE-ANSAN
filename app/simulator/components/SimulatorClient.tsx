@@ -103,7 +103,8 @@ function installKakaoInitialBackTrap() {
     );
 
     for (let index = 0; index < KAKAO_INITIAL_BACK_BUFFER; index += 1) {
-      const nextDepth = (trapWindow.__egoseKakaoBackTrapDepth || 0) + 1;
+      const currentDepth: number = trapWindow.__egoseKakaoBackTrapDepth ?? 0;
+      const nextDepth: number = currentDepth + 1;
       trapWindow.__egoseKakaoBackTrapDepth = nextDepth;
       window.history.pushState(
         {
