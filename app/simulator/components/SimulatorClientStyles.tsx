@@ -1537,6 +1537,11 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         .customerGuideBody p {
           margin: 0;
         }
+        .customerGuideActions {
+          display: grid;
+          gap: 10px;
+        }
+
 
         .customerGuideCheckerInline {
           display: inline-flex;
@@ -1602,12 +1607,57 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
         }
 
+        .customerGuideSecondaryButton {
+          width: 100%;
+          min-height: 48px;
+          border-radius: 16px;
+          border: 1px solid rgba(238, 224, 197, 0.24);
+          background: rgba(255, 255, 255, 0.06);
+          color: rgba(255, 255, 255, 0.88);
+          font-size: 15px;
+          font-weight: 850;
+          letter-spacing: -0.03em;
+          cursor: pointer;
+        }
+
+        .customerGuideNoticeModal {
+          width: min(420px, 100%);
+        }
+
+        .customerGuideNoticeBody {
+          gap: 12px;
+        }
+
+        .customerGuideNoticeImageWrap {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 2px 0 4px;
+        }
+
+        .customerGuideNoticeImage {
+          width: 112px;
+          height: auto;
+        }
+
+        .customerGuideNoticeText {
+          text-align: center;
+        }
 
         @media (max-width: 520px) {
           .customerGuideInlineAction {
             min-height: 34px;
             padding: 0 14px;
             font-size: 13px;
+          }
+
+          .customerGuideSecondaryButton {
+            min-height: 44px;
+            font-size: 14px;
+          }
+
+          .customerGuideNoticeImage {
+            width: 96px;
           }
         }
 

@@ -1,8 +1,9 @@
-import type { CustomerGuide, CustomerGuideInlinePart, CustomerGuideSectionLine } from "../../lib/client-state";
+import type { CustomerGuide, CustomerGuideSectionLine } from "../../lib/client-state";
 
 type SimulatorCustomerGuideModalProps = {
   guide: CustomerGuide;
   onClose: () => void;
+  onDisable: () => void;
 };
 
 function renderGuideLine(line: CustomerGuideSectionLine) {
@@ -36,7 +37,11 @@ function renderGuideLine(line: CustomerGuideSectionLine) {
   });
 }
 
-export default function SimulatorCustomerGuideModal({ guide, onClose }: SimulatorCustomerGuideModalProps) {
+export default function SimulatorCustomerGuideModal({
+  guide,
+  onClose,
+  onDisable,
+}: SimulatorCustomerGuideModalProps) {
   return (
     <div className="customerGuideOverlay" role="presentation" onClick={onClose}>
       <section
@@ -78,9 +83,15 @@ export default function SimulatorCustomerGuideModal({ guide, onClose }: Simulato
           ))}
         </div>
 
-        <button type="button" onClick={onClose} className="customerGuidePrimaryButton">
-          {guide.buttonLabel}
-        </button>
+        <div className="customerGuideActions">
+          <button type="button" onClick={onClose} className="customerGuidePrimaryButton">
+            {guide.buttonLabel}
+          </button>
+
+          <button type="button" onClick={onDisable} className="customerGuideSecondaryButton">
+            다시 보지 않기
+          </button>
+        </div>
       </section>
     </div>
   );

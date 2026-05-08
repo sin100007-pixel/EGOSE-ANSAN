@@ -33,6 +33,10 @@ const SimulatorCustomerGuideModal = dynamic(
   () => import("./client/SimulatorCustomerGuideModal"),
   { ssr: false }
 );
+const SimulatorCustomerGuideNoticeModal = dynamic(
+  () => import("./client/SimulatorCustomerGuideNoticeModal"),
+  { ssr: false }
+);
 const SimulatorFilmSheet = dynamic(() => import("./client/SimulatorFilmSheet"), { ssr: false });
 const SimulatorDecisionExportCard = dynamic(
   () => import("./client/SimulatorDecisionExportCard"),
@@ -199,6 +203,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     guideEnabled,
     toggleGuideEnabled,
     closeCustomerGuide,
+    disableCustomerGuide,
+    showGuideDisabledNotice,
+    closeGuideDisabledNotice,
   } = useSimulatorCustomerGuide({
     mode,
     token,
@@ -933,7 +940,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {currentGuide ? (
-          <SimulatorCustomerGuideModal guide={currentGuide} onClose={closeCustomerGuide} />
+          <SimulatorCustomerGuideModal
+            guide={currentGuide}
+            onClose={closeCustomerGuide}
+            onDisable={disableCustomerGuide}
+          />
+        ) : null}
+
+        {showGuideDisabledNotice ? (
+          <SimulatorCustomerGuideNoticeModal onClose={closeGuideDisabledNotice} />
         ) : null}
 
         {isFilmSheetOpen ? (
