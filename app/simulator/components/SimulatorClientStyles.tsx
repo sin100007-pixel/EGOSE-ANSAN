@@ -2080,6 +2080,88 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           line-height: 1.7;
         }
 
+
+        .simulatorExitConfirmOverlay {
+          position: fixed;
+          inset: 0;
+          z-index: 1300;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          background: rgba(3, 2, 24, 0.62);
+          backdrop-filter: blur(10px);
+        }
+
+        .simulatorExitConfirmModal {
+          width: min(360px, calc(100vw - 40px));
+          border-radius: 26px;
+          padding: 24px 20px 18px;
+          border: 1px solid rgba(238, 224, 197, 0.34);
+          background:
+            radial-gradient(circle at top, rgba(238, 224, 197, 0.22), transparent 44%),
+            rgba(12, 8, 54, 0.96);
+          color: ${COLORS.white};
+          text-align: center;
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+        }
+
+        .simulatorExitConfirmEmoji {
+          width: 54px;
+          height: 54px;
+          margin: 0 auto 12px;
+          display: grid;
+          place-items: center;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.14);
+          font-size: 30px;
+        }
+
+        .simulatorExitConfirmTitle {
+          margin: 0;
+          font-size: 20px;
+          line-height: 1.35;
+          letter-spacing: -0.03em;
+          color: ${COLORS.cream};
+        }
+
+        .simulatorExitConfirmText {
+          margin: 10px 0 18px;
+          color: rgba(255, 255, 255, 0.74);
+          font-size: 13px;
+          line-height: 1.55;
+          word-break: keep-all;
+        }
+
+        .simulatorExitConfirmActions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .simulatorExitConfirmCancel,
+        .simulatorExitConfirmLeave {
+          min-height: 46px;
+          border: 0;
+          border-radius: 16px;
+          font-weight: 900;
+          font-size: 14px;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .simulatorExitConfirmCancel {
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          box-shadow: 0 10px 26px rgba(238, 224, 197, 0.18);
+        }
+
+        .simulatorExitConfirmLeave {
+          background: rgba(255, 255, 255, 0.10);
+          color: rgba(255, 255, 255, 0.82);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
         @media (max-width: 640px) {
           .contractorIntroTop {
             gap: 14px;
