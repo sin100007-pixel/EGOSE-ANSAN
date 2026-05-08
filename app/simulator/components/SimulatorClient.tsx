@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import type { SimulatorFilm } from "../types";
@@ -35,6 +35,108 @@ type SimulatorClientProps = {
   token?: string;
   mode: "installer" | "customer";
 };
+
+const KAKAO_BACK_GUARD_HASH_PREFIX = "__egose_simulator_back_guard";
+const KAKAO_INITIAL_BACK_BUFFER = 5;
+
+type EgoseBackTrapWindow = Window & {
+  __egoseKakaoBackTrapInstalled?: boolean;
+  __egoseKakaoBackTrapDepth?: number;
+  __egoseKakaoBackTrapBaseHref?: string;
+};
+
+function isKakaoTalkInAppBrowserForBack() {
+  if (typeof navigator === "undefined") return false;
+
+  return /KAKAOTALK/i.test(navigator.userAgent || "");
+}
+
+function getSafeHistoryState() {
+  if (typeof window === "undefined") return {};
+  const currentState = window.history.state;
+  return currentState && typeof currentState === "object" ? currentState : {};
+}
+
+function getUrlWithoutEgoseBackGuard(value: string) {
+  try {
+    const url = new URL(value);
+
+    if (url.hash.startsWith(`#${KAKAO_BACK_GUARD_HASH_PREFIX}`)) {
+      url.hash = "";
+    }
+
+    return url.toString();
+  } catch {
+    return value.replace(new RegExp(`#${KAKAO_BACK_GUARD_HASH_PREFIX}[^#]*$`), "");
+  }
+}
+
+function getUrlWithEgoseBackGuard(value: string, depth: number) {
+  try {
+    const url = new URL(getUrlWithoutEgoseBackGuard(value));
+    url.hash = `${KAKAO_BACK_GUARD_HASH_PREFIX}_${depth}`;
+    return url.toString();
+  } catch {
+    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH_PREFIX}_${depth}`;
+  }
+}
+
+function installKakaoInitialBackTrap() {
+  if (typeof window === "undefined" || !isKakaoTalkInAppBrowserForBack()) return;
+
+  const trapWindow = window as EgoseBackTrapWindow;
+  if (trapWindow.__egoseKakaoBackTrapInstalled) return;
+
+  trapWindow.__egoseKakaoBackTrapInstalled = true;
+  trapWindow.__egoseKakaoBackTrapBaseHref = getUrlWithoutEgoseBackGuard(window.location.href);
+  trapWindow.__egoseKakaoBackTrapDepth = 0;
+
+  try {
+    const baseHref = trapWindow.__egoseKakaoBackTrapBaseHref;
+    window.history.replaceState(
+      {
+        ...getSafeHistoryState(),
+        __egoseSimulatorBackBase: true,
+      },
+      "",
+      baseHref
+    );
+
+    for (let index = 0; index < KAKAO_INITIAL_BACK_BUFFER; index += 1) {
+      const nextDepth = (trapWindow.__egoseKakaoBackTrapDepth || 0) + 1;
+      trapWindow.__egoseKakaoBackTrapDepth = nextDepth;
+      window.history.pushState(
+        {
+          ...getSafeHistoryState(),
+          __egoseSimulatorBackTrap: true,
+          __egoseSimulatorBackDepth: nextDepth,
+        },
+        "",
+        getUrlWithEgoseBackGuard(baseHref, nextDepth)
+      );
+    }
+  } catch {
+    // 일부 인앱브라우저가 history 조작을 막아도 화면 진입은 계속되어야 합니다.
+  }
+}
+
+function requestKakaoInAppBrowserClose() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+
+  const ua = navigator.userAgent || "";
+
+  if (!/KAKAOTALK/i.test(ua)) {
+    return false;
+  }
+
+  window.location.href = /iPhone|iPad|iPod/i.test(ua)
+    ? "kakaoweb://closeBrowser"
+    : "kakaotalk://inappbrowser/close";
+
+  return true;
+}
+
+installKakaoInitialBackTrap();
 
 type SimulatorUndoSnapshot = {
   step: SimulatorStep;
@@ -156,6 +258,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const showExitConfirmRef = useRef(false);
   const allowNativeBackRef = useRef(false);
   const artificialHistoryDepthRef = useRef(0);
+  const pushHistoryTrapRef = useRef<(() => void) | null>(null);
 
   const snapshotKey = (snapshot: SimulatorUndoSnapshot) => {
     const zoneEntries = Object.entries(snapshot.zoneFilmMap)
@@ -218,7 +321,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return;
     }
 
-    undoStackRef.current = [...stack.slice(-39), snapshot];
+    undoStackRef.current = [...stack.slice(-79), snapshot];
+    pushHistoryTrapRef.current?.();
   }, [state.expired, state.loading, state.setupNeeded]);
 
   const restoreUndoSnapshot = useCallback((snapshot: SimulatorUndoSnapshot) => {
@@ -262,15 +366,26 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     goBackOneSimulatorActionRef.current = goBackOneSimulatorAction;
   }, [goBackOneSimulatorAction]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
-    const href = window.location.href;
+    const depthKey = "__egoseSimulatorBackDepth";
+    const isKakaoTalkBackMode = isKakaoTalkInAppBrowserForBack();
+    const trapWindow = window as EgoseBackTrapWindow;
+    const baseHref = isKakaoTalkBackMode
+      ? trapWindow.__egoseKakaoBackTrapBaseHref || getUrlWithoutEgoseBackGuard(window.location.href)
+      : window.location.href;
+    const initialBuffer = isKakaoTalkBackMode ? KAKAO_INITIAL_BACK_BUFFER : 2;
+
+    if (isKakaoTalkBackMode) {
+      installKakaoInitialBackTrap();
+      artificialHistoryDepthRef.current = trapWindow.__egoseKakaoBackTrapDepth || 0;
+    }
 
     const replaceBaseState = () => {
-      const currentState = window.history.state || {};
+      const currentState = getSafeHistoryState();
 
       if (currentState[baseKey]) {
         return;
@@ -282,40 +397,79 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [baseKey]: true,
         },
         "",
-        href
+        baseHref
       );
     };
 
     const pushTrapState = () => {
+      if (allowNativeBackRef.current) {
+        return;
+      }
+
+      const nextDepth = artificialHistoryDepthRef.current + 1;
+      const trapHref = isKakaoTalkBackMode
+        ? getUrlWithEgoseBackGuard(baseHref, nextDepth)
+        : baseHref;
+
       window.history.pushState(
         {
+          ...getSafeHistoryState(),
           [trapKey]: true,
+          [depthKey]: nextDepth,
         },
         "",
-        href
+        trapHref
       );
-      artificialHistoryDepthRef.current += 1;
+
+      artificialHistoryDepthRef.current = nextDepth;
+
+      if (isKakaoTalkBackMode) {
+        trapWindow.__egoseKakaoBackTrapDepth = nextDepth;
+      }
     };
 
-    replaceBaseState();
+    const refillTrapBuffer = () => {
+      while (artificialHistoryDepthRef.current < initialBuffer) {
+        pushTrapState();
+      }
+    };
 
-    // 모바일/인앱브라우저에서 뒤로가기를 빠르게 두 번 눌러도 외부 페이지로 바로 빠지지 않도록
-    // 같은 URL의 안전장치를 두 칸 쌓아둡니다.
-    pushTrapState();
-    pushTrapState();
+    pushHistoryTrapRef.current = pushTrapState;
 
-    const handlePopState = () => {
+    if (!isKakaoTalkBackMode) {
+      replaceBaseState();
+      refillTrapBuffer();
+    } else {
+      // 카카오톡에서는 모듈 로드 시점에 이미 해시 히스토리를 심어둡니다.
+      // 여기서는 부족한 경우만 보충합니다.
+      refillTrapBuffer();
+    }
+
+    let lastBackEventAt = 0;
+
+    const handleBackNavigation = () => {
+      const now = Date.now();
+
+      // 카카오톡 인앱브라우저는 해시 히스토리 이동에서 popstate와 hashchange가
+      // 거의 동시에 들어오는 기기가 있어 같은 뒤로가기를 한 번만 처리합니다.
+      if (now - lastBackEventAt < 120) {
+        return;
+      }
+
+      lastBackEventAt = now;
+
       if (allowNativeBackRef.current) {
         return;
       }
 
       if (artificialHistoryDepthRef.current > 0) {
         artificialHistoryDepthRef.current -= 1;
+        if (isKakaoTalkBackMode) {
+          trapWindow.__egoseKakaoBackTrapDepth = artificialHistoryDepthRef.current;
+        }
       }
 
-      // 뒤로가기 이벤트가 들어오면 먼저 안전장치를 다시 올려두고,
-      // 그 다음 시뮬레이터 내부 동작을 실행합니다.
-      pushTrapState();
+      refillTrapBuffer();
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
@@ -326,10 +480,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       setShowExitConfirm(true);
     };
 
-    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", handleBackNavigation);
+    if (isKakaoTalkBackMode) {
+      window.addEventListener("hashchange", handleBackNavigation);
+    }
 
     return () => {
-      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("popstate", handleBackNavigation);
+      if (isKakaoTalkBackMode) {
+        window.removeEventListener("hashchange", handleBackNavigation);
+      }
+      if (pushHistoryTrapRef.current === pushTrapState) {
+        pushHistoryTrapRef.current = null;
+      }
     };
   }, []);
 
@@ -796,6 +959,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   className="simulatorExitConfirmLeave"
                   onClick={() => {
                     allowNativeBackRef.current = true;
+
+                    if (requestKakaoInAppBrowserClose()) {
+                      window.setTimeout(() => {
+                        allowNativeBackRef.current = false;
+                      }, 1500);
+                      return;
+                    }
+
                     const backSteps = Math.max(artificialHistoryDepthRef.current + 1, 3);
                     window.history.go(-backSteps);
                   }}

@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
-import { KAKAO_NO_STORE_HEADERS, isProblemImageBrowserRequest, jsonNoStore, jsonSimulatorCache } from "../_lib/response";
+import { KAKAO_NO_STORE_HEADERS, jsonNoStore, jsonSimulatorCache } from "../_lib/response";
 import { getSupabase } from "../_lib/supabase";
 import { getCleanSupabaseUrl } from "../_lib/image-url";
 import {
@@ -134,10 +134,6 @@ async function proxyKakaoImage(req: NextRequest) {
 
 const INLINE_ASSET_MAX_BYTES = 3 * 1024 * 1024;
 const inlineAssetCache = new Map<string, string | null>();
-
-function isProblemImageBrowser(req: NextRequest) {
-  return isProblemImageBrowserRequest(req);
-}
 
 function getImageMimeType(filePath: string) {
   const lower = filePath.toLowerCase();
@@ -273,11 +269,13 @@ async function inlineSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpa
 }
 
 async function maybeInlineSpaceAssets(
-  req: NextRequest,
+  _req: NextRequest,
   spaces: SimulatorSpaceRow[]
 ): Promise<SimulatorSpaceRow[]> {
-  if (!isProblemImageBrowser(req)) return spaces;
-  return Promise.all(spaces.map((space) => inlineSpaceAssets(space)));
+  // 첫 소개 화면 응답에 공간/마스크 이미지를 data URL로 inline 처리하면
+  // 카카오톡 인앱브라우저에서 bootstrap JSON이 너무 커져 첫 화면이 늦게 뜹니다.
+  // 이미지는 클라이언트의 카카오 이미지 프록시를 통해 필요한 순간에만 불러오게 둡니다.
+  return spaces;
 }
 
 
@@ -772,11 +770,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req);
+    const shouldKeepLegacyFilmBootstrap = req.nextUrl.searchParams.get("__legacy_bootstrap") === "1";
 
-    // 일반 Chrome/Edge에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
-    // 추천 필름과 검색용 3000개 말뭉치는 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
-    // 카카오/삼성/웨일/네이버 인앱브라우저는 기존 안정화 방식이 local search_films에 의존하므로 유지합니다.
+    // 첫 소개 화면에는 공간/시공자 소개 정보만 먼저 내려줍니다.
+    // 추천 필름 200개와 검색용 말뭉치는 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
+    // 카카오톡 링크 진입 속도를 늦추던 가장 큰 원인이 bootstrap에서 필름/이미지를 한 번에 싣는 흐름이었습니다.
     if (!shouldKeepLegacyFilmBootstrap) {
       return jsonSimulatorCache(req, {
         setupNeeded: false,

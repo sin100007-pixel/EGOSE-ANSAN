@@ -185,29 +185,28 @@ export function useSimulatorFilmSearch({
   useEffect(() => {
     if (!isKakaoInAppBrowser()) return;
 
+    let timer: number | undefined;
+
     try {
       const resetDone = window.sessionStorage.getItem(KAKAO_SW_RESET_KEY);
       if (resetDone === "1") return;
 
       window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
 
-      void clearProblemBrowserCachesOnce();
-
-      void Promise.all([
-        "serviceWorker" in navigator
-          ? navigator.serviceWorker
-              .getRegistrations()
-              .then((registrations) =>
-                Promise.all(registrations.map((registration) => registration.unregister()))
-              )
-          : Promise.resolve(),
-        "caches" in window
-          ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-          : Promise.resolve(),
-      ]);
+      // 첫 소개 화면 렌더링과 경쟁하지 않도록 캐시 정리는 뒤로 미룹니다.
+      // API와 이미지는 별도 cache-buster/no-store를 사용하므로 첫 화면이 이 작업을 기다릴 필요가 없습니다.
+      timer = window.setTimeout(() => {
+        void clearProblemBrowserCachesOnce();
+      }, 1500);
     } catch {
-      // 카카오톡 인앱브라우저에서 CacheStorage 접근이 막히는 경우는 무시합니다.
+      // 카카오톡 인앱브라우저에서 sessionStorage/CacheStorage 접근이 막히는 경우는 무시합니다.
     }
+
+    return () => {
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -217,12 +216,6 @@ export function useSimulatorFilmSearch({
       setState((prev) => ({ ...prev, loading: true, message: "" }));
 
       try {
-        // 첫 소개 화면 렌더링이 캐시 초기화 작업을 기다리면
-        // 카카오톡 인앱브라우저에서 초기 진입이 눈에 띄게 느려질 수 있습니다.
-        // 캐시 정리는 위의 별도 effect와 여기의 fire-and-forget으로 돌리고,
-        // bootstrap 데이터 요청은 바로 시작합니다.
-        void clearProblemBrowserCachesOnce();
-
         const params = new URLSearchParams();
         if (token) params.set("token", token);
         const res = await fetch(
@@ -388,7 +381,7 @@ export function useSimulatorFilmSearch({
     }
 
     try {
-      await clearProblemBrowserCachesOnce();
+      void clearProblemBrowserCachesOnce();
 
       const params = new URLSearchParams();
       if (q) params.set("q", q);
