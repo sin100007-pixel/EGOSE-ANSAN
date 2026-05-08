@@ -63,6 +63,7 @@ export function useSimulatorFilmSearch({
   const initialSheetFilmsRef = useRef<SimulatorFilm[]>([]);
   const allKnownFilmsRef = useRef<SimulatorFilm[]>([]);
   const initialSheetRequestKeyRef = useRef("");
+  const hasBootstrapSearchCorpusRef = useRef(false);
   const selectedPaletteMainRef = useRef("");
   const selectedPaletteSubRef = useRef("");
   const selectedPaletteColorsRef = useRef<string[]>([]);
@@ -216,7 +217,11 @@ export function useSimulatorFilmSearch({
       setState((prev) => ({ ...prev, loading: true, message: "" }));
 
       try {
-        await clearProblemBrowserCachesOnce();
+        // 첫 소개 화면 렌더링이 캐시 초기화 작업을 기다리면
+        // 카카오톡 인앱브라우저에서 초기 진입이 눈에 띄게 느려질 수 있습니다.
+        // 캐시 정리는 위의 별도 effect와 여기의 fire-and-forget으로 돌리고,
+        // bootstrap 데이터 요청은 바로 시작합니다.
+        void clearProblemBrowserCachesOnce();
 
         const params = new URLSearchParams();
         if (token) params.set("token", token);
@@ -265,6 +270,7 @@ export function useSimulatorFilmSearch({
         }
 
         if (nextSearchFilms.length > 0) {
+          hasBootstrapSearchCorpusRef.current = true;
           rememberFilms(nextSearchFilms);
         }
 
@@ -325,7 +331,7 @@ export function useSimulatorFilmSearch({
     // 카카오톡/삼성/웨일 계열은 필름 선택창을 열자마자 API를 다시 부르면
     // 추천 필름 목록과 팔레트가 브라우저 캐시/응답 순서에 따라 바뀌는 경우가 있습니다.
     // 검색/팔레트 상태는 그대로 유지하고, 필요 시 로컬 말뭉치로만 처리합니다.
-    if (isKakaoInAppBrowser()) {
+    if (isKakaoInAppBrowser() && hasBootstrapSearchCorpusRef.current && getLocalFilmSource(false).length > 0) {
       setFilmLoading(false);
       return false;
     }
@@ -364,7 +370,7 @@ export function useSimulatorFilmSearch({
     setFilmLoading(true);
     setFilmError("");
 
-    if (isKakaoInAppBrowser() && getLocalFilmSource(false).length > 0) {
+    if (isKakaoInAppBrowser() && hasBootstrapSearchCorpusRef.current && getLocalFilmSource(false).length > 0) {
       if (isInitialSheetRequest) {
         restoreInitialSheetFilms();
       } else {
@@ -494,11 +500,6 @@ export function useSimulatorFilmSearch({
     initialSheetRequestKeyRef.current = requestKey;
 
     const prefetchInitialFilms = () => {
-      if (isKakaoInAppBrowser()) {
-        restoreInitialSheetFilms();
-        return;
-      }
-
       void searchFilms("", {
         paletteMain: "",
         paletteSub: "",

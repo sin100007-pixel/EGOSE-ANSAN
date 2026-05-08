@@ -699,7 +699,10 @@ export async function GET(req: NextRequest) {
       spacesError ? [] : ((spaces || []) as SimulatorSpaceRow[]),
       !hasToken
     );
-    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
+    const shouldInlineBootstrapSpaceAssets = req.nextUrl.searchParams.get("inline_assets") === "1";
+    const responseSpaces = shouldInlineBootstrapSpaceAssets
+      ? await maybeInlineSpaceAssets(req, resolvedSpaces)
+      : resolvedSpaces;
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(
@@ -719,11 +722,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req);
+    const shouldKeepLegacyFilmBootstrap = req.nextUrl.searchParams.get("legacy_films") === "1";
 
-    // 일반 Chrome/Edge에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
-    // 추천 필름과 검색용 3000개 말뭉치는 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
-    // 카카오/삼성/웨일/네이버 인앱브라우저는 기존 안정화 방식이 local search_films에 의존하므로 유지합니다.
+    // 첫 소개 화면은 시공자 소개/공간 정보만 있으면 그릴 수 있습니다.
+    // 기존에는 카카오톡/삼성/웨일 계열에서 추천 필름 200개와 검색 말뭉치 최대 3000개를
+    // bootstrap 응답에 같이 실어 첫 화면이 늦어졌습니다.
+    // 이제 필름 목록은 첫 화면 렌더링 뒤 /films에서 따로 prefetch하거나,
+    // 사용자가 색상 선택창을 열 때 요청합니다.
     if (!shouldKeepLegacyFilmBootstrap) {
       return jsonSimulatorCache(req, {
         setupNeeded: false,

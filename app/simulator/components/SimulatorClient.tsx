@@ -49,7 +49,7 @@ function getUrlWithoutEgoseBackGuard(value: string) {
   try {
     const url = new URL(value);
 
-    if (url.hash === `#${KAKAO_BACK_GUARD_HASH}`) {
+    if (url.hash === `#${KAKAO_BACK_GUARD_HASH}` || url.hash.startsWith(`#${KAKAO_BACK_GUARD_HASH}-`)) {
       url.hash = "";
     }
 
@@ -59,13 +59,19 @@ function getUrlWithoutEgoseBackGuard(value: string) {
   }
 }
 
-function getUrlWithEgoseBackGuard(value: string) {
+function getUrlWithEgoseBackGuard(value: string, depth = 1) {
+  const safeDepth = Math.max(1, Math.floor(depth));
+
   try {
     const url = new URL(getUrlWithoutEgoseBackGuard(value));
-    url.hash = KAKAO_BACK_GUARD_HASH;
+
+    // 카카오톡 인앱브라우저는 같은 URL을 여러 번 pushState 하면
+    // 첫 뒤로가기에서 히스토리 1칸으로 인정하지 않는 경우가 있어,
+    // depth별로 다른 hash를 넣어 실제 뒤로가기 지점을 분리합니다.
+    url.hash = `${KAKAO_BACK_GUARD_HASH}-${safeDepth}`;
     return url.toString();
   } catch {
-    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}`;
+    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}-${safeDepth}`;
   }
 }
 
@@ -339,10 +345,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const baseHref = isKakaoTalkBackMode
       ? getUrlWithoutEgoseBackGuard(window.location.href)
       : window.location.href;
-    const trapHref = isKakaoTalkBackMode
-      ? getUrlWithEgoseBackGuard(baseHref)
-      : baseHref;
-    const INITIAL_HISTORY_BUFFER = isKakaoTalkBackMode ? 1 : 6;
+    const INITIAL_HISTORY_BUFFER = isKakaoTalkBackMode ? 5 : 6;
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
@@ -379,6 +382,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       // 반드시 기존 state를 보존한 채 시뮬레이터용 표식만 추가합니다.
       // 카카오톡 인앱브라우저는 같은 URL pushState를 첫 뒤로가기에서 무시하는 경우가 있어
       // 해시만 다른 가드 URL을 사용해 실제 히스토리 1칸을 확실히 만듭니다.
+      const nextHref = isKakaoTalkBackMode
+        ? getUrlWithEgoseBackGuard(baseHref, nextDepth)
+        : baseHref;
+
       window.history.pushState(
         {
           ...currentState,
@@ -386,7 +393,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [depthKey]: nextDepth,
         },
         "",
-        trapHref
+        nextHref
       );
 
       artificialHistoryDepthRef.current = nextDepth;
