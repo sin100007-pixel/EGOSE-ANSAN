@@ -125,6 +125,8 @@ const EXIT_CONFIRM_TYPE_SPEED_MS = 58;
 const EXIT_CONFIRM_DELETE_SPEED_MS = 30;
 const EXIT_CONFIRM_HOLD_MS = 2000;
 const EXIT_CONFIRM_NEXT_LINE_DELAY_MS = 140;
+const RAPID_BACK_EXIT_PRESS_LIMIT = 5;
+const RAPID_BACK_EXIT_WINDOW_MS = 1800;
 
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
   const [step, setStep] = useState<SimulatorStep>("space");
@@ -242,6 +244,37 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const allowNativeBackRef = useRef(false);
   const artificialHistoryDepthRef = useRef(0);
   const pushHistoryTrapRef = useRef<(() => void) | null>(null);
+  const rapidBackPressCountRef = useRef(0);
+  const rapidBackFirstPressAtRef = useRef(0);
+  const rapidBackLastPressAtRef = useRef(0);
+
+  const resetRapidBackExitPresses = useCallback(() => {
+    rapidBackPressCountRef.current = 0;
+    rapidBackFirstPressAtRef.current = 0;
+    rapidBackLastPressAtRef.current = 0;
+  }, []);
+
+  const registerRapidBackExitPress = useCallback(() => {
+    const now = Date.now();
+    const firstPressedAt = rapidBackFirstPressAtRef.current;
+    const lastPressedAt = rapidBackLastPressAtRef.current;
+    const isNewBackSequence =
+      !firstPressedAt ||
+      !lastPressedAt ||
+      now - firstPressedAt > RAPID_BACK_EXIT_WINDOW_MS ||
+      now - lastPressedAt > RAPID_BACK_EXIT_WINDOW_MS;
+
+    if (isNewBackSequence) {
+      rapidBackPressCountRef.current = 1;
+      rapidBackFirstPressAtRef.current = now;
+    } else {
+      rapidBackPressCountRef.current += 1;
+    }
+
+    rapidBackLastPressAtRef.current = now;
+
+    return rapidBackPressCountRef.current >= RAPID_BACK_EXIT_PRESS_LIMIT;
+  }, []);
 
   const rememberVisibleApplySnapshot = useCallback((snapshot = latestSnapshotRef.current) => {
     if (!snapshot) return null;
@@ -300,6 +333,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   useEffect(() => {
     showExitConfirmRef.current = showExitConfirm;
   }, [showExitConfirm]);
+
+  useEffect(() => {
+    if (!activeGuideStep || mode !== "customer" || state.loading || state.expired || state.setupNeeded) {
+      return;
+    }
+
+    // 가이드 카드가 떠 있는 상태에서는 모바일/인앱브라우저 뒤로가기가
+    // 앱 밖으로 빠지지 않고 먼저 가이드 카드만 닫히도록 히스토리 안전장치를 1칸 추가합니다.
+    pushHistoryTrapRef.current?.();
+  }, [activeGuideStep, mode, state.expired, state.loading, state.setupNeeded]);
 
   useEffect(() => {
     if (!showExitConfirm) {
@@ -391,6 +434,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return true;
     }
 
+    if (showGuideDisabledNotice) {
+      closeGuideDisabledNotice();
+      return true;
+    }
+
     const previousSnapshot = undoStackRef.current.pop();
 
     if (previousSnapshot) {
@@ -399,7 +447,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     }
 
     return false;
-  }, [activeGuideStep, closeCustomerGuide, restoreUndoSnapshot]);
+  }, [
+    activeGuideStep,
+    closeCustomerGuide,
+    closeGuideDisabledNotice,
+    restoreUndoSnapshot,
+    showGuideDisabledNotice,
+  ]);
 
   const goBackOneSimulatorActionRef = useRef(goBackOneSimulatorAction);
 
@@ -497,6 +551,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       // 시뮬레이터 내부 실행취소를 처리합니다.
       refillTrapBuffer();
 
+      if (registerRapidBackExitPress()) {
+        setShowExitConfirm(true);
+        resetRapidBackExitPresses();
+        return;
+      }
+
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
       if (handledInsideSimulator) {
@@ -504,6 +564,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       }
 
       setShowExitConfirm(true);
+      resetRapidBackExitPresses();
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -514,7 +575,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         pushHistoryTrapRef.current = null;
       }
     };
-  }, []);
+  }, [registerRapidBackExitPress, resetRapidBackExitPresses]);
 
   useEffect(() => {
     if (maskZones.length === 0) return;
@@ -954,7 +1015,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {showExitConfirm ? (
-          <div className="simulatorExitConfirmOverlay" role="presentation" onClick={() => setShowExitConfirm(false)}>
+          <div
+            className="simulatorExitConfirmOverlay"
+            role="presentation"
+            onClick={() => {
+              setShowExitConfirm(false);
+              resetRapidBackExitPresses();
+            }}
+          >
             <section
               className="simulatorExitConfirmModal"
               role="dialog"
@@ -978,7 +1046,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 <button
                   type="button"
                   className="simulatorExitConfirmCancel"
-                  onClick={() => setShowExitConfirm(false)}
+                  onClick={() => {
+                    setShowExitConfirm(false);
+                    resetRapidBackExitPresses();
+                  }}
                 >
                   계속하기
                 </button>
@@ -987,6 +1058,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   type="button"
                   className="simulatorExitConfirmLeave"
                   onClick={() => {
+                    resetRapidBackExitPresses();
                     allowNativeBackRef.current = true;
 
                     if (requestKakaoInAppBrowserClose()) {
