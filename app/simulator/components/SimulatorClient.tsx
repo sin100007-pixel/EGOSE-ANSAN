@@ -123,7 +123,7 @@ const EXIT_CONFIRM_TYPE_LINES = [
 
 const EXIT_CONFIRM_TYPE_SPEED_MS = 58;
 const EXIT_CONFIRM_DELETE_SPEED_MS = 30;
-const EXIT_CONFIRM_HOLD_MS = 720;
+const EXIT_CONFIRM_HOLD_MS = 2000;
 const EXIT_CONFIRM_NEXT_LINE_DELAY_MS = 140;
 
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
