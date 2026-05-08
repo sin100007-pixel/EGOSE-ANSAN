@@ -501,7 +501,8 @@ export async function GET(req: NextRequest) {
     return proxyKakaoImage(req);
   }
 
-  const isFastBootstrap = req.nextUrl.searchParams.get(FAST_BOOTSTRAP_PARAM) === "1";
+  const isFastBootstrap =
+    req.nextUrl.searchParams.get(FAST_BOOTSTRAP_PARAM) === "1" && !isProblemImageBrowser(req);
 
   const supabase = getSupabase();
 
@@ -703,8 +704,8 @@ export async function GET(req: NextRequest) {
       !hasToken
     );
     // 첫 진입용 fast bootstrap에서는 공간 이미지/마스크를 data URL로 인라인하지 않습니다.
-    // 문제 브라우저에서도 이미지는 클라이언트의 프록시/캐시버스터로 처리하고,
-    // 소개/공간 첫 화면 JSON 크기를 작게 유지합니다.
+    // 단, 카카오톡/삼성/웨일/네이버 인앱브라우저는 예전 안정화 방식처럼
+    // 공간 이미지를 data URL로 인라인해야 이미지 깨짐이 재발하지 않습니다.
     const responseSpaces = isFastBootstrap
       ? resolvedSpaces
       : await maybeInlineSpaceAssets(req, resolvedSpaces);

@@ -222,7 +222,7 @@ export function useSimulatorFilmSearch({
         void clearProblemBrowserCachesOnce();
 
         const params = new URLSearchParams();
-        params.set("fast", "1");
+        if (!isKakaoInAppBrowser()) params.set("fast", "1");
         if (token) params.set("token", token);
         const res = await fetch(
           buildSimulatorApiUrl("/api/simulator/bootstrap", params),
