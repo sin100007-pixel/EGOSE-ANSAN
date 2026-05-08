@@ -36,6 +36,57 @@ type SimulatorClientProps = {
   mode: "installer" | "customer";
 };
 
+
+const KAKAO_BACK_GUARD_HASH = "__egose_simulator_back_guard";
+
+function isKakaoTalkInAppBrowserForBack() {
+  if (typeof navigator === "undefined") return false;
+
+  return /KAKAOTALK/i.test(navigator.userAgent || "");
+}
+
+function getUrlWithoutEgoseBackGuard(value: string) {
+  try {
+    const url = new URL(value);
+
+    if (url.hash === `#${KAKAO_BACK_GUARD_HASH}`) {
+      url.hash = "";
+    }
+
+    return url.toString();
+  } catch {
+    return value.replace(`#${KAKAO_BACK_GUARD_HASH}`, "");
+  }
+}
+
+function getUrlWithEgoseBackGuard(value: string) {
+  try {
+    const url = new URL(getUrlWithoutEgoseBackGuard(value));
+    url.hash = KAKAO_BACK_GUARD_HASH;
+    return url.toString();
+  } catch {
+    return `${getUrlWithoutEgoseBackGuard(value)}#${KAKAO_BACK_GUARD_HASH}`;
+  }
+}
+
+function requestKakaoInAppBrowserClose() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+
+  const ua = navigator.userAgent || "";
+
+  if (!/KAKAOTALK/i.test(ua)) {
+    return false;
+  }
+
+  const closeUrl = /iPhone|iPad|iPod/i.test(ua)
+    ? "kakaoweb://closeBrowser"
+    : "kakaotalk://inappbrowser/close";
+
+  window.location.href = closeUrl;
+
+  return true;
+}
+
 type SimulatorUndoSnapshot = {
   step: SimulatorStep;
   selectedSpaceId: string;
@@ -284,8 +335,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const trapKey = "__egoseSimulatorBackTrap";
     const baseKey = "__egoseSimulatorBackBase";
     const depthKey = "__egoseSimulatorBackDepth";
-    const href = window.location.href;
-    const INITIAL_HISTORY_BUFFER = 6;
+    const isKakaoTalkBackMode = isKakaoTalkInAppBrowserForBack();
+    const baseHref = isKakaoTalkBackMode
+      ? getUrlWithoutEgoseBackGuard(window.location.href)
+      : window.location.href;
+    const trapHref = isKakaoTalkBackMode
+      ? getUrlWithEgoseBackGuard(baseHref)
+      : baseHref;
+    const INITIAL_HISTORY_BUFFER = isKakaoTalkBackMode ? 1 : 6;
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
@@ -305,7 +362,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [baseKey]: true,
         },
         "",
-        href
+        baseHref
       );
     };
 
@@ -320,6 +377,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       // Next.js App Router는 history.state 안에 내부 라우팅 정보를 보관합니다.
       // 이 값을 덮어쓰면 뒤로가기 시 같은 페이지가 다시 로딩되는 것처럼 보일 수 있어
       // 반드시 기존 state를 보존한 채 시뮬레이터용 표식만 추가합니다.
+      // 카카오톡 인앱브라우저는 같은 URL pushState를 첫 뒤로가기에서 무시하는 경우가 있어
+      // 해시만 다른 가드 URL을 사용해 실제 히스토리 1칸을 확실히 만듭니다.
       window.history.pushState(
         {
           ...currentState,
@@ -327,7 +386,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           [depthKey]: nextDepth,
         },
         "",
-        href
+        trapHref
       );
 
       artificialHistoryDepthRef.current = nextDepth;
@@ -336,7 +395,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const refillTrapBuffer = () => {
       // 모바일/인앱브라우저에서는 뒤로가기를 빠르게 두 번 이상 누를 때
       // popstate 처리보다 브라우저 종료가 먼저 일어나는 경우가 있어,
-      // 시작 시 같은 URL의 안전장치를 여러 칸 확보합니다.
+      // 시작 시 같은 화면에 안전장치를 확보합니다.
       while (artificialHistoryDepthRef.current < INITIAL_HISTORY_BUFFER) {
         pushTrapState();
       }
@@ -846,6 +905,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                   className="simulatorExitConfirmLeave"
                   onClick={() => {
                     allowNativeBackRef.current = true;
+
+                    if (requestKakaoInAppBrowserClose()) {
+                      window.setTimeout(() => {
+                        allowNativeBackRef.current = false;
+                      }, 1200);
+                      return;
+                    }
+
                     const backSteps = Math.max(artificialHistoryDepthRef.current + 1, 3);
                     window.history.go(-backSteps);
                   }}
