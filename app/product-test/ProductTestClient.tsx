@@ -26,6 +26,8 @@ import TutorialModal from "./components/TutorialModal";
 import ImageViewerModal from "./components/ImageViewerModal";
 import BasketExportSheet from "./components/BasketExportSheet";
 
+const RECOMMENDED_FILM_ENDPOINT = "/api/products/search?recommended=samsung-slg";
+
 export default function ProductTestClient() {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -37,6 +39,7 @@ export default function ProductTestClient() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [hideConsumerPrice, setHideConsumerPrice] = useState(true);
   const [hideInstallerPrice, setHideInstallerPrice] = useState(true);
+  const [isShowingRecommended, setIsShowingRecommended] = useState(false);
 
   const [basketItems, setBasketItems] = useState<Product[]>([]);
   const [isBasketReady, setIsBasketReady] = useState(false);
@@ -46,6 +49,7 @@ export default function ProductTestClient() {
   const [isExporting, setIsExporting] = useState(false);
 
   const basketExportRef = useRef<HTMLDivElement | null>(null);
+  const recommendedLoadedRef = useRef(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -220,6 +224,7 @@ export default function ProductTestClient() {
 
   const search = async (keyword = q) => {
     const normalized = keyword.trim();
+    setIsShowingRecommended(false);
 
     if (!normalized) {
       setItems([]);
@@ -251,6 +256,39 @@ export default function ProductTestClient() {
       setLoading(false);
     }
   };
+
+  const loadRecommendedFilms = async () => {
+    setLoading(true);
+    setError("");
+    setIsShowingRecommended(true);
+
+    try {
+      const res = await fetch(RECOMMENDED_FILM_ENDPOINT);
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error || "추천 필름을 불러오는 중 오류가 발생했습니다.");
+        setItems([]);
+        setIsShowingRecommended(false);
+        return;
+      }
+
+      setItems(json.items || []);
+    } catch {
+      setError("추천 필름을 불러오는 중 오류가 발생했습니다.");
+      setItems([]);
+      setIsShowingRecommended(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (recommendedLoadedRef.current) return;
+
+    recommendedLoadedRef.current = true;
+    void loadRecommendedFilms();
+  }, []);
 
   const applyRecentSearch = (term: string) => {
     setQ(term);
@@ -493,9 +531,23 @@ export default function ProductTestClient() {
                 width: "min(360px, 70vw)",
                 height: "auto",
                 objectFit: "contain",
-                marginBottom: 8,
+                marginBottom: 10,
               }}
             />
+
+            <div
+              style={{
+                color: "#ff4d4f",
+                fontSize: 14,
+                fontWeight: 900,
+                lineHeight: 1.7,
+                margin: "0 0 12px 4px",
+                textShadow: "0 1px 8px rgba(0,0,0,0.28)",
+              }}
+            >
+              <div>05.11 현대L&amp;C 단가 반영완료!</div>
+              <div>05.11 삼성필름 단가 반영완료!</div>
+            </div>
 
             <div
               style={{
@@ -600,123 +652,7 @@ export default function ProductTestClient() {
             </div>
           )}
 
-          {!loading && !error && q.trim() === "" && (
-            <section
-              style={{
-                borderRadius: 24,
-                padding: "26px 22px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(238,224,197,0.12)",
-                boxShadow: "0 14px 36px rgba(0,0,0,0.15)",
-                marginBottom: 18,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: THEME_COLOR,
-                  marginBottom: 8,
-                }}
-              >
-                어떤 필름을 찾고 계신가요?
-              </div>
-
-              <div
-                style={{
-                  color: TEXT_SUB,
-                  lineHeight: 1.7,
-                  marginBottom: 16,
-                }}
-              >
-                품번 일부만 입력해도 검색할 수 있어요. 숫자만 입력하거나, 코드 또는 색상명으로
-                찾아보세요.
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 10,
-                  marginBottom: 22,
-                }}
-              >
-                {[
-                  "숫자만 검색: 122",
-                  "코드 검색: SG122",
-                  "코드 검색: SF122",
-                  "색상명 검색: 도브화이트",
-                ].map((text) => (
-                  <div
-                    key={text}
-                    style={{
-                      borderRadius: 16,
-                      padding: "14px 14px",
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(238,224,197,0.10)",
-                      color: "#fff",
-                    }}
-                  >
-                    {text}
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: THEME_COLOR,
-                  marginBottom: 8,
-                }}
-              >
-                제품사진이 작나요?
-              </div>
-
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  color: TEXT_SUB,
-                  fontSize: 16,
-                  lineHeight: 1.7,
-                  fontWeight: 600,
-                  flexWrap: "wrap",
-                }}
-              >
-                <span style={{ fontSize: 18 }}>🔍</span>
-                <span>제품 이미지를 누르면 크게 볼 수 있어요.</span>
-              </div>
-
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: THEME_COLOR,
-                  marginTop: 20,
-                  marginBottom: 8,
-                }}
-              >
-                시공자가와 사업자가를 기본으로 숨겨두었어요.
-              </div>
-
-              <div
-                style={{
-                  color: TEXT_SUB,
-                  fontSize: 15,
-                  lineHeight: 1.7,
-                  fontWeight: 600,
-                  wordBreak: "keep-all",
-                }}
-              >
-                검색 설정을 눌러 펼친 뒤 보고 싶은 가격만 표시해보세요.
-              </div>
-              
-            </section>
-          )}
-
-          {!loading && !error && q.trim() !== "" && items.length === 0 && (
+          {!loading && !error && !isShowingRecommended && q.trim() !== "" && items.length === 0 && (
             <section
               style={{
                 borderRadius: 24,
@@ -760,7 +696,7 @@ export default function ProductTestClient() {
                   color: THEME_COLOR,
                 }}
               >
-                검색 결과
+                {isShowingRecommended ? "추천 필름" : "검색 결과"}
               </div>
               <div
                 style={{

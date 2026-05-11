@@ -27,6 +27,21 @@ const PRODUCT_SELECT = `
   fire_dealer_price
 `;
 
+const SAMSUNG_SLG_RECOMMENDED_NUMBERS = [
+  "001",
+  "002",
+  "003",
+  "004",
+  "005",
+  "006",
+  "007",
+  "008",
+  "045",
+  "046",
+  "047",
+] as const;
+
+
 type ProductRow = {
   id: number;
   manufacturer: string | null;
@@ -315,11 +330,85 @@ function applyVisiblePrices(item: ProductRow, memberType: MemberType) {
   };
 }
 
+function getImageUrl(baseUrl: string, imagePath: string | null | undefined) {
+  const normalizedPath = imagePath
+    ? imagePath.replace(/^\/+/, "").replace(/^product-samples\//, "")
+    : null;
+
+  return normalizedPath
+    ? `${baseUrl}/storage/v1/object/public/product-samples/${normalizedPath}`
+    : null;
+}
+
+function getSamsungSlgRecommendationOrder(item: ProductRow) {
+  const text = `${item.product_code_1 || ""} ${item.product_code_2 || ""} ${
+    item.full_name || ""
+  }`.toUpperCase();
+
+  const match = text.match(/SL[GF][^0-9]*(\d{3})/);
+  const number = match?.[1] || "";
+  const index = SAMSUNG_SLG_RECOMMENDED_NUMBERS.indexOf(
+    number as (typeof SAMSUNG_SLG_RECOMMENDED_NUMBERS)[number]
+  );
+
+  return index === -1 ? 999 : index;
+}
+
+async function getSamsungSlgRecommendedItems(memberType: MemberType) {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+  const orFilter = SAMSUNG_SLG_RECOMMENDED_NUMBERS.flatMap((number) => [
+    `product_code_1.ilike.%SLG%${number}%`,
+    `product_code_1.ilike.%SLF%${number}%`,
+    `product_code_2.ilike.%SLG%${number}%`,
+    `product_code_2.ilike.%SLF%${number}%`,
+    `full_name.ilike.%SLG%${number}%`,
+    `full_name.ilike.%SLF%${number}%`,
+    `and(product_code_1.ilike.%SLG%,product_code_2.ilike.%${number}%)`,
+    `and(product_code_1.ilike.%SLF%,product_code_2.ilike.%${number}%)`,
+  ]).join(",");
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("manufacturer", "삼성필름")
+    .or(orFilter)
+    .limit(30);
+
+  if (error) {
+    throw error;
+  }
+
+  const uniqueById = new Map<number, ProductRow>();
+
+  for (const item of (data || []) as ProductRow[]) {
+    uniqueById.set(item.id, item);
+  }
+
+  return Array.from(uniqueById.values())
+    .sort((a, b) => {
+      const orderDiff =
+        getSamsungSlgRecommendationOrder(a) - getSamsungSlgRecommendationOrder(b);
+
+      if (orderDiff !== 0) return orderDiff;
+
+      const aName = a.full_name || a.product_code_1 || "";
+      const bName = b.full_name || b.product_code_1 || "";
+      return aName.localeCompare(bName, "ko");
+    })
+    .slice(0, SAMSUNG_SLG_RECOMMENDED_NUMBERS.length)
+    .map((item) => ({
+      ...applyVisiblePrices(item, memberType),
+      image_url: getImageUrl(baseUrl, item.image_path),
+    }));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
+    const recommended = (req.nextUrl.searchParams.get("recommended") || "").trim();
 
-    if (!q) {
+    if (!q && recommended !== "samsung-slg") {
       return NextResponse.json({ items: [] });
     }
 
@@ -348,6 +437,12 @@ export async function GET(req: NextRequest) {
     }
 
     const memberType = normalizeMemberType(user.memberType);
+
+    if (recommended === "samsung-slg") {
+      const items = await getSamsungSlgRecommendedItems(memberType);
+      return NextResponse.json({ items });
+    }
+
     const orFilter = buildDbOrFilter(q);
 
     if (!orFilter) {
@@ -401,17 +496,9 @@ export async function GET(req: NextRequest) {
       })
       .slice(0, 20)
       .map(({ item }) => {
-        const normalizedPath = item.image_path
-          ? item.image_path.replace(/^\/+/, "").replace(/^product-samples\//, "")
-          : null;
-
-        const image_url = normalizedPath
-          ? `${baseUrl}/storage/v1/object/public/product-samples/${normalizedPath}`
-          : null;
-
         return {
           ...item,
-          image_url,
+          image_url: getImageUrl(baseUrl, item.image_path),
         };
       });
 
