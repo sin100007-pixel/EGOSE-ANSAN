@@ -503,7 +503,9 @@ export function preloadImage(src: string) {
 }
 
 export function getFilmThumbUrl(film: SimulatorFilm) {
-  return film.thumb_url || film.image_url || "";
+  // 시뮬레이션 2단계 필름 선택창 섬네일은 thumb_url만 사용합니다.
+  // image_url fallback을 두면 simulation_thumb_path 적용 여부를 구분하기 어렵습니다.
+  return film.thumb_url || "";
 }
 
 export function getPhoneHref(phone: string | null | undefined) {

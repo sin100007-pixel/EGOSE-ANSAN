@@ -43,9 +43,9 @@ export function normalizeFilm(item: ProductRow) {
   return {
     ...rest,
     image_url: toPublicImageUrl(simulation_image_path || image_path),
-    thumb_url: toPublicImageUrl(
-      simulation_thumb_path || simulation_image_path || image_path
-    ),
+    // 검색결과 카드 섬네일은 simulation_thumb_path만 사용합니다.
+    // fallback을 두면 어떤 이미지 컬럼이 노출되는지 확인하기 어려워집니다.
+    thumb_url: toPublicImageUrl(simulation_thumb_path),
     sample_url: toPublicImageUrl(image_path),
   };
 }

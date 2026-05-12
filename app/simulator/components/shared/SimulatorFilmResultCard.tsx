@@ -13,7 +13,9 @@ export function getFilmCode(film: SimulatorFilm) {
 }
 
 export function getFilmThumbUrl(film: SimulatorFilm) {
-  return film.thumb_url || film.image_url || "";
+  // 검색결과 카드에는 API에서 내려준 thumb_url만 사용합니다.
+  // image_url로 대체하지 않아야 thumb_path 적용 여부를 바로 확인할 수 있습니다.
+  return film.thumb_url || "";
 }
 
 type SimulatorFilmResultCardProps = {
