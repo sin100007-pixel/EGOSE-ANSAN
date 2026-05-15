@@ -667,8 +667,7 @@ export async function GET(req: NextRequest) {
       .from("simulator_spaces")
       .select(SPACE_SELECT)
       .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .limit(10);
+      .order("sort_order", { ascending: true });
 
     if (hasToken) {
       if (allowedSpaceIds.length === 0) {
