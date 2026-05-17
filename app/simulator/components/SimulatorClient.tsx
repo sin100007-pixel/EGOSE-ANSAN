@@ -219,7 +219,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     colors: COLORS,
   });
 
-  const { isDashboardMoving, goToDashboard } = useDashboardNavigation(mode);
+  const { isDashboardMoving, goToDashboard, replaceToDashboard } = useDashboardNavigation(mode);
 
   const {
     activeGuideStep,
@@ -1074,8 +1074,18 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
                 <button
                   type="button"
                   className="simulatorExitConfirmLeave"
-                  onClick={() => {
+                  disabled={isDashboardMoving}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
                     resetRapidBackExitPresses();
+
+                    if (mode === "installer") {
+                      setShowExitConfirm(false);
+                      replaceToDashboard();
+                      return;
+                    }
+
                     allowNativeBackRef.current = true;
 
                     if (requestKakaoInAppBrowserClose()) {

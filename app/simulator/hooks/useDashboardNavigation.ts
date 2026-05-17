@@ -21,24 +21,38 @@ export function useDashboardNavigation(mode: SimulatorMode) {
     };
   }, [mode, router]);
 
-  const paintThenNavigateToDashboard = () => {
+  const paintThenNavigateToDashboard = (method: "push" | "replace") => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (method === "replace") {
+          router.replace("/dashboard");
+          return;
+        }
+
         router.push("/dashboard");
       });
     });
   };
 
-  const goToDashboard = () => {
+  const moveToDashboard = (method: "push" | "replace") => {
     if (isDashboardMoving) return;
 
     setIsDashboardMoving(true);
     router.prefetch("/dashboard");
-    paintThenNavigateToDashboard();
+    paintThenNavigateToDashboard(method);
+  };
+
+  const goToDashboard = () => {
+    moveToDashboard("push");
+  };
+
+  const replaceToDashboard = () => {
+    moveToDashboard("replace");
   };
 
   return {
     isDashboardMoving,
     goToDashboard,
+    replaceToDashboard,
   };
 }
