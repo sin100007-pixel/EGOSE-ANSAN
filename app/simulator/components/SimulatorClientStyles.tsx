@@ -846,60 +846,12 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           isolation: isolate;
         }
 
-        .spaceThumb > img {
+        .spaceThumbImage {
           display: block;
           width: 100%;
           height: 100%;
-          object-fit: cover;
-        }
-
-        .spaceThumbStage {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-          border-radius: inherit;
-          background: transparent;
-        }
-
-        .spaceThumbCheckerLayer {
-          position: absolute;
-          inset: 0;
-          z-index: 2;
-          pointer-events: none;
-          background-color: rgba(255, 255, 255, 0.94);
-          background-image:
-            linear-gradient(45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
-            linear-gradient(-45deg, rgba(175, 181, 202, 0.9) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%),
-            linear-gradient(-45deg, transparent 75%, rgba(175, 181, 202, 0.9) 75%);
-          background-size: 12px 12px;
-          background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
-          -webkit-mask-repeat: no-repeat;
-          -webkit-mask-position: center;
-          -webkit-mask-size: 100% 100%;
-          mask-repeat: no-repeat;
-          mask-position: center;
-          mask-size: 100% 100%;
-        }
-
-        .spaceThumbBaseImage,
-        .spaceThumbOverlayImage {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: fill;
+          object-fit: contain;
           object-position: center;
-          pointer-events: none;
-          display: block;
-        }
-
-        .spaceThumbBaseImage {
-          z-index: 1;
-        }
-
-        .spaceThumbOverlayImage {
-          z-index: 10;
         }
 
         .spaceThumbEmpty {

@@ -188,43 +188,103 @@ async function toInlinePublicAsset(src: string | null | undefined) {
   }
 }
 
-async function inlineSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpaceRow> {
-  const maskConfig = space.mask_config;
-  let nextMaskConfig = maskConfig;
+function getPublicAssetPathname(src: string | null | undefined) {
+  const value = String(src || "").trim();
+  if (!value || /^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return "";
 
-  if (maskConfig && Array.isArray(maskConfig["zones"])) {
-    const zones = await Promise.all(
-      (maskConfig["zones"] as unknown[]).map(async (zone) => {
-        if (!zone || typeof zone !== "object") return zone;
-        const z = zone as Record<string, unknown>;
-        return {
-          ...z,
-          mask_url:
-            typeof z.mask_url === "string" ? await toInlinePublicAsset(z.mask_url) : z.mask_url,
-        };
-      })
-    );
-
-    nextMaskConfig = {
-      ...maskConfig,
-      zones,
-    };
+  try {
+    const parsed = new URL(value, "http://egose.local");
+    return decodeURIComponent(parsed.pathname || "");
+  } catch {
+    return value.split("?")[0].split("#")[0];
   }
+}
+
+const publicAssetExistsCache = new Map<string, boolean>();
+
+async function publicSimulatorAssetExists(src: string | null | undefined) {
+  const pathname = getPublicAssetPathname(src);
+
+  if (!pathname.startsWith("/simulator/") || pathname.includes("\0")) return false;
+  if (!/\.(png|jpe?g|webp|gif|svg)$/i.test(pathname)) return false;
+
+  const publicRoot = path.join(process.cwd(), "public");
+  const filePath = path.normalize(path.join(publicRoot, pathname.replace(/^\/+/, "")));
+
+  if (!filePath.startsWith(publicRoot)) return false;
+
+  if (publicAssetExistsCache.has(filePath)) {
+    return publicAssetExistsCache.get(filePath) === true;
+  }
+
+  try {
+    await readFile(filePath);
+    publicAssetExistsCache.set(filePath, true);
+    return true;
+  } catch {
+    publicAssetExistsCache.set(filePath, false);
+    return false;
+  }
+}
+
+function makeFolderThumbnailCandidate(src: string | null | undefined) {
+  const pathname = getPublicAssetPathname(src);
+  const parts = pathname.split("/").filter(Boolean);
+
+  if (parts.length < 3 || parts[0] !== "simulator") return "";
+
+  const folderName = parts[1];
+  if (!folderName) return "";
+
+  return `/simulator/${folderName}/${folderName}-thumbnail.webp`;
+}
+
+function makeWebpSiblingCandidate(src: string | null | undefined) {
+  const pathname = getPublicAssetPathname(src);
+  if (!pathname) return "";
+
+  return pathname.replace(/\.(png|jpe?g)$/i, ".webp");
+}
+
+async function resolveSpaceThumbnailUrl(space: SimulatorSpaceRow) {
+  const candidates = [
+    makeWebpSiblingCandidate(space.thumbnail_url),
+    space.thumbnail_url || "",
+    makeFolderThumbnailCandidate(space.thumbnail_url),
+    makeFolderThumbnailCandidate(space.overlay_image_url),
+    makeFolderThumbnailCandidate(space.base_image_url),
+  ].filter(Boolean);
+
+  const uniqueCandidates = Array.from(new Set(candidates));
+
+  for (const candidate of uniqueCandidates) {
+    if (await publicSimulatorAssetExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return space.thumbnail_url || space.overlay_image_url || space.base_image_url || null;
+}
+
+async function inlineSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpaceRow> {
+  const thumbnailUrl = await resolveSpaceThumbnailUrl(space);
 
   return {
     ...space,
-    thumbnail_url: await toInlinePublicAsset(space.thumbnail_url),
-    base_image_url: await toInlinePublicAsset(space.base_image_url),
-    overlay_image_url: await toInlinePublicAsset(space.overlay_image_url),
-    mask_config: nextMaskConfig,
+    // 1단계 공간 선택 카드에서는 이 가벼운 썸네일 1장만 사용합니다.
+    thumbnail_url: await toInlinePublicAsset(thumbnailUrl),
+    // 2단계 실제 시뮬레이션용 원본/오버레이/마스크는 data URL로 인라인하지 않습니다.
+    // 첫 화면 bootstrap payload가 커지지 않게 경로만 유지합니다.
+    base_image_url: space.base_image_url,
+    overlay_image_url: space.overlay_image_url,
+    mask_config: space.mask_config,
   };
 }
 
 async function maybeInlineSpaceAssets(
-  req: NextRequest,
+  _req: NextRequest,
   spaces: SimulatorSpaceRow[]
 ): Promise<SimulatorSpaceRow[]> {
-  if (!isProblemImageBrowser(req)) return spaces;
   return Promise.all(spaces.map((space) => inlineSpaceAssets(space)));
 }
 
@@ -702,12 +762,9 @@ export async function GET(req: NextRequest) {
       spacesError ? [] : ((spaces || []) as SimulatorSpaceRow[]),
       !hasToken
     );
-    // 첫 진입용 fast bootstrap에서는 공간 이미지/마스크를 data URL로 인라인하지 않습니다.
-    // 단, 카카오톡/삼성/웨일/네이버 인앱브라우저는 예전 안정화 방식처럼
-    // 공간 이미지를 data URL로 인라인해야 이미지 깨짐이 재발하지 않습니다.
-    const responseSpaces = isFastBootstrap
-      ? resolvedSpaces
-      : await maybeInlineSpaceAssets(req, resolvedSpaces);
+    // 첫 진입에서는 공간 카드용 썸네일만 가볍게 준비합니다.
+    // base/overlay/mask는 2단계 실제 시뮬레이션에서 필요할 때 이미지 경로로 불러옵니다.
+    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(

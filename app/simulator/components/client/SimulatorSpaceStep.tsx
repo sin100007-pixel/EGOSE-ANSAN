@@ -1,8 +1,5 @@
 import type { SimulatorSpace } from "../../types";
-import {
-  getSpaceThumbnail,
-  readMaskZones,
-} from "../../lib/client-utils";
+import { getSpaceThumbnail } from "../../lib/client-utils";
 
 type SimulatorSpaceStepProps = {
   spaces: SimulatorSpace[];
@@ -28,11 +25,9 @@ export default function SimulatorSpaceStep({
 
       <div className="spaceGrid">
         {spaces.length > 0 ? (
-          spaces.map((space) => {
+          spaces.map((space, index) => {
             const thumbnail = getSpaceThumbnail(space);
             const active = selectedSpace?.id === space.id;
-            const thumbZones = readMaskZones(space);
-            const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
 
             return (
               <button
@@ -42,30 +37,14 @@ export default function SimulatorSpaceStep({
                 className={`spaceCard ${active ? "spaceCardActive" : ""}`}
               >
                 <div className="spaceThumb">
-                  {hasSceneThumb ? (
-                    <div className="spaceThumbStage">
-                      {thumbZones.map((zone) => (
-                        <div
-                          key={zone.key}
-                          aria-hidden="true"
-                          className="spaceThumbCheckerLayer"
-                          style={{
-                            WebkitMaskImage: `url("${zone.mask_url}")`,
-                            maskImage: `url("${zone.mask_url}")`,
-                          }}
-                        />
-                      ))}
-
-                      {space.base_image_url ? (
-                        <img src={space.base_image_url} alt="공간 원본" className="spaceThumbBaseImage" />
-                      ) : null}
-
-                      {space.overlay_image_url ? (
-                        <img src={space.overlay_image_url} alt={space.name} className="spaceThumbOverlayImage" />
-                      ) : null}
-                    </div>
-                  ) : thumbnail ? (
-                    <img src={thumbnail} alt={space.name} />
+                  {thumbnail ? (
+                    <img
+                      src={thumbnail}
+                      alt={space.name}
+                      className="spaceThumbImage"
+                      loading={index < 4 ? "eager" : "lazy"}
+                      decoding="async"
+                    />
                   ) : (
                     <div className="spaceThumbEmpty">이미지 준비중</div>
                   )}
