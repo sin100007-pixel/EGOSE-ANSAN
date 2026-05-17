@@ -120,7 +120,7 @@ export default function DashboardPriceNotice() {
             lineHeight: 1.72,
             fontWeight: 900,
             letterSpacing: "-0.035em",
-            textAlign: "left",
+            textAlign: "center",
             wordBreak: "keep-all",
           }}
         >
