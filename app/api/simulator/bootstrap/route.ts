@@ -266,26 +266,74 @@ async function resolveSpaceThumbnailUrl(space: SimulatorSpaceRow) {
   return space.thumbnail_url || space.overlay_image_url || space.base_image_url || null;
 }
 
-async function inlineSpaceAssets(space: SimulatorSpaceRow): Promise<SimulatorSpaceRow> {
+async function inlineMaskConfigAssets(
+  maskConfig: SimulatorSpaceRow["mask_config"],
+  shouldInlineFullAssets: boolean
+): Promise<SimulatorSpaceRow["mask_config"]> {
+  if (!shouldInlineFullAssets || !maskConfig || typeof maskConfig !== "object") {
+    return maskConfig;
+  }
+
+  const rawZones = Array.isArray(maskConfig["zones"]) ? maskConfig["zones"] : null;
+
+  if (!rawZones) {
+    return maskConfig;
+  }
+
+  const zones = await Promise.all(
+    rawZones.map(async (zone) => {
+      if (!zone || typeof zone !== "object") return zone;
+
+      const zoneRecord = zone as Record<string, unknown>;
+      const maskUrl = typeof zoneRecord.mask_url === "string" ? zoneRecord.mask_url : "";
+
+      if (!maskUrl) return zone;
+
+      return {
+        ...zoneRecord,
+        mask_url: await toInlinePublicAsset(maskUrl),
+      };
+    })
+  );
+
+  return {
+    ...maskConfig,
+    zones,
+  };
+}
+
+async function inlineSpaceAssets(
+  space: SimulatorSpaceRow,
+  shouldInlineFullAssets: boolean
+): Promise<SimulatorSpaceRow> {
   const thumbnailUrl = await resolveSpaceThumbnailUrl(space);
 
   return {
     ...space,
     // 1단계 공간 선택 카드에서는 이 가벼운 썸네일 1장만 사용합니다.
     thumbnail_url: await toInlinePublicAsset(thumbnailUrl),
-    // 2단계 실제 시뮬레이션용 원본/오버레이/마스크는 data URL로 인라인하지 않습니다.
-    // 첫 화면 bootstrap payload가 커지지 않게 경로만 유지합니다.
-    base_image_url: space.base_image_url,
-    overlay_image_url: space.overlay_image_url,
-    mask_config: space.mask_config,
+    // 카카오톡 인앱브라우저 계열은 일반 이미지 경로/마스크 경로가 깨지는 경우가 있어
+    // 실제 적용 화면에 쓰는 원본/오버레이/마스크만 다시 data URL로 인라인합니다.
+    // 일반 브라우저는 기존처럼 경로만 유지해서 bootstrap payload를 줄입니다.
+    base_image_url: shouldInlineFullAssets
+      ? await toInlinePublicAsset(space.base_image_url)
+      : space.base_image_url,
+    overlay_image_url: shouldInlineFullAssets
+      ? await toInlinePublicAsset(space.overlay_image_url)
+      : space.overlay_image_url,
+    mask_config: await inlineMaskConfigAssets(space.mask_config, shouldInlineFullAssets),
   };
 }
 
 async function maybeInlineSpaceAssets(
-  _req: NextRequest,
+  req: NextRequest,
   spaces: SimulatorSpaceRow[]
 ): Promise<SimulatorSpaceRow[]> {
-  return Promise.all(spaces.map((space) => inlineSpaceAssets(space)));
+  const shouldInlineFullAssets = isProblemImageBrowser(req);
+
+  return Promise.all(
+    spaces.map((space) => inlineSpaceAssets(space, shouldInlineFullAssets))
+  );
 }
 
 
