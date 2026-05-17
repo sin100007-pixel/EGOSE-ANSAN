@@ -128,7 +128,7 @@ const EXIT_CONFIRM_TYPE_SPEED_MS = 58;
 const EXIT_CONFIRM_DELETE_SPEED_MS = 30;
 const EXIT_CONFIRM_HOLD_MS = 2000;
 const EXIT_CONFIRM_NEXT_LINE_DELAY_MS = 140;
-const RAPID_BACK_EXIT_PRESS_LIMIT = 5;
+const RAPID_BACK_EXIT_PRESS_LIMIT = 4;
 const RAPID_BACK_EXIT_WINDOW_MS = 1800;
 
 export default function SimulatorClient({ token = "", mode }: SimulatorClientProps) {
