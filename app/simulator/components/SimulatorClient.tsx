@@ -50,7 +50,7 @@ type SimulatorClientProps = {
 
 
 const SIMULATOR_BACK_GUARD_HASH_PREFIX = "__egose_simulator_back_guard_";
-const SIMULATOR_BACK_GUARD_TOP_LEVEL = 3;
+const SIMULATOR_BACK_GUARD_TOP_LEVEL = 8;
 
 function getUrlWithoutSimulatorBackGuard(value: string) {
   try {
@@ -560,6 +560,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
       moveBackToTopGuard(currentLevel);
 
+      // 카카오톡 인앱브라우저는 뒤로가기를 빠르게 누를 때 popstate가 잠금 시간 안에
+      // 여러 번 들어옵니다. 빠른 연타 감지는 액션 잠금보다 먼저 처리해야
+      // 4번 연타가 카카오톡에서도 누락되지 않습니다.
+      if (registerRapidBackExitPress()) {
+        backGuardActionLockRef.current = true;
+        setShowExitConfirm(true);
+        resetRapidBackExitPresses();
+        window.setTimeout(() => {
+          backGuardActionLockRef.current = false;
+        }, 520);
+        return;
+      }
+
       // 카카오/크롬에서 물리 뒤로가기를 빠르게 두 번 누르면 popstate가 연속으로 들어올 수 있습니다.
       // 이때 내부 동작을 두 번 소비하지 말고, 우선 히스토리 위치만 안전한 맨 위 가드로 복구합니다.
       if (backGuardActionLockRef.current) {
@@ -570,12 +583,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       window.setTimeout(() => {
         backGuardActionLockRef.current = false;
       }, 320);
-
-      if (registerRapidBackExitPress()) {
-        setShowExitConfirm(true);
-        resetRapidBackExitPresses();
-        return;
-      }
 
       const handledInsideSimulator = goBackOneSimulatorActionRef.current();
 
