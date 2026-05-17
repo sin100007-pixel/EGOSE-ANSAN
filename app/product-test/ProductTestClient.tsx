@@ -547,6 +547,7 @@ export default function ProductTestClient() {
             >
               <div>05.11 현대L&amp;C 단가 반영완료!</div>
               <div>05.11 삼성필름 단가 반영완료!</div>
+              <div>05.11 영림필름 단가 반영완료!</div>
             </div>
 
             <div

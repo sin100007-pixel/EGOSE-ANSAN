@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "egose-dashboard-price-notice-2026-05-11";
+const STORAGE_KEY = "egose-dashboard-price-notice-2026-05-18";
 
 export default function DashboardPriceNotice() {
   const [isVisible, setIsVisible] = useState(false);
@@ -17,6 +17,10 @@ export default function DashboardPriceNotice() {
       setIsVisible(true);
     }
   }, []);
+
+  const handleClose = () => {
+    setIsVisible(false);
+  };
 
   const handleHideForever = () => {
     try {
@@ -92,31 +96,38 @@ export default function DashboardPriceNotice() {
           style={{
             margin: "0 0 16px",
             color: "#d71920",
-            fontSize: 23,
+            fontSize: 24,
             lineHeight: 1.28,
             fontWeight: 900,
-            letterSpacing: "-0.05em",
+            letterSpacing: "-0.055em",
             wordBreak: "keep-all",
           }}
         >
-          필름봇 단가 업데이트 일부
+          필름봇단가 (일부)
           <br />
-          완료!
+          갱신완료!
         </h2>
 
-        <p
+        <div
           style={{
-            margin: "0 0 14px",
-            color: "#2a2438",
+            margin: "0 0 16px",
+            padding: "14px 16px",
+            borderRadius: 18,
+            background: "rgba(215, 25, 32, 0.07)",
+            border: "1px solid rgba(215, 25, 32, 0.13)",
+            color: "#d71920",
             fontSize: 15,
-            lineHeight: 1.62,
-            fontWeight: 800,
+            lineHeight: 1.72,
+            fontWeight: 900,
             letterSpacing: "-0.035em",
+            textAlign: "left",
             wordBreak: "keep-all",
           }}
         >
-          단가가 나오는 대로 최대한 빠르게 반영하도록 노력하겠습니다.
-        </p>
+          <div>05.11 현대L&amp;C 갱신완료.</div>
+          <div>05.11 삼성필름 갱신완료.</div>
+          <div>05.18 영림필름 갱신완료.</div>
+        </div>
 
         <p
           style={{
@@ -131,30 +142,56 @@ export default function DashboardPriceNotice() {
         >
           미쳐 날뛰는 필름 시장의 한줄기 빛!
           <br />
-          ✨️삼성 SLG✨️단가를 필름봇의 검색설정을 열어 확인해보시길
-          부탁드립니다.
+          ✨️삼성 SLG✨️단가를 필름봇의 검색설정을 열어 확인해보세요!
         </p>
 
-        <button
-          type="button"
-          onClick={handleHideForever}
+        <div
           style={{
-            width: "100%",
-            minHeight: 50,
+            display: "flex",
+            alignItems: "stretch",
+            gap: 10,
             marginTop: 22,
-            border: "none",
-            borderRadius: 18,
-            background: "linear-gradient(180deg, #21164f 0%, #150d3c 100%)",
-            color: "#fff5d7",
-            fontSize: 16,
-            fontWeight: 900,
-            letterSpacing: "-0.03em",
-            boxShadow: "0 10px 22px rgba(21, 13, 60, 0.28)",
-            cursor: "pointer",
           }}
         >
-          다시 보지 않기
-        </button>
+          <button
+            type="button"
+            onClick={handleHideForever}
+            style={{
+              flex: 1,
+              minHeight: 54,
+              border: "none",
+              borderRadius: 18,
+              background: "linear-gradient(180deg, #21164f 0%, #150d3c 100%)",
+              color: "#fff5d7",
+              fontSize: 16,
+              fontWeight: 900,
+              letterSpacing: "-0.03em",
+              boxShadow: "0 10px 22px rgba(21, 13, 60, 0.28)",
+              cursor: "pointer",
+            }}
+          >
+            다시 보지 않기
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              flex: "0 0 78px",
+              minHeight: 54,
+              border: "1px solid rgba(21, 13, 60, 0.16)",
+              borderRadius: 18,
+              background: "rgba(21, 13, 60, 0.08)",
+              color: "#21164f",
+              fontSize: 14,
+              fontWeight: 900,
+              letterSpacing: "-0.03em",
+              cursor: "pointer",
+            }}
+          >
+            닫기
+          </button>
+        </div>
       </div>
     </div>
   );
