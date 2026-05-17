@@ -2,7 +2,6 @@ import type { SimulatorSpace } from "../../types";
 import {
   getSpaceThumbnail,
   readMaskZones,
-  readPreviewAspectRatio,
 } from "../../lib/client-utils";
 
 type SimulatorSpaceStepProps = {
@@ -18,10 +17,11 @@ export default function SimulatorSpaceStep({
 }: SimulatorSpaceStepProps) {
   return (
     <section className="spaceSelectCard">
-      <div className="sectionHeader">
+      <div className="sectionHeader spaceSectionHeaderCompact">
         <div>
           <div className="sectionLabel">공간 선택</div>
-          <h2 className="sectionTitle">어디에 필름을 적용해볼까요?</h2>
+          <h2 className="sectionTitle">공간을 선택해주세요</h2>
+          <p className="spaceGuideText">원하는 공간을 누르면 색상 적용 단계로 이동합니다.</p>
         </div>
         <div className="spaceCount">{spaces.length || 0}개 공간</div>
       </div>
@@ -32,7 +32,6 @@ export default function SimulatorSpaceStep({
             const thumbnail = getSpaceThumbnail(space);
             const active = selectedSpace?.id === space.id;
             const thumbZones = readMaskZones(space);
-            const thumbAspectRatio = readPreviewAspectRatio(space);
             const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
 
             return (
@@ -42,7 +41,7 @@ export default function SimulatorSpaceStep({
                 onClick={() => onSelectSpace(space.id)}
                 className={`spaceCard ${active ? "spaceCardActive" : ""}`}
               >
-                <div className="spaceThumb" style={{ aspectRatio: thumbAspectRatio }}>
+                <div className="spaceThumb">
                   {hasSceneThumb ? (
                     <div className="spaceThumbStage">
                       {thumbZones.map((zone) => (
@@ -73,12 +72,8 @@ export default function SimulatorSpaceStep({
                 </div>
 
                 <div className="spaceInfo">
-                  <div>
-                    <div className="spaceName">{space.name}</div>
-                    <div className="spaceDesc">{space.description || "선택하면 색상 적용 화면으로 이동합니다."}</div>
-                  </div>
-
-                  <span className="spaceGoBadge">선택</span>
+                  <div className="spaceName">{space.name}</div>
+                  <span className="spaceGoBadge">{active ? "선택됨" : "선택"}</span>
                 </div>
               </button>
             );

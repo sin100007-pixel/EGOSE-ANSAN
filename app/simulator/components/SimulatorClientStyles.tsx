@@ -768,6 +768,18 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           margin-bottom: 6px;
         }
 
+        .spaceSectionHeaderCompact {
+          align-items: center;
+        }
+
+        .spaceGuideText {
+          margin: 7px 0 0;
+          color: ${COLORS.soft};
+          font-size: 13px;
+          line-height: 1.45;
+          word-break: keep-all;
+        }
+
         .sectionTitle,
         .spaceTitle {
           margin: 0;
@@ -794,19 +806,27 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .spaceGrid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 14px;
+          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+          gap: 12px;
         }
 
         .spaceCard {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
           border: 1px solid ${COLORS.line};
-          border-radius: 24px;
+          border-radius: 22px;
           background: rgba(255, 255, 255, 0.045);
-          padding: 10px;
+          padding: 8px;
           color: ${COLORS.white};
           text-align: left;
           cursor: pointer;
           overflow: hidden;
+          transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+        }
+
+        .spaceCard:active {
+          transform: scale(0.985);
         }
 
         .spaceCardActive {
@@ -818,7 +838,8 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           position: relative;
           width: 100%;
           aspect-ratio: 1536 / 1024;
-          border-radius: 18px;
+          flex: 0 0 auto;
+          border-radius: 16px;
           overflow: hidden;
           background: rgba(255, 255, 255, 0.06);
           border: 1px solid ${COLORS.line};
@@ -892,17 +913,23 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .spaceInfo {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 10px;
-          padding: 12px 4px 4px;
+          gap: 8px;
+          padding: 10px 2px 2px;
+          min-width: 0;
+          min-height: 34px;
         }
 
         .spaceName {
+          min-width: 0;
           color: ${COLORS.cream};
-          font-size: 17px;
+          font-size: 15px;
           font-weight: 900;
-          margin-bottom: 5px;
+          margin-bottom: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .spaceDesc {
@@ -915,10 +942,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         .spaceGoBadge {
           flex-shrink: 0;
           border-radius: 999px;
-          padding: 6px 10px;
+          padding: 5px 8px;
           background: rgba(238, 224, 197, 0.12);
           color: ${COLORS.cream};
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 900;
         }
 
@@ -2466,8 +2493,8 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .spaceSkeletonGrid {
-            grid-template-columns: 1fr;
-            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
           }
 
           .spaceSkeletonCard {
@@ -2476,8 +2503,8 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .spaceSkeletonThumb {
-            border-radius: 16px;
-            aspect-ratio: 4 / 3;
+            border-radius: 14px;
+            aspect-ratio: 3 / 2;
           }
 
           .pageWrap {
@@ -2548,7 +2575,12 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
           .sectionTitle,
           .spaceTitle {
-            font-size: 22px;
+            font-size: 21px;
+          }
+
+          .spaceGuideText {
+            font-size: 12px;
+            margin-top: 5px;
           }
 
           .spaceCount,
@@ -2558,21 +2590,31 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .spaceGrid {
-            grid-template-columns: 1fr;
-            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
           }
 
           .spaceCard {
-            border-radius: 20px;
-            padding: 8px;
+            border-radius: 18px;
+            padding: 7px;
           }
 
           .spaceThumb {
-            border-radius: 16px;
+            border-radius: 14px;
+          }
+
+          .spaceInfo {
+            gap: 6px;
+            padding: 8px 1px 1px;
           }
 
           .spaceName {
-            font-size: 16px;
+            font-size: 14px;
+          }
+
+          .spaceGoBadge {
+            padding: 4px 7px;
+            font-size: 10px;
           }
 
           .previewViewport {
