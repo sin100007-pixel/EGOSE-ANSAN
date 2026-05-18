@@ -99,12 +99,11 @@ const SETTINGS_TUTORIAL_STEPS = [
   },
   {
     id: "settings-photos",
-    target: "settings-photos",
+    target: "settings-photo-fields",
     title: "대표 시공사진을 등록합니다",
     description:
       "사진을 업로드하거나 URL을 입력해서 고객에게 보여줄 시공 사례를 추가합니다. 제목과 설명도 함께 넣을 수 있습니다.",
-    scrollBlock: "start",
-    scrollOffset: 80,
+    scrollBlock: "center",
   },
   {
     id: "settings-photo-options",
@@ -561,50 +560,52 @@ export default function SimulatorContractorSettings() {
                   </div>
 
                   <div className="photoFields">
-                    <label>
-                      <span>사진 URL</span>
-                      <input
-                        value={photo.image_url}
-                        onChange={(event) => updatePhoto(index, { image_url: event.target.value })}
-                        placeholder="사진을 업로드하면 자동으로 입력됩니다."
-                      />
-                    </label>
-
-                    <div className="uploadRow compactUploadRow">
-                      <label className="uploadButton">
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          disabled={uploadingTarget !== null}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            void uploadImage(file, "portfolio", index);
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                        <span>{uploadingTarget === index ? "사진 업로드 중..." : "시공사진 업로드"}</span>
-                      </label>
-                      <small>업로드 후 URL이 자동 입력됩니다.</small>
-                    </div>
-
-                    <div className="twoCols">
+                    <div className="photoGuideFields" data-sim-admin-guide={index === 0 ? "settings-photo-fields" : undefined}>
                       <label>
-                        <span>제목</span>
+                        <span>사진 URL</span>
                         <input
-                          value={photo.title}
-                          onChange={(event) => updatePhoto(index, { title: event.target.value })}
-                          placeholder="예: 싱크대 필름 시공"
+                          value={photo.image_url}
+                          onChange={(event) => updatePhoto(index, { image_url: event.target.value })}
+                          placeholder="사진을 업로드하면 자동으로 입력됩니다."
                         />
                       </label>
 
-                      <label>
-                        <span>설명</span>
-                        <input
-                          value={photo.description}
-                          onChange={(event) => updatePhoto(index, { description: event.target.value })}
-                          placeholder="예: 화이트 계열 상하부장 시공"
-                        />
-                      </label>
+                      <div className="uploadRow compactUploadRow">
+                        <label className="uploadButton">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={uploadingTarget !== null}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              void uploadImage(file, "portfolio", index);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                          <span>{uploadingTarget === index ? "사진 업로드 중..." : "시공사진 업로드"}</span>
+                        </label>
+                        <small>업로드 후 URL이 자동 입력됩니다.</small>
+                      </div>
+
+                      <div className="twoCols">
+                        <label>
+                          <span>제목</span>
+                          <input
+                            value={photo.title}
+                            onChange={(event) => updatePhoto(index, { title: event.target.value })}
+                            placeholder="예: 싱크대 필름 시공"
+                          />
+                        </label>
+
+                        <label>
+                          <span>설명</span>
+                          <input
+                            value={photo.description}
+                            onChange={(event) => updatePhoto(index, { description: event.target.value })}
+                            placeholder="예: 화이트 계열 상하부장 시공"
+                          />
+                        </label>
+                      </div>
                     </div>
 
                     <div className="photoOptions" data-sim-admin-guide={index === 0 ? "settings-photo-options" : undefined}>
@@ -1394,6 +1395,10 @@ export default function SimulatorContractorSettings() {
           color: ${COLORS.cream};
           font-size: 34px;
           font-weight: 1000;
+        }
+
+        .photoGuideFields {
+          display: block;
         }
 
         .photoOptions {
