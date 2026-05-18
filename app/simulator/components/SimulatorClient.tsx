@@ -155,69 +155,141 @@ function isFavoriteCandidate(value: unknown): value is SimulatorFavoriteCandidat
   );
 }
 
-function parseFavoriteCandidates(raw: string | null) {
+function parseFavoriteCandidateList(raw: string | null) {
   if (!raw) return [];
 
   try {
     const parsed = JSON.parse(raw);
 
-    return Array.isArray(parsed)
-      ? parsed.filter(isFavoriteCandidate).slice(0, MAX_FAVORITE_CANDIDATES)
-      : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(isFavoriteCandidate);
   } catch {
     return [];
   }
 }
 
-function readFavoriteCandidatesFromStorage(storageKey: string) {
-  if (typeof window === "undefined") return [];
+function mergeFavoriteCandidateLists(candidateLists: SimulatorFavoriteCandidate[][]) {
+  const candidateMap = new Map<string, SimulatorFavoriteCandidate>();
 
-  const storageKeys = [storageKey, `${storageKey}:backup`];
+  candidateLists.flat().forEach((candidate) => {
+    if (!isFavoriteCandidate(candidate)) return;
 
-  for (const key of storageKeys) {
-    try {
-      const candidates = parseFavoriteCandidates(window.localStorage.getItem(key));
+    candidateMap.set(candidate.id, candidate);
+  });
 
-      if (candidates.length > 0) {
-        return candidates;
-      }
-    } catch {
-      // 카카오 인앱브라우저 등에서 storage 접근이 막히면 다음 후보를 확인합니다.
-    }
-  }
+  return Array.from(candidateMap.values())
+    .sort((a, b) => {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
 
-  try {
-    const candidates = parseFavoriteCandidates(window.sessionStorage.getItem(storageKey));
-
-    if (candidates.length > 0) {
-      return candidates;
-    }
-  } catch {
-    // sessionStorage를 사용할 수 없는 환경에서는 빈 배열로 처리합니다.
-  }
-
-  return [];
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    })
+    .slice(0, MAX_FAVORITE_CANDIDATES);
 }
 
-function writeFavoriteCandidatesToStorage(
-  storageKey: string,
-  candidates: SimulatorFavoriteCandidate[]
-) {
-  if (typeof window === "undefined") return;
+function buildFavoriteBackupStorageKey(storageKey: string) {
+  return `${storageKey}:backup`;
+}
 
-  const payload = JSON.stringify(candidates.slice(0, MAX_FAVORITE_CANDIDATES));
+function buildFavoriteStorageItemPrefix(storageKey: string) {
+  return `${storageKey}:item:`;
+}
+
+function buildFavoriteStorageItemKey(storageKey: string, candidateId: string) {
+  return `${buildFavoriteStorageItemPrefix(storageKey)}${candidateId}`;
+}
+
+function readFavoriteCandidateItems(storage: Storage, storageKey: string) {
+  const candidates: SimulatorFavoriteCandidate[] = [];
+  const itemPrefix = buildFavoriteStorageItemPrefix(storageKey);
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+
+    if (!key || !key.startsWith(itemPrefix)) continue;
+
+    try {
+      const parsed = JSON.parse(storage.getItem(key) || "null");
+
+      if (isFavoriteCandidate(parsed)) {
+        candidates.push(parsed);
+      }
+    } catch {
+      // 손상된 후보 조각은 무시합니다.
+    }
+  }
+
+  return candidates;
+}
+
+function readFavoriteCandidatesFromBrowserStorage(storageKey: string) {
+  if (typeof window === "undefined") return [];
+
+  const candidateLists: SimulatorFavoriteCandidate[][] = [];
 
   try {
-    window.localStorage.setItem(storageKey, payload);
-    window.localStorage.setItem(`${storageKey}:backup`, payload);
+    candidateLists.push(parseFavoriteCandidateList(window.localStorage.getItem(storageKey)));
+    candidateLists.push(parseFavoriteCandidateList(window.localStorage.getItem(buildFavoriteBackupStorageKey(storageKey))));
+    candidateLists.push(readFavoriteCandidateItems(window.localStorage, storageKey));
   } catch {
-    // localStorage 저장이 막힌 환경에서는 sessionStorage라도 시도합니다.
+    // 일부 인앱브라우저에서 localStorage 접근이 실패할 수 있습니다.
   }
 
   try {
-    window.sessionStorage.setItem(storageKey, payload);
+    candidateLists.push(parseFavoriteCandidateList(window.sessionStorage.getItem(storageKey)));
+    candidateLists.push(parseFavoriteCandidateList(window.sessionStorage.getItem(buildFavoriteBackupStorageKey(storageKey))));
+    candidateLists.push(readFavoriteCandidateItems(window.sessionStorage, storageKey));
   } catch {
-    // 모든 브라우저 저장소가 막히면 현재 화면 상태만 유지됩니다.
+    // sessionStorage가 막힌 환경에서는 localStorage만 사용합니다.
+  }
+
+  return mergeFavoriteCandidateLists(candidateLists);
+}
+
+function writeFavoriteCandidateItemToStorage(storage: Storage, storageKey: string, candidate: SimulatorFavoriteCandidate) {
+  storage.setItem(buildFavoriteStorageItemKey(storageKey, candidate.id), JSON.stringify(candidate));
+}
+
+function writeFavoriteCandidatesToStorage(storage: Storage, storageKey: string, candidates: SimulatorFavoriteCandidate[]) {
+  const nextCandidates = candidates.filter(isFavoriteCandidate).slice(0, MAX_FAVORITE_CANDIDATES);
+  const serializedCandidates = JSON.stringify(nextCandidates);
+  const aliveCandidateIds = new Set(nextCandidates.map((candidate) => candidate.id));
+  const itemPrefix = buildFavoriteStorageItemPrefix(storageKey);
+
+  storage.setItem(storageKey, serializedCandidates);
+  storage.setItem(buildFavoriteBackupStorageKey(storageKey), serializedCandidates);
+
+  for (let index = storage.length - 1; index >= 0; index -= 1) {
+    const key = storage.key(index);
+
+    if (!key || !key.startsWith(itemPrefix)) continue;
+
+    const candidateId = key.slice(itemPrefix.length);
+
+    if (!aliveCandidateIds.has(candidateId)) {
+      storage.removeItem(key);
+    }
+  }
+
+  nextCandidates.forEach((candidate) => {
+    writeFavoriteCandidateItemToStorage(storage, storageKey, candidate);
+  });
+}
+
+function writeFavoriteCandidatesToBrowserStorage(storageKey: string, candidates: SimulatorFavoriteCandidate[]) {
+  if (typeof window === "undefined") return;
+
+  try {
+    writeFavoriteCandidatesToStorage(window.localStorage, storageKey, candidates);
+  } catch {
+    // localStorage가 막히거나 용량이 부족한 환경에서는 sessionStorage만 시도합니다.
+  }
+
+  try {
+    writeFavoriteCandidatesToStorage(window.sessionStorage, storageKey, candidates);
+  } catch {
+    // sessionStorage도 실패하면 현재 화면 상태만 유지됩니다.
   }
 }
 
@@ -475,44 +547,50 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     setFavoriteStorageReadyKey("");
 
-    const nextCandidates = readFavoriteCandidatesFromStorage(favoriteStorageKey);
+    const nextCandidates = readFavoriteCandidatesFromBrowserStorage(favoriteStorageKey);
 
     favoriteCandidatesRef.current = nextCandidates;
     setFavoriteCandidates(nextCandidates);
     setFavoriteStorageReadyKey(favoriteStorageKey);
 
-    if (nextCandidates.length > 0) {
-      writeFavoriteCandidatesToStorage(favoriteStorageKey, nextCandidates);
-    }
+    // 카카오톡 인앱브라우저에서 대표 목록 키가 오래된 값으로 남는 경우가 있어,
+    // 후보별 조각 저장소까지 합쳐 읽은 값을 즉시 다시 정리해서 저장합니다.
+    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, nextCandidates);
   }, [favoriteStorageKey]);
 
   useEffect(() => {
     favoriteCandidatesRef.current = favoriteCandidates;
 
+    if (typeof window === "undefined") return;
     if (favoriteStorageReadyKey !== favoriteStorageKey) return;
 
-    writeFavoriteCandidatesToStorage(favoriteStorageKey, favoriteCandidates);
+    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, favoriteCandidates);
   }, [favoriteCandidates, favoriteStorageKey, favoriteStorageReadyKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const persistLatestFavorites = () => {
-      writeFavoriteCandidatesToStorage(favoriteStorageKey, favoriteCandidatesRef.current);
+    const persistFavoriteCandidates = () => {
+      writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, favoriteCandidatesRef.current);
     };
 
-    const handleVisibilityChange = () => {
+    const persistWhenHidden = () => {
       if (document.visibilityState === "hidden") {
-        persistLatestFavorites();
+        persistFavoriteCandidates();
       }
     };
 
-    window.addEventListener("pagehide", persistLatestFavorites);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", persistFavoriteCandidates);
+    window.addEventListener("beforeunload", persistFavoriteCandidates);
+    document.addEventListener("visibilitychange", persistWhenHidden);
+    document.addEventListener("freeze", persistFavoriteCandidates);
 
     return () => {
-      window.removeEventListener("pagehide", persistLatestFavorites);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      persistFavoriteCandidates();
+      window.removeEventListener("pagehide", persistFavoriteCandidates);
+      window.removeEventListener("beforeunload", persistFavoriteCandidates);
+      document.removeEventListener("visibilitychange", persistWhenHidden);
+      document.removeEventListener("freeze", persistFavoriteCandidates);
     };
   }, [favoriteStorageKey]);
 
@@ -1016,8 +1094,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const nextCandidates = [nextCandidate, ...currentCandidates].slice(0, MAX_FAVORITE_CANDIDATES);
 
     favoriteCandidatesRef.current = nextCandidates;
+    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, nextCandidates);
     setFavoriteCandidates(nextCandidates);
-    writeFavoriteCandidatesToStorage(favoriteStorageKey, nextCandidates);
     showFavoriteToast("즐겨찾기한 세팅이 결정확인에 저장되었습니다.");
   }, [favoriteStorageKey, maskZones, selectedSpace, selectedSpaceId, showFavoriteToast, zoneFilmMap]);
 
@@ -1084,8 +1162,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     const nextCandidates = favoriteCandidatesRef.current.filter((candidate) => candidate.id !== candidateId);
 
     favoriteCandidatesRef.current = nextCandidates;
+    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, nextCandidates);
     setFavoriteCandidates(nextCandidates);
-    writeFavoriteCandidatesToStorage(favoriteStorageKey, nextCandidates);
     setSelectedFavoriteCandidateIds((prev) => prev.filter((id) => id !== candidateId));
     showFavoriteToast("즐겨찾기 후보를 삭제했습니다.");
   }, [favoriteStorageKey, showFavoriteToast]);
