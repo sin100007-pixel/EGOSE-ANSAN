@@ -155,142 +155,156 @@ function isFavoriteCandidate(value: unknown): value is SimulatorFavoriteCandidat
   );
 }
 
-function parseFavoriteCandidateList(raw: string | null) {
-  if (!raw) return [];
+const FAVORITE_INDEXED_DB_NAME = "egose-simulator-favorites-db";
+const FAVORITE_INDEXED_DB_VERSION = 1;
+const FAVORITE_INDEXED_DB_STORE_NAME = "favoriteLists";
+
+type FavoriteIndexedDbRecord = {
+  key: string;
+  candidates: SimulatorFavoriteCandidate[];
+  updated_at: string;
+};
+
+function normalizeFavoriteCandidates(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(isFavoriteCandidate).slice(0, MAX_FAVORITE_CANDIDATES);
+}
+
+function mergeFavoriteCandidates(...candidateGroups: SimulatorFavoriteCandidate[][]) {
+  const candidateMap = new Map<string, SimulatorFavoriteCandidate>();
+
+  candidateGroups.flat().forEach((candidate) => {
+    if (!candidateMap.has(candidate.id)) {
+      candidateMap.set(candidate.id, candidate);
+      return;
+    }
+
+    const currentCandidate = candidateMap.get(candidate.id);
+    const currentCreatedAt = currentCandidate?.created_at ? Date.parse(currentCandidate.created_at) : 0;
+    const nextCreatedAt = candidate.created_at ? Date.parse(candidate.created_at) : 0;
+
+    if (nextCreatedAt >= currentCreatedAt) {
+      candidateMap.set(candidate.id, candidate);
+    }
+  });
+
+  return Array.from(candidateMap.values())
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    .slice(0, MAX_FAVORITE_CANDIDATES);
+}
+
+function readFavoriteCandidatesFromLocalStorage(storageKey: string) {
+  if (typeof window === "undefined") return [];
 
   try {
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(isFavoriteCandidate);
+    const raw = window.localStorage.getItem(storageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return normalizeFavoriteCandidates(parsed);
   } catch {
     return [];
   }
 }
 
-function mergeFavoriteCandidateLists(candidateLists: SimulatorFavoriteCandidate[][]) {
-  const candidateMap = new Map<string, SimulatorFavoriteCandidate>();
-
-  candidateLists.flat().forEach((candidate) => {
-    if (!isFavoriteCandidate(candidate)) return;
-
-    candidateMap.set(candidate.id, candidate);
-  });
-
-  return Array.from(candidateMap.values())
-    .sort((a, b) => {
-      const aTime = new Date(a.created_at).getTime();
-      const bTime = new Date(b.created_at).getTime();
-
-      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-    })
-    .slice(0, MAX_FAVORITE_CANDIDATES);
-}
-
-function buildFavoriteBackupStorageKey(storageKey: string) {
-  return `${storageKey}:backup`;
-}
-
-function buildFavoriteStorageItemPrefix(storageKey: string) {
-  return `${storageKey}:item:`;
-}
-
-function buildFavoriteStorageItemKey(storageKey: string, candidateId: string) {
-  return `${buildFavoriteStorageItemPrefix(storageKey)}${candidateId}`;
-}
-
-function readFavoriteCandidateItems(storage: Storage, storageKey: string) {
-  const candidates: SimulatorFavoriteCandidate[] = [];
-  const itemPrefix = buildFavoriteStorageItemPrefix(storageKey);
-
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-
-    if (!key || !key.startsWith(itemPrefix)) continue;
-
-    try {
-      const parsed = JSON.parse(storage.getItem(key) || "null");
-
-      if (isFavoriteCandidate(parsed)) {
-        candidates.push(parsed);
-      }
-    } catch {
-      // 손상된 후보 조각은 무시합니다.
-    }
-  }
-
-  return candidates;
-}
-
-function readFavoriteCandidatesFromBrowserStorage(storageKey: string) {
-  if (typeof window === "undefined") return [];
-
-  const candidateLists: SimulatorFavoriteCandidate[][] = [];
-
-  try {
-    candidateLists.push(parseFavoriteCandidateList(window.localStorage.getItem(storageKey)));
-    candidateLists.push(parseFavoriteCandidateList(window.localStorage.getItem(buildFavoriteBackupStorageKey(storageKey))));
-    candidateLists.push(readFavoriteCandidateItems(window.localStorage, storageKey));
-  } catch {
-    // 일부 인앱브라우저에서 localStorage 접근이 실패할 수 있습니다.
-  }
-
-  try {
-    candidateLists.push(parseFavoriteCandidateList(window.sessionStorage.getItem(storageKey)));
-    candidateLists.push(parseFavoriteCandidateList(window.sessionStorage.getItem(buildFavoriteBackupStorageKey(storageKey))));
-    candidateLists.push(readFavoriteCandidateItems(window.sessionStorage, storageKey));
-  } catch {
-    // sessionStorage가 막힌 환경에서는 localStorage만 사용합니다.
-  }
-
-  return mergeFavoriteCandidateLists(candidateLists);
-}
-
-function writeFavoriteCandidateItemToStorage(storage: Storage, storageKey: string, candidate: SimulatorFavoriteCandidate) {
-  storage.setItem(buildFavoriteStorageItemKey(storageKey, candidate.id), JSON.stringify(candidate));
-}
-
-function writeFavoriteCandidatesToStorage(storage: Storage, storageKey: string, candidates: SimulatorFavoriteCandidate[]) {
-  const nextCandidates = candidates.filter(isFavoriteCandidate).slice(0, MAX_FAVORITE_CANDIDATES);
-  const serializedCandidates = JSON.stringify(nextCandidates);
-  const aliveCandidateIds = new Set(nextCandidates.map((candidate) => candidate.id));
-  const itemPrefix = buildFavoriteStorageItemPrefix(storageKey);
-
-  storage.setItem(storageKey, serializedCandidates);
-  storage.setItem(buildFavoriteBackupStorageKey(storageKey), serializedCandidates);
-
-  for (let index = storage.length - 1; index >= 0; index -= 1) {
-    const key = storage.key(index);
-
-    if (!key || !key.startsWith(itemPrefix)) continue;
-
-    const candidateId = key.slice(itemPrefix.length);
-
-    if (!aliveCandidateIds.has(candidateId)) {
-      storage.removeItem(key);
-    }
-  }
-
-  nextCandidates.forEach((candidate) => {
-    writeFavoriteCandidateItemToStorage(storage, storageKey, candidate);
-  });
-}
-
-function writeFavoriteCandidatesToBrowserStorage(storageKey: string, candidates: SimulatorFavoriteCandidate[]) {
+function writeFavoriteCandidatesToLocalStorage(
+  storageKey: string,
+  candidates: SimulatorFavoriteCandidate[]
+) {
   if (typeof window === "undefined") return;
 
   try {
-    writeFavoriteCandidatesToStorage(window.localStorage, storageKey, candidates);
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify(candidates.slice(0, MAX_FAVORITE_CANDIDATES))
+    );
   } catch {
-    // localStorage가 막히거나 용량이 부족한 환경에서는 sessionStorage만 시도합니다.
+    // localStorage가 막힌 환경에서는 IndexedDB 저장만 시도합니다.
   }
+}
 
-  try {
-    writeFavoriteCandidatesToStorage(window.sessionStorage, storageKey, candidates);
-  } catch {
-    // sessionStorage도 실패하면 현재 화면 상태만 유지됩니다.
-  }
+function openFavoriteIndexedDb() {
+  return new Promise<IDBDatabase | null>((resolve) => {
+    if (typeof window === "undefined" || !("indexedDB" in window)) {
+      resolve(null);
+      return;
+    }
+
+    const request = window.indexedDB.open(FAVORITE_INDEXED_DB_NAME, FAVORITE_INDEXED_DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+
+      if (!database.objectStoreNames.contains(FAVORITE_INDEXED_DB_STORE_NAME)) {
+        database.createObjectStore(FAVORITE_INDEXED_DB_STORE_NAME, { keyPath: "key" });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+}
+
+async function readFavoriteCandidatesFromIndexedDb(storageKey: string) {
+  const database = await openFavoriteIndexedDb();
+  if (!database) return [];
+
+  return new Promise<SimulatorFavoriteCandidate[]>((resolve) => {
+    try {
+      const transaction = database.transaction(FAVORITE_INDEXED_DB_STORE_NAME, "readonly");
+      const store = transaction.objectStore(FAVORITE_INDEXED_DB_STORE_NAME);
+      const request = store.get(storageKey);
+
+      request.onsuccess = () => {
+        const record = request.result as FavoriteIndexedDbRecord | undefined;
+        resolve(normalizeFavoriteCandidates(record?.candidates));
+      };
+      request.onerror = () => resolve([]);
+      transaction.oncomplete = () => database.close();
+      transaction.onerror = () => database.close();
+      transaction.onabort = () => database.close();
+    } catch {
+      database.close();
+      resolve([]);
+    }
+  });
+}
+
+async function writeFavoriteCandidatesToIndexedDb(
+  storageKey: string,
+  candidates: SimulatorFavoriteCandidate[]
+) {
+  const database = await openFavoriteIndexedDb();
+  if (!database) return;
+
+  return new Promise<void>((resolve) => {
+    try {
+      const transaction = database.transaction(FAVORITE_INDEXED_DB_STORE_NAME, "readwrite");
+      const store = transaction.objectStore(FAVORITE_INDEXED_DB_STORE_NAME);
+      const record: FavoriteIndexedDbRecord = {
+        key: storageKey,
+        candidates: candidates.slice(0, MAX_FAVORITE_CANDIDATES),
+        updated_at: new Date().toISOString(),
+      };
+
+      store.put(record);
+      transaction.oncomplete = () => {
+        database.close();
+        resolve();
+      };
+      transaction.onerror = () => {
+        database.close();
+        resolve();
+      };
+      transaction.onabort = () => {
+        database.close();
+        resolve();
+      };
+    } catch {
+      database.close();
+      resolve();
+    }
+  });
 }
 
 type ExitConfirmTypingPhase = "typing" | "holding" | "deleting";
@@ -448,6 +462,21 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const favoriteToastTimerRef = useRef<number | null>(null);
   const favoriteCandidatesRef = useRef<SimulatorFavoriteCandidate[]>([]);
 
+  const persistFavoriteCandidates = useCallback((candidates: SimulatorFavoriteCandidate[]) => {
+    const nextCandidates = candidates.slice(0, MAX_FAVORITE_CANDIDATES);
+
+    writeFavoriteCandidatesToLocalStorage(favoriteStorageKey, nextCandidates);
+    void writeFavoriteCandidatesToIndexedDb(favoriteStorageKey, nextCandidates);
+  }, [favoriteStorageKey]);
+
+  const commitFavoriteCandidates = useCallback((candidates: SimulatorFavoriteCandidate[]) => {
+    const nextCandidates = candidates.slice(0, MAX_FAVORITE_CANDIDATES);
+
+    favoriteCandidatesRef.current = nextCandidates;
+    setFavoriteCandidates(nextCandidates);
+    persistFavoriteCandidates(nextCandidates);
+  }, [persistFavoriteCandidates]);
+
   const resetRapidBackExitPresses = useCallback(() => {
     rapidBackPressCountRef.current = 0;
     rapidBackFirstPressAtRef.current = 0;
@@ -543,56 +572,68 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   }, [showGuideDisabledNotice]);
 
   useEffect(() => {
+    favoriteCandidatesRef.current = favoriteCandidates;
+  }, [favoriteCandidates]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
+    let cancelled = false;
     setFavoriteStorageReadyKey("");
 
-    const nextCandidates = readFavoriteCandidatesFromBrowserStorage(favoriteStorageKey);
+    const loadFavorites = async () => {
+      const localCandidates = readFavoriteCandidatesFromLocalStorage(favoriteStorageKey);
+      const indexedDbCandidates = await readFavoriteCandidatesFromIndexedDb(favoriteStorageKey);
 
-    favoriteCandidatesRef.current = nextCandidates;
-    setFavoriteCandidates(nextCandidates);
-    setFavoriteStorageReadyKey(favoriteStorageKey);
+      if (cancelled) return;
 
-    // 카카오톡 인앱브라우저에서 대표 목록 키가 오래된 값으로 남는 경우가 있어,
-    // 후보별 조각 저장소까지 합쳐 읽은 값을 즉시 다시 정리해서 저장합니다.
-    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, nextCandidates);
+      setFavoriteCandidates((prev) => {
+        const nextCandidates = mergeFavoriteCandidates(prev, localCandidates, indexedDbCandidates);
+        favoriteCandidatesRef.current = nextCandidates;
+        writeFavoriteCandidatesToLocalStorage(favoriteStorageKey, nextCandidates);
+        void writeFavoriteCandidatesToIndexedDb(favoriteStorageKey, nextCandidates);
+        return nextCandidates;
+      });
+      setFavoriteStorageReadyKey(favoriteStorageKey);
+    };
+
+    void loadFavorites();
+
+    return () => {
+      cancelled = true;
+    };
   }, [favoriteStorageKey]);
 
   useEffect(() => {
-    favoriteCandidatesRef.current = favoriteCandidates;
-
     if (typeof window === "undefined") return;
     if (favoriteStorageReadyKey !== favoriteStorageKey) return;
 
-    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, favoriteCandidates);
-  }, [favoriteCandidates, favoriteStorageKey, favoriteStorageReadyKey]);
+    persistFavoriteCandidates(favoriteCandidates);
+  }, [favoriteCandidates, favoriteStorageKey, favoriteStorageReadyKey, persistFavoriteCandidates]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const persistFavoriteCandidates = () => {
-      writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, favoriteCandidatesRef.current);
+    const persistLatestFavorites = () => {
+      persistFavoriteCandidates(favoriteCandidatesRef.current);
     };
 
-    const persistWhenHidden = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        persistFavoriteCandidates();
+        persistLatestFavorites();
       }
     };
 
-    window.addEventListener("pagehide", persistFavoriteCandidates);
-    window.addEventListener("beforeunload", persistFavoriteCandidates);
-    document.addEventListener("visibilitychange", persistWhenHidden);
-    document.addEventListener("freeze", persistFavoriteCandidates);
+    window.addEventListener("pagehide", persistLatestFavorites);
+    window.addEventListener("beforeunload", persistLatestFavorites);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      persistFavoriteCandidates();
-      window.removeEventListener("pagehide", persistFavoriteCandidates);
-      window.removeEventListener("beforeunload", persistFavoriteCandidates);
-      document.removeEventListener("visibilitychange", persistWhenHidden);
-      document.removeEventListener("freeze", persistFavoriteCandidates);
+      window.removeEventListener("pagehide", persistLatestFavorites);
+      window.removeEventListener("beforeunload", persistLatestFavorites);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [favoriteStorageKey]);
+  }, [persistFavoriteCandidates]);
 
   useEffect(() => {
     const favoriteIdSet = new Set(favoriteCandidates.map((candidate) => candidate.id));
@@ -1067,9 +1108,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return;
     }
 
-    const currentCandidates = favoriteCandidatesRef.current;
     const signature = buildFavoriteSignature(selectedSpace?.id || selectedSpaceId, maskZones, zoneFilmMap);
-    const alreadySaved = currentCandidates.some((candidate) =>
+    const alreadySaved = favoriteCandidatesRef.current.some((candidate) =>
       buildFavoriteSignature(candidate.space?.id || "", candidate.maskZones, candidate.zoneFilmMap) === signature
     );
 
@@ -1091,13 +1131,16 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       zoneFilmMap: nextZoneFilmMap,
     };
 
-    const nextCandidates = [nextCandidate, ...currentCandidates].slice(0, MAX_FAVORITE_CANDIDATES);
-
-    favoriteCandidatesRef.current = nextCandidates;
-    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, nextCandidates);
-    setFavoriteCandidates(nextCandidates);
+    commitFavoriteCandidates([nextCandidate, ...favoriteCandidatesRef.current].slice(0, MAX_FAVORITE_CANDIDATES));
     showFavoriteToast("즐겨찾기한 세팅이 결정확인에 저장되었습니다.");
-  }, [favoriteStorageKey, maskZones, selectedSpace, selectedSpaceId, showFavoriteToast, zoneFilmMap]);
+  }, [
+    commitFavoriteCandidates,
+    maskZones,
+    selectedSpace,
+    selectedSpaceId,
+    showFavoriteToast,
+    zoneFilmMap,
+  ]);
 
   const applyFavoriteCandidate = useCallback((candidate: SimulatorFavoriteCandidate) => {
     rememberUndoSnapshot();
@@ -1159,14 +1202,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   ]);
 
   const removeFavoriteCandidate = useCallback((candidateId: string) => {
-    const nextCandidates = favoriteCandidatesRef.current.filter((candidate) => candidate.id !== candidateId);
-
-    favoriteCandidatesRef.current = nextCandidates;
-    writeFavoriteCandidatesToBrowserStorage(favoriteStorageKey, nextCandidates);
-    setFavoriteCandidates(nextCandidates);
+    commitFavoriteCandidates(favoriteCandidatesRef.current.filter((candidate) => candidate.id !== candidateId));
     setSelectedFavoriteCandidateIds((prev) => prev.filter((id) => id !== candidateId));
     showFavoriteToast("즐겨찾기 후보를 삭제했습니다.");
-  }, [favoriteStorageKey, showFavoriteToast]);
+  }, [commitFavoriteCandidates, showFavoriteToast]);
 
   const handleFilmClick = async (film: SimulatorFilm) => {
     const targetZoneKey = getTargetZoneKey();
