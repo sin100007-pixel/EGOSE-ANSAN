@@ -1299,6 +1299,69 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           gap: 10px;
         }
 
+        .decisionExportCardFavorites {
+          padding-bottom: 46px;
+        }
+
+        .decisionExportFavoriteList {
+          display: grid;
+          gap: 22px;
+        }
+
+        .decisionExportFavoriteCard {
+          display: grid;
+          grid-template-columns: 360px minmax(0, 1fr);
+          gap: 24px;
+          border-radius: 28px;
+          padding: 22px;
+          background: rgba(255, 255, 255, 0.055);
+          border: 1px solid rgba(255, 255, 255, 0.13);
+        }
+
+        .decisionExportFavoritePreview {
+          min-width: 0;
+        }
+
+        .decisionExportFavoriteViewport {
+          border-radius: 24px;
+          overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .decisionExportFavoriteInfo {
+          min-width: 0;
+          display: grid;
+          align-content: start;
+          gap: 12px;
+        }
+
+        .decisionExportFavoriteNumber {
+          display: inline-flex;
+          width: fit-content;
+          min-height: 32px;
+          align-items: center;
+          border-radius: 999px;
+          padding: 0 13px;
+          background: rgba(238, 224, 197, 0.12);
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          color: ${COLORS.cream};
+          font-size: 15px;
+          font-weight: 1000;
+        }
+
+        .decisionExportFavoriteInfo h3 {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: 32px;
+          line-height: 1.2;
+          letter-spacing: -0.04em;
+        }
+
+        .decisionExportFavoriteRows {
+          gap: 8px;
+        }
+
         .decisionExportRow {
           display: flex;
           align-items: center;
@@ -2852,6 +2915,411 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             font-size: 11px;
           }
 
+        }
+
+
+        .simulatorFavoriteToast {
+          position: fixed;
+          left: 50%;
+          bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+          transform: translateX(-50%);
+          z-index: 10020;
+          width: min(360px, calc(100% - 32px));
+          border-radius: 999px;
+          padding: 13px 16px;
+          background: rgba(10, 8, 72, 0.96);
+          border: 1px solid rgba(238, 224, 197, 0.34);
+          box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 1000;
+          line-height: 1.35;
+          text-align: center;
+          word-break: keep-all;
+          pointer-events: none;
+        }
+
+        .applyDecisionRowWithFavorite {
+          display: grid;
+          grid-template-columns: minmax(108px, 0.42fr) minmax(0, 1fr);
+          gap: 9px;
+          align-items: stretch;
+        }
+
+        .favoriteSaveButton {
+          width: 100%;
+          border: 1px solid rgba(238, 224, 197, 0.46);
+          border-radius: 16px;
+          padding: 15px 12px;
+          background: rgba(238, 224, 197, 0.13);
+          color: ${COLORS.cream};
+          font-size: 15px;
+          font-weight: 1000;
+          letter-spacing: -0.02em;
+          cursor: pointer;
+          box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+          white-space: nowrap;
+        }
+
+        .favoriteSaveButton:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .favoriteCandidateSection {
+          border-radius: 22px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.045);
+          border: 1px solid ${COLORS.line};
+          margin-top: 12px;
+        }
+
+        .favoriteCandidateHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .favoriteCandidateHeader h3 {
+          margin: 0;
+          color: ${COLORS.white};
+          font-size: 18px;
+          font-weight: 1000;
+          letter-spacing: -0.03em;
+        }
+
+        .favoriteCandidateHeader > span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 48px;
+          min-height: 32px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.12);
+          border: 1px solid rgba(238, 224, 197, 0.18);
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 1000;
+        }
+
+        .favoriteCandidateList {
+          display: grid;
+          gap: 10px;
+          margin-top: 12px;
+        }
+
+        .favoriteCandidateCard {
+          display: grid;
+          grid-template-columns: 118px minmax(0, 1fr);
+          gap: 12px;
+          border-radius: 18px;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.052);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          cursor: pointer;
+          transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+        }
+
+        .favoriteCandidateCard:hover {
+          border-color: rgba(238, 224, 197, 0.30);
+          background: rgba(255, 255, 255, 0.068);
+        }
+
+        .favoriteCandidateCard:active {
+          transform: translateY(1px);
+        }
+
+        .favoriteCandidateCard:focus-visible {
+          outline: 2px solid rgba(238, 224, 197, 0.68);
+          outline-offset: 3px;
+        }
+
+        .favoriteCandidateCardSelected {
+          border-color: rgba(238, 224, 197, 0.54);
+          background:
+            linear-gradient(180deg, rgba(238, 224, 197, 0.10), rgba(255, 255, 255, 0.052));
+          box-shadow: 0 0 0 1px rgba(238, 224, 197, 0.16) inset;
+        }
+
+        .favoriteCandidateThumb {
+          min-width: 0;
+          align-self: flex-start;
+        }
+
+        .previewViewport.favoriteCandidateThumbViewport {
+          min-height: 0;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.035);
+        }
+
+        .favoriteCandidateThumbViewport .sceneStage,
+        .favoriteCandidateThumbViewport .emptyPreviewBox {
+          border-radius: 16px;
+        }
+
+        .favoriteCandidateThumbViewport .emptyPreviewWrap {
+          padding: 8px;
+        }
+
+        .favoriteCandidateThumbViewport .emptyPreviewBox {
+          min-height: 0;
+          padding: 8px;
+        }
+
+        .favoriteCandidateThumbViewport .emptyPreviewInner {
+          display: none;
+        }
+
+        .favoriteCandidateBody {
+          min-width: 0;
+          display: grid;
+          gap: 8px;
+        }
+
+        .favoriteCandidateTitleRow {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .favoriteCandidateTitleRow strong {
+          min-width: 0;
+          color: ${COLORS.cream};
+          font-size: 14px;
+          font-weight: 1000;
+          line-height: 1.25;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .favoriteCandidateTitleRow em {
+          flex: 0 0 auto;
+          color: ${COLORS.soft};
+          font-size: 10.5px;
+          font-style: normal;
+          font-weight: 800;
+          line-height: 1.25;
+        }
+
+        .favoriteCandidateMeta {
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .favoriteCandidateSelectedBadge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 24px;
+          border-radius: 999px;
+          padding: 0 9px;
+          border: 1px solid rgba(238, 224, 197, 0.46);
+          background: rgba(238, 224, 197, 0.18);
+          color: ${COLORS.cream};
+          font-size: 10.5px;
+          font-weight: 1000;
+          white-space: nowrap;
+        }
+
+        .favoriteCandidateFilmList {
+          display: grid;
+          gap: 5px;
+        }
+
+        .favoriteCandidateFilmItem {
+          display: grid;
+          grid-template-columns: 64px minmax(0, 1fr);
+          gap: 6px;
+          align-items: start;
+        }
+
+        .favoriteCandidateFilmItem span {
+          color: ${COLORS.soft};
+          font-size: 11px;
+          font-weight: 900;
+          line-height: 1.35;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .favoriteCandidateFilmItem b {
+          min-width: 0;
+          color: ${COLORS.white};
+          font-size: 11px;
+          font-weight: 900;
+          line-height: 1.35;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 1;
+          -webkit-box-orient: vertical;
+        }
+
+        .favoriteCandidateActions {
+          display: flex;
+          gap: 7px;
+          flex-wrap: wrap;
+          margin-top: 1px;
+        }
+
+        .favoriteCandidateApplyButton,
+        .favoriteCandidateDeleteButton {
+          border-radius: 11px;
+          min-height: 32px;
+          padding: 0 10px;
+          font-size: 11.5px;
+          font-weight: 1000;
+          cursor: pointer;
+        }
+
+        .favoriteCandidateApplyButton {
+          border: 1px solid rgba(238, 224, 197, 0.36);
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+        }
+
+        .favoriteCandidateDeleteButton {
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.055);
+          color: ${COLORS.soft};
+        }
+
+        .favoriteShareFooter {
+          margin-top: 12px;
+          display: grid;
+          gap: 8px;
+          border-radius: 17px;
+          padding: 11px;
+          background: rgba(7, 5, 58, 0.44);
+          border: 1px solid rgba(238, 224, 197, 0.15);
+        }
+
+        .favoriteShareStatus {
+          color: ${COLORS.soft};
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1.45;
+          word-break: keep-all;
+        }
+
+        .favoriteShareButton {
+          width: 100%;
+          min-height: 44px;
+          border: none;
+          border-radius: 15px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 14px;
+          font-weight: 1000;
+          cursor: pointer;
+        }
+
+        .favoriteShareButton:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .favoriteShareMessage {
+          margin-top: 0;
+        }
+
+        .favoriteEmptyBox {
+          margin-top: 12px;
+          border-radius: 16px;
+          padding: 14px;
+          background: rgba(238, 224, 197, 0.08);
+          border: 1px dashed rgba(238, 224, 197, 0.24);
+          color: ${COLORS.soft};
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1.55;
+          word-break: keep-all;
+        }
+
+        @media (max-width: 480px) {
+          .simulatorFavoriteToast {
+            bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+            font-size: 12px;
+            padding: 12px 14px;
+          }
+
+          .applyDecisionRowWithFavorite {
+            grid-template-columns: 104px minmax(0, 1fr);
+            gap: 7px;
+          }
+
+          .favoriteSaveButton {
+            border-radius: 14px;
+            padding: 13px 8px;
+            font-size: 13px;
+          }
+
+          .favoriteCandidateSection {
+            border-radius: 18px;
+            padding: 11px;
+            margin-top: 10px;
+          }
+
+          .favoriteCandidateHeader h3 {
+            font-size: 16px;
+          }
+
+          .favoriteCandidateCard {
+            grid-template-columns: 92px minmax(0, 1fr);
+            gap: 9px;
+            border-radius: 16px;
+            padding: 8px;
+          }
+
+          .favoriteCandidateFilmItem {
+            grid-template-columns: 52px minmax(0, 1fr);
+            gap: 5px;
+          }
+
+          .favoriteCandidateTitleRow strong {
+            font-size: 13px;
+          }
+
+          .favoriteCandidateTitleRow em {
+            display: none;
+          }
+
+          .favoriteCandidateFilmItem span,
+          .favoriteCandidateFilmItem b {
+            font-size: 10.5px;
+          }
+
+          .favoriteCandidateSelectedBadge {
+            min-height: 22px;
+            padding: 0 7px;
+            font-size: 10px;
+          }
+
+          .favoriteShareFooter {
+            border-radius: 15px;
+            padding: 9px;
+          }
+
+          .favoriteShareButton {
+            min-height: 40px;
+            border-radius: 14px;
+            font-size: 13px;
+          }
+
+          .favoriteCandidateApplyButton,
+          .favoriteCandidateDeleteButton {
+            min-height: 30px;
+            padding: 0 8px;
+            font-size: 11px;
+          }
         }
 
         @media (min-width: 768px) {

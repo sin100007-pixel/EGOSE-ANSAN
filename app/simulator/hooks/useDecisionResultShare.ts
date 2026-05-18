@@ -15,6 +15,16 @@ type UseDecisionResultShareArgs = {
   colors: typeof COLORS;
 };
 
+type ShareDecisionResultOptions = {
+  title?: string;
+  text?: string;
+  fileNamePrefix?: string;
+  successMessage?: string;
+  textShareMessage?: string;
+  copyMessage?: string;
+  copyWithoutImageMessage?: string;
+};
+
 export function useDecisionResultShare({
   selectedSpace,
   link,
@@ -72,9 +82,11 @@ export function useDecisionResultShare({
     });
   };
 
-  const shareDecisionResult = async () => {
-    const text = buildDecisionText();
-    const fileName = `simulation-result-${new Date().toISOString().slice(0, 10)}.png`;
+  const shareDecisionResult = async (options: ShareDecisionResultOptions = {}) => {
+    const title = options.title || "필름 시뮬레이션 결정 결과";
+    const text = options.text || buildDecisionText();
+    const fileNamePrefix = options.fileNamePrefix || "simulation-result";
+    const fileName = `${fileNamePrefix}-${new Date().toISOString().slice(0, 10)}.png`;
 
     setDecisionMessage("");
     setIsDecisionSharing(true);
@@ -95,10 +107,10 @@ export function useDecisionResultShare({
         ) {
           await navigator.share({
             files: [file],
-            title: "필름 시뮬레이션 결정 결과",
+            title,
             text,
           });
-          setDecisionMessage("결정 결과 이미지와 내용을 전송했습니다.");
+          setDecisionMessage(options.successMessage || "결정 결과 이미지와 내용을 전송했습니다.");
           return;
         }
       } catch {
@@ -107,21 +119,21 @@ export function useDecisionResultShare({
 
       if (navigator.share) {
         await navigator.share({
-          title: "필름 시뮬레이션 결정 결과",
+          title,
           text,
         });
         downloadDataUrl(dataUrl, fileName);
-        setDecisionMessage("결정 결과 문구를 전송했고, 이미지는 파일로 저장했습니다.");
+        setDecisionMessage(options.textShareMessage || "결정 결과 문구를 전송했고, 이미지는 파일로 저장했습니다.");
         return;
       }
 
       await navigator.clipboard.writeText(text);
       downloadDataUrl(dataUrl, fileName);
-      setDecisionMessage("결정 결과를 복사했고, 이미지는 파일로 저장했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
+      setDecisionMessage(options.copyMessage || "결정 결과를 복사했고, 이미지는 파일로 저장했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
     } catch {
       try {
         await navigator.clipboard.writeText(text);
-        setDecisionMessage("결정 결과를 복사했습니다. 이미지는 저장하지 못했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
+        setDecisionMessage(options.copyWithoutImageMessage || "결정 결과를 복사했습니다. 이미지는 저장하지 못했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
       } catch {
         setDecisionMessage("전송에 실패했습니다. 화면의 결과를 캡쳐해서 보내주세요.");
       }

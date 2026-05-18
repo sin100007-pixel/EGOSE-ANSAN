@@ -1,6 +1,15 @@
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
-import { getFilmName } from "../../lib/client-utils";
+import { getFilmName, readPreviewAspectRatio } from "../../lib/client-utils";
+import SimulatorScenePreview from "./SimulatorScenePreview";
+
+type SimulatorFavoriteCandidate = {
+  id: string;
+  created_at: string;
+  space: SimulatorSpace | null;
+  maskZones: MaskZoneDefinition[];
+  zoneFilmMap: Record<string, SimulatorFilm | null>;
+};
 
 type SimulatorDecisionStepProps = {
   selectedSpace: SimulatorSpace | null;
@@ -10,21 +19,48 @@ type SimulatorDecisionStepProps = {
   kakaoHref: string;
   decisionMessage: string;
   isDecisionSharing: boolean;
+  favoriteCandidates: SimulatorFavoriteCandidate[];
+  selectedFavoriteCandidateIds: string[];
+  colors: {
+    cream: string;
+    soft: string;
+  };
   onBackToApply: () => void;
   onShareDecisionResult: () => void;
+  onApplyFavoriteCandidate: (candidate: SimulatorFavoriteCandidate) => void;
+  onRemoveFavoriteCandidate: (candidateId: string) => void;
+  onToggleFavoriteCandidateForShare: (candidateId: string) => void;
+  onShareFavoriteCandidates: () => void;
 };
 
+function formatFavoriteDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "저장일 확인 불가";
+
+  return date.toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function SimulatorDecisionStep({
-  selectedSpace,
   maskZones,
-  zoneFilmMap,
-  hasFabricWarning,
   kakaoHref,
   decisionMessage,
   isDecisionSharing,
+  favoriteCandidates,
+  selectedFavoriteCandidateIds,
+  colors,
   onBackToApply,
-  onShareDecisionResult,
+  onApplyFavoriteCandidate,
+  onRemoveFavoriteCandidate,
+  onToggleFavoriteCandidateForShare,
+  onShareFavoriteCandidates,
 }: SimulatorDecisionStepProps) {
+  const selectedFavoriteCount = selectedFavoriteCandidateIds.length;
+
   return (
     <section className="decisionCard">
       <div className="applyTopRow">
@@ -38,45 +74,149 @@ export default function SimulatorDecisionStep({
         </button>
       </div>
 
-      <div className="decisionSummary">
-        <div className="decisionSpaceName">{selectedSpace?.name || "공간 없음"}</div>
+      <section className="favoriteCandidateSection">
+        <div className="favoriteCandidateHeader">
+          <div>
+            <div className="sectionLabel">즐겨찾기 후보</div>
+            <h3>저장한 후보</h3>
+          </div>
 
-        <div className="decisionZoneList">
-          {maskZones.map((zone) => {
-            const film = zoneFilmMap[zone.key] || null;
-
-            return (
-              <div key={zone.key} className="decisionZoneItem">
-                <span>{zone.label}</span>
-                <strong>{film ? getFilmName(film) : "미선택"}</strong>
-              </div>
-            );
-          })}
+          <span>{favoriteCandidates.length}개</span>
         </div>
 
-        {hasFabricWarning ? (
-          <div className="decisionFabricWarning">
-            선택된 필름에 패브릭필름이 있습니다. 시뮬레이션상 불가피하게 왜곡이 심한 종류이므로 주의 부탁드립니다.
+        {favoriteCandidates.length > 0 ? (
+          <>
+            <div className="favoriteCandidateList">
+              {favoriteCandidates.map((candidate, index) => {
+                const candidateZones = candidate.maskZones.length > 0 ? candidate.maskZones : maskZones;
+                const candidateHasRealSpace = Boolean(
+                  candidate.space?.base_image_url || candidate.space?.overlay_image_url
+                );
+                const isSelectedForShare = selectedFavoriteCandidateIds.includes(candidate.id);
+
+                return (
+                  <article
+                    key={candidate.id}
+                    className={
+                      isSelectedForShare
+                        ? "favoriteCandidateCard favoriteCandidateCardSelected"
+                        : "favoriteCandidateCard"
+                    }
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelectedForShare}
+                    aria-label={`${candidate.space?.name || `후보 ${index + 1}`} 공유 후보 ${
+                      isSelectedForShare ? "선택 해제" : "선택"
+                    }`}
+                    onClick={() => onToggleFavoriteCandidateForShare(candidate.id)}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onToggleFavoriteCandidateForShare(candidate.id);
+                      }
+                    }}
+                  >
+                    <div className="favoriteCandidateThumb">
+                      <SimulatorScenePreview
+                        selectedSpace={candidate.space}
+                        maskZones={candidateZones}
+                        zoneFilmMap={candidate.zoneFilmMap}
+                        previewAspectRatio={readPreviewAspectRatio(candidate.space)}
+                        previewHasRealSpace={candidateHasRealSpace}
+                        colors={colors}
+                        viewportClassName="favoriteCandidateThumbViewport"
+                        exportKeyPrefix={`favorite-${candidate.id}`}
+                        compactEmpty
+                      />
+                    </div>
+
+                    <div className="favoriteCandidateBody">
+                      <div className="favoriteCandidateTitleRow">
+                        <strong>{candidate.space?.name || `후보 ${index + 1}`}</strong>
+                        <div className="favoriteCandidateMeta">
+                          {isSelectedForShare ? (
+                            <span className="favoriteCandidateSelectedBadge">✓ 선택됨</span>
+                          ) : null}
+                          <em>{formatFavoriteDate(candidate.created_at)}</em>
+                        </div>
+                      </div>
+
+                      <div className="favoriteCandidateFilmList">
+                        {candidateZones.map((zone) => {
+                          const film = candidate.zoneFilmMap[zone.key] || null;
+
+                          return (
+                            <div key={`${candidate.id}-${zone.key}`} className="favoriteCandidateFilmItem">
+                              <span>{zone.label}</span>
+                              <b>{film ? getFilmName(film) : "미선택"}</b>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="favoriteCandidateActions">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onApplyFavoriteCandidate(candidate);
+                          }}
+                          className="favoriteCandidateApplyButton"
+                        >
+                          불러오기
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onRemoveFavoriteCandidate(candidate.id);
+                          }}
+                          className="favoriteCandidateDeleteButton"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="favoriteShareFooter">
+              <div className="favoriteShareStatus">
+                {selectedFavoriteCount > 0
+                  ? `${selectedFavoriteCount}개 후보가 공유 대상으로 선택되었습니다.`
+                  : "공유하고 싶은 후보를 선택해주세요."}
+              </div>
+
+              <button
+                type="button"
+                onClick={onShareFavoriteCandidates}
+                className="favoriteShareButton"
+                disabled={selectedFavoriteCount === 0 || isDecisionSharing}
+              >
+                {isDecisionSharing ? "공유 준비 중..." : "선택한 후보 공유"}
+              </button>
+
+              {decisionMessage ? <div className="decisionMessage favoriteShareMessage">{decisionMessage}</div> : null}
+            </div>
+          </>
+        ) : (
+          <div className="favoriteEmptyBox">
+            2단계 색상 적용 화면에서 ⭐ 즐겨찾기를 누르면 이곳에 후보가 저장됩니다.
           </div>
-        ) : null}
-      </div>
+        )}
+      </section>
 
       <div className="decisionActionGrid">
         <section className="decisionActionCard">
           <div className="decisionActionIcon">1</div>
-          <h3>결정 결과 전송</h3>
+          <h3>결정 내용 공유</h3>
           <p>
-            선택한 구역별 필름 결과를 보낼 수 있습니다. 휴대폰에서는 공유창이 열리고, 지원하지 않는 경우 결과가 복사됩니다.
+            공유하고 싶은 즐겨찾기 후보를 선택 후 하단에 공유 버튼을 통해 내용을 전달 할 수 있습니다.
           </p>
-          <button
-            type="button"
-            onClick={onShareDecisionResult}
-            className="primaryDecisionButton"
-            disabled={isDecisionSharing}
-          >
-            {isDecisionSharing ? "전송 준비 중..." : "시뮬레이션 결과 전송"}
-          </button>
-          {decisionMessage ? <div className="decisionMessage">{decisionMessage}</div> : null}
         </section>
 
         <section className="decisionActionCard">

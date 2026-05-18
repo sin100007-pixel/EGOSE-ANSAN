@@ -21,6 +21,7 @@ type SimulatorApplyStepProps = {
   onApplyFilmToAllZones: (film: SimulatorFilm) => void;
   onClearZoneFilm: (zoneKey: string) => void;
   onClearAllZones: () => void;
+  onAddFavorite: () => void;
   onGoDecisionStep: () => void;
 };
 
@@ -39,8 +40,11 @@ export default function SimulatorApplyStep({
   onApplyFilmToAllZones,
   onClearZoneFilm,
   onClearAllZones,
+  onAddFavorite,
   onGoDecisionStep,
 }: SimulatorApplyStepProps) {
+  const hasAnyFilm = maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]));
+
   return (
     <section className="applyCard">
       <div className="applyTopRow">
@@ -110,12 +114,21 @@ export default function SimulatorApplyStep({
         *실물 필름과는 차이가있습니다. 유의해주세요.*
       </p>
 
-      <div className="applyDecisionRow">
+      <div className="applyDecisionRow applyDecisionRowWithFavorite">
+        <button
+          type="button"
+          onClick={onAddFavorite}
+          className="favoriteSaveButton"
+          disabled={!hasAnyFilm}
+        >
+          ⭐ 즐겨찾기
+        </button>
+
         <button
           type="button"
           onClick={onGoDecisionStep}
           className="decisionNextButton"
-          disabled={!maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]))}
+          disabled={!hasAnyFilm}
         >
           결정확정으로 넘어가기
         </button>

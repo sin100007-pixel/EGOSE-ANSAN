@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import type { SimulatorFilm } from "../types";
+import type { SimulatorFilm, SimulatorSpace } from "../types";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorClientStyles from "./SimulatorClientStyles";
 import SimulatorSpaceStep from "./client/SimulatorSpaceStep";
@@ -113,6 +113,48 @@ type SimulatorUndoSnapshot = {
   decisionMessage: string;
 };
 
+type SimulatorFavoriteCandidate = {
+  id: string;
+  created_at: string;
+  space: SimulatorSpace | null;
+  maskZones: ReturnType<typeof readMaskZones>;
+  zoneFilmMap: Record<string, SimulatorFilm | null>;
+};
+
+const MAX_FAVORITE_CANDIDATES = 30;
+
+function buildFavoriteStorageKey(mode: SimulatorClientProps["mode"], token: string) {
+  return `egose-simulator-favorites:${mode}:${token || "default"}`;
+}
+
+function buildFavoriteSignature(
+  spaceId: string,
+  maskZones: ReturnType<typeof readMaskZones>,
+  zoneFilmMap: Record<string, SimulatorFilm | null>
+) {
+  const zoneSignature = maskZones
+    .map((zone) => `${zone.key}:${zoneFilmMap[zone.key]?.id ?? "none"}`)
+    .sort()
+    .join("|");
+
+  return `${spaceId || "space-none"}::${zoneSignature}`;
+}
+
+function isFavoriteCandidate(value: unknown): value is SimulatorFavoriteCandidate {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as Partial<SimulatorFavoriteCandidate>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.created_at === "string" &&
+    (!candidate.space || typeof candidate.space === "object") &&
+    Array.isArray(candidate.maskZones) &&
+    Boolean(candidate.zoneFilmMap) &&
+    typeof candidate.zoneFilmMap === "object"
+  );
+}
+
 type ExitConfirmTypingPhase = "typing" | "holding" | "deleting";
 
 const EXIT_CONFIRM_TYPE_LINES = [
@@ -144,6 +186,11 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const [exitTypingLineIndex, setExitTypingLineIndex] = useState(0);
   const [exitTypingCharCount, setExitTypingCharCount] = useState(0);
   const [exitTypingPhase, setExitTypingPhase] = useState<ExitConfirmTypingPhase>("typing");
+  const [favoriteCandidates, setFavoriteCandidates] = useState<SimulatorFavoriteCandidate[]>([]);
+  const [selectedFavoriteCandidateIds, setSelectedFavoriteCandidateIds] = useState<string[]>([]);
+  const [favoriteShareExportCandidates, setFavoriteShareExportCandidates] = useState<SimulatorFavoriteCandidate[]>([]);
+  const [favoriteStorageReadyKey, setFavoriteStorageReadyKey] = useState("");
+  const [favoriteToastMessage, setFavoriteToastMessage] = useState("");
 
   const {
     state,
@@ -188,6 +235,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
   const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
   const hasIntroStep = mode === "customer" && Boolean(state.contractor);
+  const favoriteStorageKey = useMemo(() => buildFavoriteStorageKey(mode, token), [mode, token]);
 
   const applyingFilm = useMemo(() => {
     if (applyingFilmId === null) return null;
@@ -203,6 +251,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const hasFabricWarning = useMemo(() => {
     return selectedDecisionFilms.some((film) => isFabricFilm(film));
   }, [selectedDecisionFilms]);
+
+  const selectedFavoriteCandidates = useMemo(() => {
+    if (selectedFavoriteCandidateIds.length === 0) return [];
+
+    const selectedIdSet = new Set(selectedFavoriteCandidateIds);
+    return favoriteCandidates.filter((candidate) => selectedIdSet.has(candidate.id));
+  }, [favoriteCandidates, selectedFavoriteCandidateIds]);
 
   const {
     decisionExportRef,
@@ -252,6 +307,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const rapidBackPressCountRef = useRef(0);
   const rapidBackFirstPressAtRef = useRef(0);
   const rapidBackLastPressAtRef = useRef(0);
+  const favoriteToastTimerRef = useRef<number | null>(null);
 
   const resetRapidBackExitPresses = useCallback(() => {
     rapidBackPressCountRef.current = 0;
@@ -346,6 +402,114 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   useEffect(() => {
     showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
   }, [showGuideDisabledNotice]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    setFavoriteStorageReadyKey("");
+
+    try {
+      const raw = window.localStorage.getItem(favoriteStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      const nextCandidates = Array.isArray(parsed)
+        ? parsed.filter(isFavoriteCandidate).slice(0, MAX_FAVORITE_CANDIDATES)
+        : [];
+
+      setFavoriteCandidates(nextCandidates);
+    } catch {
+      setFavoriteCandidates([]);
+    } finally {
+      setFavoriteStorageReadyKey(favoriteStorageKey);
+    }
+  }, [favoriteStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (favoriteStorageReadyKey !== favoriteStorageKey) return;
+
+    try {
+      window.localStorage.setItem(
+        favoriteStorageKey,
+        JSON.stringify(favoriteCandidates.slice(0, MAX_FAVORITE_CANDIDATES))
+      );
+    } catch {
+      // localStorage가 막힌 환경에서는 현재 화면에서만 유지됩니다.
+    }
+  }, [favoriteCandidates, favoriteStorageKey, favoriteStorageReadyKey]);
+
+  useEffect(() => {
+    const favoriteIdSet = new Set(favoriteCandidates.map((candidate) => candidate.id));
+
+    setSelectedFavoriteCandidateIds((prev) => prev.filter((candidateId) => favoriteIdSet.has(candidateId)));
+  }, [favoriteCandidates]);
+
+  useEffect(() => {
+    return () => {
+      if (favoriteToastTimerRef.current !== null) {
+        window.clearTimeout(favoriteToastTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showFavoriteToast = useCallback((message: string) => {
+    setFavoriteToastMessage(message);
+
+    if (favoriteToastTimerRef.current !== null) {
+      window.clearTimeout(favoriteToastTimerRef.current);
+    }
+
+    favoriteToastTimerRef.current = window.setTimeout(() => {
+      setFavoriteToastMessage("");
+      favoriteToastTimerRef.current = null;
+    }, 2300);
+  }, []);
+
+  const waitForFavoriteExportPaint = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      if (typeof window === "undefined") {
+        resolve();
+        return;
+      }
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  }, []);
+
+  const buildFavoriteCandidatesShareText = useCallback((candidates: SimulatorFavoriteCandidate[]) => {
+    const lines: string[] = [
+      "필름 시뮬레이션 즐겨찾기 후보",
+      state.link?.installer_name ? `시공자: ${state.link.installer_name}` : "",
+      "",
+    ].filter(Boolean);
+
+    candidates.forEach((candidate, index) => {
+      const candidateZones = candidate.maskZones.length > 0 ? candidate.maskZones : maskZones;
+
+      lines.push(`${index + 1}. ${candidate.space?.name || `저장한 후보 ${index + 1}`}`);
+
+      candidateZones.forEach((zone) => {
+        const film = candidate.zoneFilmMap[zone.key] || null;
+        lines.push(`${zone.label}: ${film ? getFilmName(film) : "미선택"}`);
+      });
+
+      const hasCandidateFabricWarning = candidateZones.some((zone) => {
+        const film = candidate.zoneFilmMap[zone.key] || null;
+        return film ? isFabricFilm(film) : false;
+      });
+
+      if (hasCandidateFabricWarning) {
+        lines.push("주의: 선택된 필름에 패브릭필름이 있습니다.");
+      }
+
+      if (index < candidates.length - 1) {
+        lines.push("");
+      }
+    });
+
+    return lines.join("\n");
+  }, [maskZones, state.link?.installer_name]);
 
   useEffect(() => {
     if (!showExitConfirm) {
@@ -738,6 +902,106 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     setStep("decision");
   };
 
+  const saveFavoriteCandidate = useCallback(() => {
+    const hasAnyFilm = maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]));
+
+    if (!hasAnyFilm) {
+      showFavoriteToast("필름을 먼저 적용한 뒤 즐겨찾기해주세요.");
+      return;
+    }
+
+    const signature = buildFavoriteSignature(selectedSpace?.id || selectedSpaceId, maskZones, zoneFilmMap);
+    const alreadySaved = favoriteCandidates.some((candidate) =>
+      buildFavoriteSignature(candidate.space?.id || "", candidate.maskZones, candidate.zoneFilmMap) === signature
+    );
+
+    if (alreadySaved) {
+      showFavoriteToast("이미 결정확인에 저장된 세팅입니다.");
+      return;
+    }
+
+    const nextZoneFilmMap = maskZones.reduce<Record<string, SimulatorFilm | null>>((acc, zone) => {
+      acc[zone.key] = zoneFilmMap[zone.key] || null;
+      return acc;
+    }, {});
+
+    const nextCandidate: SimulatorFavoriteCandidate = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      created_at: new Date().toISOString(),
+      space: selectedSpace,
+      maskZones,
+      zoneFilmMap: nextZoneFilmMap,
+    };
+
+    setFavoriteCandidates((prev) => [nextCandidate, ...prev].slice(0, MAX_FAVORITE_CANDIDATES));
+    showFavoriteToast("즐겨찾기한 세팅이 결정확인에 저장되었습니다.");
+  }, [favoriteCandidates, maskZones, selectedSpace, selectedSpaceId, showFavoriteToast, zoneFilmMap]);
+
+  const applyFavoriteCandidate = useCallback((candidate: SimulatorFavoriteCandidate) => {
+    rememberUndoSnapshot();
+
+    const nextZoneFilmMap = { ...candidate.zoneFilmMap };
+    const firstZoneKey = candidate.maskZones[0]?.key || Object.keys(nextZoneFilmMap)[0] || "";
+    const firstFilm = Object.values(nextZoneFilmMap).find(Boolean) || null;
+
+    if (candidate.space?.id) {
+      setSelectedSpaceId(candidate.space.id);
+    }
+
+    setActiveZoneKey(firstZoneKey);
+    setSelectedFilm(firstFilm);
+    setZoneFilmMap(nextZoneFilmMap);
+    setDecisionMessage("");
+    setStep("apply");
+    showFavoriteToast("즐겨찾기 후보를 불러왔습니다.");
+  }, [rememberUndoSnapshot, setDecisionMessage, showFavoriteToast]);
+
+  const toggleFavoriteCandidateForShare = useCallback((candidateId: string) => {
+    setSelectedFavoriteCandidateIds((prev) => {
+      if (prev.includes(candidateId)) {
+        return prev.filter((id) => id !== candidateId);
+      }
+
+      return [...prev, candidateId];
+    });
+  }, []);
+
+  const shareFavoriteCandidates = useCallback(async () => {
+    if (selectedFavoriteCandidates.length === 0) {
+      showFavoriteToast("공유할 즐겨찾기 후보를 먼저 선택해주세요.");
+      return;
+    }
+
+    setFavoriteShareExportCandidates(selectedFavoriteCandidates);
+
+    try {
+      await waitForFavoriteExportPaint();
+      await shareDecisionResult({
+        title: "필름 시뮬레이션 즐겨찾기 후보",
+        text: buildFavoriteCandidatesShareText(selectedFavoriteCandidates),
+        fileNamePrefix: "simulation-favorites",
+        successMessage: "선택한 즐겨찾기 후보 이미지와 내용을 전송했습니다.",
+        textShareMessage: "선택한 즐겨찾기 후보 내용을 전송했고, 이미지는 파일로 저장했습니다.",
+        copyMessage: "선택한 즐겨찾기 후보 내용을 복사했고, 이미지는 파일로 저장했습니다. 문자, 메신저로 붙여넣어 전송해주세요.",
+        copyWithoutImageMessage: "선택한 즐겨찾기 후보 내용을 복사했습니다. 이미지는 저장하지 못했습니다.",
+      });
+    } finally {
+      setFavoriteShareExportCandidates([]);
+    }
+  }, [
+    buildFavoriteCandidatesShareText,
+    selectedFavoriteCandidates,
+    shareDecisionResult,
+    showFavoriteToast,
+    waitForFavoriteExportPaint,
+  ]);
+
+  const removeFavoriteCandidate = useCallback((candidateId: string) => {
+    setFavoriteCandidates((prev) => prev.filter((candidate) => candidate.id !== candidateId));
+    setSelectedFavoriteCandidateIds((prev) => prev.filter((id) => id !== candidateId));
+    showFavoriteToast("즐겨찾기 후보를 삭제했습니다.");
+  }, [showFavoriteToast]);
+
   const handleFilmClick = async (film: SimulatorFilm) => {
     const targetZoneKey = getTargetZoneKey();
 
@@ -834,6 +1098,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         {isDashboardMoving ? (
           <div className="dashboardMoveOverlay" aria-live="polite">
             <div className="dashboardMoveToast">대시보드로 이동 중...</div>
+          </div>
+        ) : null}
+
+        {favoriteToastMessage ? (
+          <div className="simulatorFavoriteToast" role="status" aria-live="polite">
+            {favoriteToastMessage}
           </div>
         ) : null}
 
@@ -1010,6 +1280,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               onApplyFilmToAllZones={applyFilmToAllZones}
               onClearZoneFilm={clearZoneFilm}
               onClearAllZones={clearAllZones}
+              onAddFavorite={saveFavoriteCandidate}
               onGoDecisionStep={goDecisionStep}
             />
           ) : (
@@ -1021,8 +1292,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
               kakaoHref={kakaoHref}
               decisionMessage={decisionMessage}
               isDecisionSharing={isDecisionSharing}
+              favoriteCandidates={favoriteCandidates}
+              selectedFavoriteCandidateIds={selectedFavoriteCandidateIds}
+              colors={COLORS}
               onBackToApply={() => goStepWithUndo("apply")}
               onShareDecisionResult={() => void shareDecisionResult()}
+              onApplyFavoriteCandidate={applyFavoriteCandidate}
+              onRemoveFavoriteCandidate={removeFavoriteCandidate}
+              onToggleFavoriteCandidateForShare={toggleFavoriteCandidateForShare}
+              onShareFavoriteCandidates={() => void shareFavoriteCandidates()}
             />
           )}
         </div>
@@ -1163,6 +1441,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           previewAspectRatio={previewAspectRatio}
           previewHasRealSpace={previewHasRealSpace}
           hasFabricWarning={hasFabricWarning}
+          favoriteCandidates={favoriteShareExportCandidates}
           colors={COLORS}
         />
       ) : null}
