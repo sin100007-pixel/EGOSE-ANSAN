@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
+import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
 import SimulatorFilmSearchPanel from "./shared/SimulatorFilmSearchPanel";
 import SimulatorFilmResultCard from "./shared/SimulatorFilmResultCard";
 import SimulatorSamplePreview from "./shared/SimulatorSamplePreview";
@@ -92,6 +93,69 @@ const CUSTOMER_SHARE_MESSAGE = [
   "",
   "아래 링크를 눌러 실행해주세요.",
 ].join("\n");
+
+
+const LINK_BUILDER_TUTORIAL_STEPS = [
+  {
+    id: "link-start",
+    target: "link-hero",
+    title: "고객 링크를 만드는 화면입니다",
+    description:
+      "이 화면에서는 고객에게 보낼 시뮬레이터 링크를 만들고, 링크별로 공간과 필름 범위를 제한할 수 있습니다.",
+    tip: "처음에는 공간 1개와 삼성필름 전체로 만들어보면 가장 빠르게 테스트할 수 있어요.",
+  },
+  {
+    id: "link-info",
+    target: "link-info",
+    title: "고객 구분 정보를 입력합니다",
+    description: (
+      <>
+        <span style={{ color: "#eee0c5", fontWeight: 900 }}>시공자 이름, 고객 이름, 메모</span>는 보낸 링크를 관리할 때 구분하기 위한 정보입니다.<br />
+        <span style={{ color: "#eee0c5", fontWeight: 900 }}>유효기간</span>은 고객이 시뮬레이션할 수 있는 기간을 설정합니다.
+      </>
+    ),
+  },
+  {
+    id: "link-spaces",
+    target: "link-spaces",
+    title: "보여줄 공간을 고릅니다",
+    description:
+      "공간 카드를 누르면 선택 또는 해제됩니다. 링크로 접속한 고객은 선택된 공간만 시뮬레이션 할 수 있습니다.",
+    tip:
+      "적은 공간을 보여주면 혼란을 줄일 수 있고, 많은 공간을 보여주면 추가 수주할 수 있을 여지가 생기니 적당한 수준에서의 공유가 바람직해요.",
+  },
+  {
+    id: "link-films",
+    target: "link-films",
+    title: "보여줄 필름 범위를 정합니다",
+    description:
+      "삼성필름 전체, 미리 저장한 프리셋, 직접 선택한 필름 중에서 링크에 허용할 필름 범위를 정할 수 있습니다.",
+    tip: (
+      <>
+        자주 쓰는 추천 조합은 프리셋으로 먼저 저장해두면 링크 만들 때 빠르게 선택할 수 있어요.<br />
+        <span style={{ color: "#eee0c5", fontWeight: 900 }}>프리셋은 하단의 버튼을 눌러 들어가주세요.</span>
+      </>
+    ),
+    scrollBlock: "start",
+    scrollOffset: 120,
+  },
+  {
+    id: "link-create",
+    target: "link-create",
+    title: "고객 링크를 생성합니다",
+    description:
+      "설정이 끝나면 고객 링크 생성을 누릅니다. 생성된 링크는 안내 문구와 함께 복사해서 고객에게 보낼 수 있습니다.",
+  },
+  {
+    id: "link-result",
+    target: "link-result",
+    title: "생성 결과를 확인합니다",
+    description:
+      "오른쪽에는 현재 선택한 공간 수, 필름 범위, 유효기간이 요약됩니다. 링크 생성 후에는 복사와 열어보기를 바로 사용할 수 있습니다.",
+    cardBottom: 400,
+    cardBottomMobile: 480,
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
 
 const COLORS = {
   bg: "#05023B",
@@ -535,13 +599,19 @@ export default function SimulatorLinkBuilder() {
           ← 대시보드
         </button>
 
-        <section className="heroCard">
+        <section className="heroCard" data-sim-admin-guide="link-hero">
           <div className="stepBadge">고객 링크 생성</div>
           <h1>시뮬레이션 링크 만들기</h1>
           <p>
             고객에게 보낼 1일 / 3일 / 7일짜리 시뮬레이터 링크를 만듭니다. 공간과 필름 범위를 링크별로 제한할 수 있습니다.
           </p>
         </section>
+
+        <SimulatorAdminTutorial
+          storageKey="link-builder-v1"
+          steps={LINK_BUILDER_TUTORIAL_STEPS}
+          buttonLabel="링크 만들기 도움말"
+        />
 
         {loading ? (
           <div className="layout">
@@ -604,7 +674,7 @@ export default function SimulatorLinkBuilder() {
         ) : (
           <div className="layout">
             <section className="panel formPanel">
-              <div className="fieldGrid">
+              <div className="fieldGrid" data-sim-admin-guide="link-info">
                 <label>
                   <span>시공자 이름</span>
                   <input
@@ -645,7 +715,7 @@ export default function SimulatorLinkBuilder() {
                 </label>
               </div>
 
-              <div className="sectionBlock">
+              <div className="sectionBlock" data-sim-admin-guide="link-spaces">
                 <div className="sectionTitleRow">
                   <div>
                     <h2>공간 제한</h2>
@@ -659,9 +729,6 @@ export default function SimulatorLinkBuilder() {
                     spaces.map((space) => {
                       const active = selectedSpaceIds.includes(space.id);
                       const thumb = getSpaceThumb(space);
-                      const thumbZones = readMaskZones(space);
-                      const thumbAspectRatio = readPreviewAspectRatio(space);
-                      const hasSceneThumb = Boolean(space.base_image_url || space.overlay_image_url);
 
                       return (
                         <button
@@ -670,37 +737,22 @@ export default function SimulatorLinkBuilder() {
                           onClick={() => toggleSpace(space.id)}
                           className={`spaceCard ${active ? "spaceCardActive" : ""}`}
                         >
-                          <div className="spaceThumb" style={{ aspectRatio: thumbAspectRatio }}>
-                            {hasSceneThumb ? (
-                              <div className="spaceThumbStage">
-                                {thumbZones.map((zone) => (
-                                  <div
-                                    key={zone.key}
-                                    aria-hidden="true"
-                                    className="spaceThumbCheckerLayer"
-                                    style={{
-                                      WebkitMaskImage: `url("${zone.mask_url}")`,
-                                      maskImage: `url("${zone.mask_url}")`,
-                                    }}
-                                  />
-                                ))}
-
-                                {space.base_image_url ? (
-                                  <img src={space.base_image_url} alt="공간 원본" className="spaceThumbBaseImage" />
-                                ) : null}
-
-                                {space.overlay_image_url ? (
-                                  <img src={space.overlay_image_url} alt={space.name} className="spaceThumbOverlayImage" />
-                                ) : null}
-                              </div>
-                            ) : thumb ? (
-                              <img src={thumb} alt={space.name} />
+                          <div className="spaceThumb">
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt={space.name}
+                                loading="lazy"
+                                decoding="async"
+                              />
                             ) : (
                               <div className="spaceThumbEmpty">이미지 준비중</div>
                             )}
                           </div>
-                          <div className="spaceName">{space.name}</div>
-                          <div className="spaceState">{active ? "선택됨" : "선택 안 됨"}</div>
+                          <div className="spaceInfoRow">
+                            <div className="spaceName">{space.name}</div>
+                            <span className="spaceSelectBadge">{active ? "선택됨" : "선택"}</span>
+                          </div>
                         </button>
                       );
                     })
@@ -710,7 +762,7 @@ export default function SimulatorLinkBuilder() {
                 </div>
               </div>
 
-              <div className="sectionBlock">
+              <div className="sectionBlock" data-sim-admin-guide="link-films">
                 <div className="sectionTitleRow">
                   <div>
                     <h2>필름 제한</h2>
@@ -850,12 +902,13 @@ export default function SimulatorLinkBuilder() {
                 onClick={createLink}
                 disabled={creating}
                 className="createButton"
+                data-sim-admin-guide="link-create"
               >
                 {creating ? "링크 생성 중..." : "고객 링크 생성"}
               </button>
             </section>
 
-            <aside className="panel resultPanel">
+            <aside className="panel resultPanel" data-sim-admin-guide="link-result">
               <h2>생성 결과</h2>
 
               {result?.url ? (
@@ -1283,8 +1336,12 @@ export default function SimulatorLinkBuilder() {
         }
 
         .spaceCard {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
           border-radius: 20px;
           padding: 8px;
+          overflow: hidden;
         }
 
         .spaceCardActive,
@@ -1297,10 +1354,12 @@ export default function SimulatorLinkBuilder() {
           position: relative;
           width: 100%;
           aspect-ratio: 1536 / 1024;
+          flex: 0 0 auto;
           overflow: hidden;
           border-radius: 15px;
           border: 1px solid ${COLORS.line};
           background: rgba(255, 255, 255, 0.06);
+          isolation: isolate;
         }
 
         .spaceThumbStage {
@@ -1342,6 +1401,15 @@ export default function SimulatorLinkBuilder() {
           display: block;
         }
 
+        .spaceInfoRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          min-width: 0;
+          padding: 10px 2px 2px;
+        }
+
         .spaceThumbBaseImage,
         .spaceThumbOverlayImage {
           position: absolute;
@@ -1368,17 +1436,24 @@ export default function SimulatorLinkBuilder() {
         }
 
         .spaceName {
+          min-width: 0;
           color: ${COLORS.cream};
           font-size: 15px;
           font-weight: 900;
-          margin: 9px 4px 4px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        .spaceState {
-          color: ${COLORS.soft};
-          font-size: 12px;
-          font-weight: 800;
-          margin: 0 4px 4px;
+        .spaceSelectBadge {
+          flex-shrink: 0;
+          border-radius: 999px;
+          padding: 5px 8px;
+          background: rgba(238, 224, 197, 0.12);
+          color: ${COLORS.cream};
+          font-size: 11px;
+          font-weight: 900;
+          line-height: 1;
         }
 
         .scopeRow {
@@ -2047,7 +2122,31 @@ export default function SimulatorLinkBuilder() {
           }
 
           .spaceGrid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+          }
+
+          .spaceCard {
+            border-radius: 18px;
+            padding: 7px;
+          }
+
+          .spaceThumb {
+            border-radius: 14px;
+          }
+
+          .spaceInfoRow {
+            gap: 6px;
+            padding: 8px 1px 1px;
+          }
+
+          .spaceName {
+            font-size: 14px;
+          }
+
+          .spaceSelectBadge {
+            padding: 4px 7px;
+            font-size: 10px;
           }
 
           .filmGrid {

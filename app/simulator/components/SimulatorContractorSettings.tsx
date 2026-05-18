@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
+import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
 
 type ContractorProfile = {
   id?: string;
@@ -62,6 +63,69 @@ const COLORS = {
   danger: "#ff7a7a",
   ok: "#9DF2C7",
 };
+
+const SETTINGS_TUTORIAL_STEPS = [
+  {
+    id: "settings-start",
+    target: "settings-hero",
+    title: "고객 소개 화면을 설정합니다",
+    description:
+      "고객 링크 첫 화면에 보이는 시공자 이름, 로고, 인삿말, 연락처와 대표 시공사진을 관리하는 화면입니다.",
+    tip: "여기서 저장한 내용은 고객이 시뮬레이터 링크를 열었을 때 처음 보는 소개 영역에 사용됩니다.",
+  },
+  {
+    id: "settings-preview-button",
+    target: "settings-preview-button",
+    title: "미리보기로 먼저 확인합니다",
+    description:
+      "현재 입력한 내용이 고객 첫 화면에서 어떻게 보일지 저장 전후로 확인할 수 있습니다.",
+  },
+  {
+    id: "settings-basic",
+    target: "settings-basic",
+    title: "기본 정보를 입력합니다",
+    description:
+      "고객에게 보일 이름, 로고, 인삿말, 전화번호, 브랜드 색상, 카카오 문의 링크를 입력합니다.",
+    tip: "사무실에 문의하시면 로고나 카카오톡문의링크 만드는 것을 도와드립니다.",
+    scrollBlock: "center",
+  },
+  {
+    id: "settings-active",
+    target: "settings-active",
+    title: "소개 화면 노출 여부를 정합니다",
+    description:
+      "체크하면 고객 링크 첫 화면에 시공자 소개가 표시됩니다. 끄면 고객 화면에서 소개 영역을 숨길 수 있습니다.",
+    scrollBlock: "center",
+  },
+  {
+    id: "settings-photos",
+    target: "settings-photos",
+    title: "대표 시공사진을 등록합니다",
+    description:
+      "사진을 업로드하거나 URL을 입력해서 고객에게 보여줄 시공 사례를 추가합니다. 제목과 설명도 함께 넣을 수 있습니다.",
+    scrollBlock: "start",
+    scrollOffset: 80,
+  },
+  {
+    id: "settings-photo-options",
+    target: "settings-photo-options",
+    title: "사진 공개와 대표 여부를 정합니다",
+    description:
+      "공개를 끄면 고객 화면에 보이지 않습니다. 대표를 선택하면 소개 화면에서 더 중요한 사진으로 사용할 수 있습니다.",
+    scrollBlock: "center",
+  },
+  {
+    id: "settings-save",
+    target: "settings-footer-actions",
+    title: "설정을 저장합니다",
+    description:
+      "변경한 내용은 설정 저장을 눌러야 고객 링크 첫 화면에 반영됩니다.",
+    scrollBlock: "end",
+    scrollOffset: 150,
+    cardPlacement: "top",
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
+
 
 const emptyPhoto = (sortOrder: number): ContractorPhoto => ({
   image_url: "",
@@ -349,18 +413,29 @@ export default function SimulatorContractorSettings() {
         ← 대시보드
       </button>
 
-      <section className="heroCard">
+      <section className="heroCard" data-sim-admin-guide="settings-hero">
         <div>
           <span className="stepPill">시공자 설정</span>
           <h1>고객용 시뮬레이터 소개 화면</h1>
           <p>고객 링크 첫 화면에 보일 로고, 인삿말, 연락처, 대표 시공사진을 관리합니다.</p>
         </div>
         <div className="heroActions">
-          <button type="button" onClick={() => setIsPreviewOpen(true)} disabled={loading}>
+          <button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            disabled={loading}
+            data-sim-admin-guide="settings-preview-button"
+          >
             미리보기
           </button>
         </div>
       </section>
+
+      <SimulatorAdminTutorial
+        storageKey="contractor-settings-v1"
+        steps={SETTINGS_TUTORIAL_STEPS}
+        buttonLabel="소개 설정 도움말"
+      />
 
       {loading ? (
         <section className="panel loadingPanel">설정을 불러오는 중...</section>
@@ -370,7 +445,7 @@ export default function SimulatorContractorSettings() {
           {message ? <div className="notice successNotice">{message}</div> : null}
 
           <section className="gridLayout">
-            <div className="panel formPanel">
+            <div className="panel formPanel" data-sim-admin-guide="settings-basic">
               <div className="sectionHeader">
                 <span>기본 정보</span>
                 <strong>{installerName ? `${installerName} 계정` : "현재 계정"}</strong>
@@ -450,7 +525,7 @@ export default function SimulatorContractorSettings() {
                 />
               </label>
 
-              <label className="checkRow">
+              <label className="checkRow" data-sim-admin-guide="settings-active">
                 <input
                   type="checkbox"
                   checked={isActive}
@@ -460,7 +535,7 @@ export default function SimulatorContractorSettings() {
               </label>
             </div>
 
-            <div className="panel previewPanel">
+            <div className="panel previewPanel" data-sim-admin-guide="settings-preview-panel">
               <div className="sectionHeader">
                 <span>미리보기</span>
                 <strong>고객 첫 화면</strong>
@@ -472,7 +547,7 @@ export default function SimulatorContractorSettings() {
             </div>
           </section>
 
-          <section className="panel photoPanel">
+          <section className="panel photoPanel" data-sim-admin-guide="settings-photos">
             <div className="sectionHeader">
               <span>대표 시공사진</span>
               <strong>최대 12장 저장 가능</strong>
@@ -532,7 +607,7 @@ export default function SimulatorContractorSettings() {
                       </label>
                     </div>
 
-                    <div className="photoOptions">
+                    <div className="photoOptions" data-sim-admin-guide={index === 0 ? "settings-photo-options" : undefined}>
                       <label>
                         <input
                           type="checkbox"
@@ -559,7 +634,7 @@ export default function SimulatorContractorSettings() {
               ))}
             </div>
 
-            <div className="footerActions">
+            <div className="footerActions" data-sim-admin-guide="settings-footer-actions">
               <button type="button" className="subButton" onClick={addPhotoSlot}>사진 입력칸 추가</button>
               <button type="button" className="saveButton" onClick={save} disabled={saving || uploadingTarget !== null}>
                 {saving ? "저장 중..." : uploadingTarget !== null ? "업로드 중..." : "설정 저장"}

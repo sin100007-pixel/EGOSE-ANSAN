@@ -19,6 +19,7 @@ type SimulatorScenePreviewProps = {
   compactEmpty?: boolean;
   activeZoneKey?: string;
   onZoneClick?: (zoneKey: string) => void;
+  guideTarget?: string;
 };
 
 export default function SimulatorScenePreview({
@@ -33,6 +34,7 @@ export default function SimulatorScenePreview({
   compactEmpty = false,
   activeZoneKey = "",
   onZoneClick,
+  guideTarget,
 }: SimulatorScenePreviewProps) {
   const { findZoneKeyAtPointer } = useMaskZonePicker(maskZones);
 
@@ -51,6 +53,7 @@ export default function SimulatorScenePreview({
       style={{
         aspectRatio: previewAspectRatio,
       }}
+      data-sim-admin-guide={guideTarget}
     >
       {previewHasRealSpace ? (
         <div

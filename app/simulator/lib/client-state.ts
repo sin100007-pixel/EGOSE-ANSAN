@@ -14,7 +14,7 @@ export type BootstrapState = {
 };
 
 export type SimulatorStep = "intro" | "space" | "apply" | "decision";
-export type CustomerGuideStep = Extract<SimulatorStep, "intro" | "space" | "apply">;
+export type CustomerGuideStep = Extract<SimulatorStep, "intro" | "space" | "apply" | "decision">;
 
 export const COLORS = {
   bg: "#05023B",
@@ -120,8 +120,18 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
     ],
     buttonLabel: "색상 적용해보기",
   },
+  decision: {
+    stepLabel: "4단계 결정 확정",
+    title: "선택한 결과를 확인합니다.",
+    body: [
+      {
+        lines: ["선택한 결과를 확인하고 필요한 방법으로 문의해주세요."],
+      },
+    ],
+    buttonLabel: "확인하기",
+  },
 };
 
-export const CUSTOMER_GUIDE_STEPS: CustomerGuideStep[] = ["intro", "space", "apply"];
+export const CUSTOMER_GUIDE_STEPS: CustomerGuideStep[] = ["intro", "space", "apply", "decision"];
 export const CUSTOMER_GUIDE_STORAGE_PREFIX = "egose-simulator-customer-guide-v1";
 export const CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX = "egose-simulator-customer-guide-enabled-v1";

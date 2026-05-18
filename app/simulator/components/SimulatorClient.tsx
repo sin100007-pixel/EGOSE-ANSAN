@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import type { SimulatorFilm, SimulatorSpace } from "../types";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorClientStyles from "./SimulatorClientStyles";
+import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
 import SimulatorSpaceStep from "./client/SimulatorSpaceStep";
 import SimulatorBottomStepNav from "./client/SimulatorBottomStepNav";
 import { COLORS, type SimulatorStep } from "../lib/client-state";
@@ -122,6 +123,236 @@ type SimulatorFavoriteCandidate = {
 };
 
 const MAX_FAVORITE_CANDIDATES = 30;
+
+const CUSTOMER_INTRO_TUTORIAL_STEPS = [
+  {
+    id: "customer-intro-welcome",
+    title: "시뮬레이터에 오신 걸 환영합니다.",
+    description: (
+      <>
+        필름 색 조합에 따른 뉘앙스 차이를 보여드립니다.
+        <br />
+        실제 필름과는 차이가 있으니 유의해주세요.
+      </>
+    ),
+  },
+  {
+    id: "customer-intro-profile",
+    title: "소개",
+    description: "소개와 연락처입니다.",
+    target: "customer-intro-profile",
+    scrollBlock: "center",
+    cardPlacement: "bottom",
+    cardBottom: 86,
+    cardBottomMobile: 78,
+  },
+  {
+    id: "customer-intro-portfolio",
+    title: "대표시공사진",
+    description: "실제 시공사례입니다.",
+    target: "customer-intro-portfolio",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "customer-intro-guide-toggle",
+    title: "가이드 켜기/끄기버튼",
+    description: (
+      <>
+        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOn">ON</span>
+        이면 가이드가 켜져있는 상태이고
+        <br />
+        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOff">OFF</span>
+        이면 가이드가 꺼져있는 상태입니다.
+        <br />
+        필요에 따라 끌 수도 있고 켜면 다시 볼 수 있습니다.
+      </>
+    ),
+    target: "customer-intro-guide-toggle",
+    cardPlacement: "bottom",
+  },
+  {
+    id: "customer-intro-start",
+    title: "시뮬레이션시작",
+    description: "준비되셨다면 시뮬레이션 시작버튼을 눌러 시작해주세요.",
+    target: "customer-intro-start",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
+
+const CUSTOMER_SPACE_TUTORIAL_STEPS = [
+  {
+    id: "customer-space-hero",
+    title: "공간 선택 단계",
+    description: "필름을 적용해볼 공간을 고르는 단계입니다.",
+    target: "customer-space-hero",
+    scrollBlock: "center",
+    cardPlacement: "bottom",
+  },
+  {
+    id: "customer-space-list",
+    title: "공간 목록",
+    description:
+      "목록중에 필름을 적용해보고 싶은 공간을 클릭해주세요. 썸네일을 클릭하시면 바로 3단계 필름적용으로 넘어갑니다.",
+    target: "customer-space-list",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
+
+
+const CUSTOMER_APPLY_TUTORIAL_STEPS = [
+  {
+    id: "customer-apply-hero",
+    title: "색상 적용",
+    description: "선택된 공간에 필름을 적용해보는 단계입니다.",
+    target: "customer-apply-hero",
+    scrollBlock: "center",
+    cardPlacement: "bottom",
+  },
+  {
+    id: "customer-apply-preview",
+    title: "필름을 적용할 구역 선택 1",
+    description: (
+      <>
+        <span className="simAdminTutorialCheckerIcon" aria-hidden="true" />이 있는 구역을 누르면 그 구역에 필름을 적용할 수 있습니다.
+      </>
+    ),
+    target: "customer-apply-preview",
+    scrollBlock: "center",
+    cardPlacement: "bottom",
+  },
+  {
+    id: "customer-apply-zone-buttons",
+    title: "필름을 적용할 구역 선택 2",
+    description: "강조된 곳의 버튼을 누르면 그 그곳에 필름을 적용 할 수 있습니다.",
+    target: "customer-apply-zone-buttons",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "customer-apply-sheet",
+    title: "필름 색상 검색",
+    description: "구역이 선택하면 그 구역에 적용할 필름을 선택하는 창입니다.",
+    target: "customer-apply-sheet",
+    scrollBlock: "start",
+    cardPlacement: "top",
+  },
+  {
+    id: "customer-apply-pattern-filter",
+    title: "패턴으로 필터링",
+    description: "필름의 패턴으로 필터링할 수 있습니다.",
+    target: "customer-apply-pattern-filter",
+    scrollBlock: "start",
+    cardPlacement: "bottom",
+    cardBottom: 28,
+    cardBottomMobile: 20,
+  },
+  {
+    id: "customer-apply-color-filter",
+    title: "색상으로 필터링",
+    description: "색상팔레트에서 색상을 고르시면 비슷한 색으로 모아서 보여드립니다.",
+    tip: "1차분류2차분류랑 조합해서 쓸 수 있어요. 예)솔리드>베이직 솔리드> 흰색 이면 베이직 솔리드의 흰색계열을 모아서 보여드려요.",
+    target: "customer-apply-color-filter",
+    scrollBlock: "start",
+    cardPlacement: "bottom",
+    cardBottom: 24,
+    cardBottomMobile: 18,
+  },
+  {
+    id: "customer-apply-favorite",
+    title: "즐겨찾기",
+    description:
+      "완성한 조합을 저장할 수 있어요. 저장된 조합은 4단계 결정확정에 보관돼요. 시뮬레이터를 껏다켜도 최대한 저장될 수 있게 끔 만들어졌지만 사라질 수 있으니 조심해주세요.",
+    target: "customer-apply-favorite",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "customer-apply-decision",
+    title: "결정확정으로 넘어가기",
+    description: "다음 단계인 결정확정으로 넘어갈 수 있어요.",
+    target: "customer-apply-decision",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
+
+const CUSTOMER_DECISION_TUTORIAL_STEPS = [
+  {
+    id: "customer-decision-hero",
+    title: "결정 확정 단계",
+    description: "조합된 공간과 필름을 저장 및 공유하고, 결정에 도움을 드리는 곳입니다.",
+    target: "customer-decision-hero",
+    scrollBlock: "center",
+    cardPlacement: "bottom",
+  },
+  {
+    id: "customer-decision-candidates-section",
+    title: "즐겨찾기 후보",
+    description: "3단계 색상 적용에서 저장된 즐겨찾기를 보관하는 곳입니다.",
+    target: "customer-decision-candidates-section",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "customer-decision-candidate-select",
+    title: "즐겨찾기 후보 공유",
+    description: (
+      <>
+        후보를 눌러 선택 후, 하단에 선택한 후보를{" "}
+        <span className="simAdminTutorialInlineButton simAdminTutorialInlineButtonShare">선택한 후보 공유</span>
+        버튼을 눌러 공유하세요.
+      </>
+    ),
+    target: "customer-decision-candidate-select",
+    scrollBlock: "start",
+    scrollOffset: -88,
+    cardPlacement: "bottom",
+  },
+  {
+    id: "customer-decision-candidate-actions",
+    title: "저장된 즐겨찾기 후보 삭제 및 불러오기",
+    description: (
+      <>
+        <span className="simAdminTutorialInlineButton simAdminTutorialInlineButtonLoad">불러오기</span>
+        버튼을 눌러 3단계에서 저장된 색을 불러옵니다.
+        <br />
+        <span className="simAdminTutorialInlineButton simAdminTutorialInlineButtonDelete">삭제</span>
+        버튼을 눌러 없앨 수 있습니다.
+      </>
+    ),
+    target: "customer-decision-candidate-actions",
+    scrollBlock: "center",
+    cardPlacement: "bottom",
+    cardBottom: 26,
+    cardBottomMobile: 18,
+  },
+  {
+    id: "customer-decision-sample",
+    title: "실물 필름 확인해보기",
+    description: "삼성필름 총판에 방문하시면 선택한 필름 실물을 보여드리고, 샘플을 드립니다.",
+    target: "customer-decision-sample",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "customer-decision-kakao",
+    title: "카카오톡 문의",
+    description: (
+      <>
+        <span className="simAdminTutorialInlineButton simAdminTutorialInlineButtonKakao">카카오톡 문의하기</span>
+        을 누르시면 오픈톡방으로 연결됩니다.
+      </>
+    ),
+    target: "customer-decision-kakao",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
+
+
 
 function buildFavoriteStorageKey(mode: SimulatorClientProps["mode"], token: string) {
   return `egose-simulator-favorites:${mode}:${token || "default"}`;
@@ -1277,11 +1508,33 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     !state.loading &&
     !state.expired &&
     !state.setupNeeded &&
-    (isCustomerIntroStep || step === "space" || step === "apply");
+    (isCustomerIntroStep || step === "space" || step === "apply" || step === "decision");
 
   const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
   const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
 
+  const handleApplyTutorialStepChange = useCallback((tutorialStep: SimulatorAdminTutorialStep, _index: number, isOpen: boolean) => {
+    if (!isOpen) return;
+
+    const needsFilmSheet =
+      tutorialStep.id === "customer-apply-sheet" ||
+      tutorialStep.id === "customer-apply-pattern-filter" ||
+      tutorialStep.id === "customer-apply-color-filter";
+
+    if (needsFilmSheet) {
+      const fallbackZoneKey = activeZoneKey || maskZones[0]?.key || "";
+      if (!fallbackZoneKey) return;
+
+      if (!isFilmSheetOpen || activeZoneKey !== fallbackZoneKey) {
+        openFilmSheet(fallbackZoneKey);
+      }
+      return;
+    }
+
+    if (isFilmSheetOpen) {
+      closeFilmSheet();
+    }
+  }, [activeZoneKey, closeFilmSheet, isFilmSheetOpen, maskZones, openFilmSheet]);
 
   const exitTypingCurrentLine =
     EXIT_CONFIRM_TYPE_LINES[exitTypingLineIndex] || EXIT_CONFIRM_TYPE_LINES[0];
@@ -1335,6 +1588,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             onClick={toggleGuideEnabled}
             aria-pressed={guideEnabled}
             aria-label={guideEnabled ? "가이드 끄기" : "가이드 켜기"}
+            data-sim-admin-guide="customer-intro-guide-toggle"
           >
             <Image
               src={guideToggleImage}
@@ -1349,7 +1603,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
         <div className={isCustomerIntroStep && showGuideToggle ? "pageInner pageInnerCustomerIntroWithGuide" : "pageInner"}>
           {(state.loading && mode === "customer") || (step === "intro" && hasIntroStep) ? null : (
-            <section className="heroCard">
+            <section
+              className="heroCard"
+              data-sim-admin-guide={step === "space" ? "customer-space-hero" : step === "apply" ? "customer-apply-hero" : step === "decision" ? "customer-decision-hero" : undefined}
+            >
               <div className="heroTopRow">
                 <div style={{ minWidth: 0 }}>
                   <div className="stepBadge">{stepBadgeText}</div>
@@ -1596,11 +1853,58 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         ) : null}
 
         {currentGuide ? (
-          <SimulatorCustomerGuideModal
-            guide={currentGuide}
-            onClose={closeCustomerGuide}
-            onDisable={disableCustomerGuide}
-          />
+          currentGuide.stepLabel === "1단계 소개" ? (
+            <SimulatorAdminTutorial
+              storageKey={`customer-intro-${token || "default"}`}
+              steps={CUSTOMER_INTRO_TUTORIAL_STEPS}
+              autoOpen={false}
+              controlledOpen
+              onControlledClose={closeCustomerGuide}
+              hideButton
+              ariaLabel="고객용 시뮬레이터 안내"
+              skipStorageMarkDone
+            />
+          ) : currentGuide.stepLabel === "2단계 공간 선택" ? (
+            <SimulatorAdminTutorial
+              storageKey={`customer-space-${token || "default"}`}
+              steps={CUSTOMER_SPACE_TUTORIAL_STEPS}
+              autoOpen={false}
+              controlledOpen
+              onControlledClose={closeCustomerGuide}
+              hideButton
+              ariaLabel="고객용 공간 선택 안내"
+              skipStorageMarkDone
+            />
+          ) : currentGuide.stepLabel === "3단계 색상 적용" ? (
+            <SimulatorAdminTutorial
+              storageKey={`customer-apply-${token || "default"}`}
+              steps={CUSTOMER_APPLY_TUTORIAL_STEPS}
+              autoOpen={false}
+              controlledOpen
+              onControlledClose={closeCustomerGuide}
+              hideButton
+              ariaLabel="고객용 색상 적용 안내"
+              skipStorageMarkDone
+              onStepChange={handleApplyTutorialStepChange}
+            />
+          ) : currentGuide.stepLabel === "4단계 결정 확정" ? (
+            <SimulatorAdminTutorial
+              storageKey={`customer-decision-${token || "default"}`}
+              steps={CUSTOMER_DECISION_TUTORIAL_STEPS}
+              autoOpen={false}
+              controlledOpen
+              onControlledClose={closeCustomerGuide}
+              hideButton
+              ariaLabel="고객용 결정 확정 안내"
+              skipStorageMarkDone
+            />
+          ) : (
+            <SimulatorCustomerGuideModal
+              guide={currentGuide}
+              onClose={closeCustomerGuide}
+              onDisable={disableCustomerGuide}
+            />
+          )
         ) : null}
 
         {showGuideDisabledNotice ? (

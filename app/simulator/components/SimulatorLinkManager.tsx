@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
+import SimulatorAdminTutorial, {
+  type SimulatorAdminTutorialStep,
+} from "./SimulatorAdminTutorial";
 
 type ManagedLink = {
   id: string;
@@ -32,6 +35,31 @@ const CUSTOMER_SHARE_MESSAGE = [
   "아래 링크를 눌러 실행해주세요.",
 ].join("\n");
 
+const TUTORIAL_DEMO_LINK_ID = "__link_manager_tutorial_demo__";
+
+function createTutorialDemoLink(): ManagedLink {
+  const now = new Date();
+  const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  return {
+    id: TUTORIAL_DEMO_LINK_ID,
+    token: "tutorial-demo",
+    installer_name: "도움말",
+    customer_name: "도움말 예시 고객",
+    memo: "실제 저장된 링크가 아닌 안내용 예시입니다.",
+    expires_at: expires.toISOString(),
+    created_at: now.toISOString(),
+    is_active: true,
+    is_expired: false,
+    film_scope: "all",
+    preset_name: null,
+    space_count: 1,
+    film_count: 0,
+    url: "https://egose.co.kr/simulator/share/example",
+    query_url: "https://egose.co.kr/simulator/share/example",
+  };
+}
+
 const COLORS = {
   bg: "#05023B",
   panel: "rgba(12,10,72,0.74)",
@@ -42,6 +70,59 @@ const COLORS = {
   soft: "rgba(255,255,255,0.70)",
   white: "#FFFFFF",
 };
+
+const LINK_MANAGER_TUTORIAL_STEPS = [
+  {
+    id: "manage-start",
+    target: "manage-hero",
+    title: "보낸 링크를 관리하는 화면입니다",
+    description:
+      "고객에게 보낸 시뮬레이터 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 한 번에 확인할 수 있습니다.",
+    tip: "만료되었거나 삭제 및 비활성화한 링크는 고객이 더 이상 사용할 수 없도록 목록에서 제외됩니다.",
+  },
+  {
+    id: "manage-list",
+    target: "manage-list",
+    title: "현재 배포중인 링크들 목록입니다.",
+    description:
+      "만료되거나 삭제된 링크는 자동으로 삭제됩니다.",
+  },
+  {
+    id: "manage-card",
+    target: "manage-card",
+    title: "링크의 상세정보를볼 수 있습니다.",
+    description:
+      "생성일과, 유효기간, 허용된 공간, 필름 허용범위까지 한눈에 볼 수 있습니다.",
+    scrollBlock: "center",
+  },
+  {
+    id: "manage-copy",
+    target: "manage-copy",
+    title: "링크복사",
+    description:
+      "링크를 복사해 문자나 카카오톡에 붙여넣기로 고객에게 보낼 수 있어요.",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "manage-open",
+    target: "manage-open",
+    title: "열어보기",
+    description:
+      "테스트 용도입니다. 링크를 받은 고객이 보게될 화면을 열어볼 수 있어요.",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+  {
+    id: "manage-delete",
+    target: "manage-delete",
+    title: "삭제 및 비활성화",
+    description:
+      "링크를 폐기합니다. 폐기된 링크는 즉시 사용불가하고, 링크 목록에서도 지워집니다.",
+    scrollBlock: "center",
+    cardPlacement: "top",
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -86,7 +167,6 @@ export default function SimulatorLinkManager() {
   const [error, setError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
 
-
   useEffect(() => {
     router.prefetch("/dashboard");
     const idle = window.setTimeout(() => {
@@ -129,7 +209,9 @@ export default function SimulatorLinkManager() {
         return;
       }
 
-      setItems(Array.isArray(json.items) ? json.items.filter(isVisibleLink) : []);
+      setItems(
+        Array.isArray(json.items) ? json.items.filter(isVisibleLink) : [],
+      );
     } catch {
       setError("링크 목록을 불러오지 못했습니다.");
     } finally {
@@ -149,6 +231,15 @@ export default function SimulatorLinkManager() {
     };
   }, []);
 
+  const shouldShowTutorialDemo = !loading && !error && items.length === 0;
+  const displayItems = shouldShowTutorialDemo
+    ? [createTutorialDemoLink()]
+    : items;
+
+  const showTutorialDemoMessage = () => {
+    setCopyMessage("도움말 안내용 예시 카드라 실제 작업은 실행되지 않습니다.");
+  };
+
   const copyLink = async (url: string) => {
     setCopyMessage("");
 
@@ -164,7 +255,7 @@ export default function SimulatorLinkManager() {
 
   const deactivateLink = async (link: ManagedLink) => {
     const ok = window.confirm(
-      `${link.customer_name || "고객명 없음"} 링크를 삭제 및 비활성화할까요?\n목록에서 사라지고 고객이 더 이상 이 링크로 접속할 수 없습니다.`
+      `${link.customer_name || "고객명 없음"} 링크를 삭제 및 비활성화할까요?\n목록에서 사라지고 고객이 더 이상 이 링크로 접속할 수 없습니다.`,
     );
 
     if (!ok) return;
@@ -201,32 +292,48 @@ export default function SimulatorLinkManager() {
   return (
     <main className="page">
       <div className="pageInner">
-
         {isDashboardMoving ? (
           <div className="dashboardMoveOverlay" aria-live="polite">
             <div className="dashboardMoveToast">대시보드로 이동 중...</div>
           </div>
         ) : null}
-        <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
+        <button
+          type="button"
+          onClick={goToDashboard}
+          className="backButton"
+          disabled={isDashboardMoving}
+        >
           ← 대시보드
         </button>
 
-        <section className="heroCard">
+        <section className="heroCard" data-sim-admin-guide="manage-hero">
           <div className="stepBadge">고객 링크 관리</div>
           <h1>보낸 링크 내역</h1>
           <p>
-            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름 범위를 확인하고 삭제 및 비활성화할 수 있습니다.
+            내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름
+            범위를 확인하고 삭제 및 비활성화할 수 있습니다.
           </p>
         </section>
 
-        <section className="panel">
+        <SimulatorAdminTutorial
+          storageKey="link-manager-v2"
+          steps={LINK_MANAGER_TUTORIAL_STEPS}
+          buttonLabel="링크관리 도움말"
+        />
+
+        <section className="panel" data-sim-admin-guide="manage-list">
           <div className="listHeader">
             <div>
               <h2>링크 목록</h2>
               <p>사용 가능한 링크만 최근 생성순으로 표시됩니다.</p>
             </div>
 
-            <button type="button" onClick={() => void loadLinks()} className="refreshButton">
+            <button
+              type="button"
+              onClick={() => void loadLinks()}
+              className="refreshButton"
+              data-sim-admin-guide="manage-refresh"
+            >
               새로고침
             </button>
           </div>
@@ -237,7 +344,10 @@ export default function SimulatorLinkManager() {
           {loading ? (
             <div className="linkSkeletonList" aria-label="링크 목록 로딩 중">
               {Array.from({ length: 3 }).map((_, index) => (
-                <article key={`link-skeleton-${index}`} className="linkSkeletonCard">
+                <article
+                  key={`link-skeleton-${index}`}
+                  className="linkSkeletonCard"
+                >
                   <div className="linkSkeletonTop">
                     <div>
                       <div className="linkSkeletonTitle" />
@@ -259,81 +369,148 @@ export default function SimulatorLinkManager() {
                 </article>
               ))}
             </div>
-          ) : items.length === 0 ? (
-            <div className="emptyBox">
-              표시할 고객 링크가 없습니다. 하단의 <b>링크 생성</b>에서 새 링크를 만들어보세요.
-            </div>
           ) : (
-            <div className="linkList">
-              {items.map((link) => (
-                <article key={link.id} className="linkCard">
-                  <div className="cardTop">
-                    <div>
-                      <div className="customerName">
-                        {link.customer_name || "고객명 없음"}
-                      </div>
-                      <div className="memoText">
-                        {link.memo || "메모 없음"}
-                      </div>
-                    </div>
+            <>
+              {shouldShowTutorialDemo ? (
+                <div className="emptyBox">
+                  표시할 고객 링크가 없습니다. 하단의 <b>링크 생성</b>에서 새
+                  링크를 만들어보세요.
+                  <br />
+                  아래 카드는 링크관리 도움말 안내용 예시이며 실제 링크로
+                  저장되지 않습니다.
+                </div>
+              ) : null}
 
-                    <span className={`statusBadge ${getStatusClass(link)}`}>
-                      {getStatus(link)}
-                    </span>
-                  </div>
+              <div className="linkList">
+                {displayItems.map((link) => {
+                  const isTutorialDemo = link.id === TUTORIAL_DEMO_LINK_ID;
 
-                  <div className="infoGrid">
-                    <div>
-                      <span>생성일</span>
-                      <strong>{formatDate(link.created_at)}</strong>
-                    </div>
-                    <div>
-                      <span>유효기간</span>
-                      <strong>{formatDate(link.expires_at)}</strong>
-                    </div>
-                    <div>
-                      <span>허용 공간</span>
-                      <strong>{link.space_count}개</strong>
-                    </div>
-                    <div>
-                      <span>필름 범위</span>
-                      <strong>
-                        {link.film_scope === "all"
-                          ? "삼성필름 전체"
-                          : link.film_scope === "preset"
-                            ? `${link.preset_name || "프리셋"} · ${link.film_count}개`
-                            : `선택 필름 ${link.film_count}개`}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="urlBox">{link.url}</div>
-
-                  <div className="actionRow">
-                    <button type="button" onClick={() => copyLink(link.url)}>
-                      링크 복사
-                    </button>
-
-                    <a href={link.url} target="_blank" rel="noreferrer">
-                      열어보기
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => deactivateLink(link)}
-                      disabled={deactivatingId === link.id || !link.is_active}
-                      className="deleteButton"
+                  return (
+                    <article
+                      key={link.id}
+                      className={`linkCard ${isTutorialDemo ? "tutorialDemoCard" : ""}`}
+                      data-sim-admin-guide="manage-card"
                     >
-                      {!link.is_active
-                        ? "비활성됨"
-                        : deactivatingId === link.id
-                          ? "처리 중"
-                          : "삭제 및 비활성화"}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                      <div className="cardTop">
+                        <div>
+                          <div className="customerName">
+                            {link.customer_name || "고객명 없음"}
+                          </div>
+                          <div className="memoText">
+                            {link.memo || "메모 없음"}
+                          </div>
+                        </div>
+
+                        <span
+                          className={`statusBadge ${isTutorialDemo ? "demoStatus" : getStatusClass(link)}`}
+                        >
+                          {isTutorialDemo ? "도움말 예시" : getStatus(link)}
+                        </span>
+                      </div>
+
+                      <div
+                        className="infoGrid"
+                        data-sim-admin-guide="manage-info"
+                      >
+                        <div>
+                          <span>생성일</span>
+                          <strong>{formatDate(link.created_at)}</strong>
+                        </div>
+                        <div>
+                          <span>유효기간</span>
+                          <strong>{formatDate(link.expires_at)}</strong>
+                        </div>
+                        <div>
+                          <span>허용 공간</span>
+                          <strong>{link.space_count}개</strong>
+                        </div>
+                        <div>
+                          <span>필름 범위</span>
+                          <strong>
+                            {link.film_scope === "all"
+                              ? "삼성필름 전체"
+                              : link.film_scope === "preset"
+                                ? `${link.preset_name || "프리셋"} · ${link.film_count}개`
+                                : `선택 필름 ${link.film_count}개`}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="urlBox">{link.url}</div>
+
+                      <div
+                        className="actionRow"
+                        data-sim-admin-guide="manage-actions"
+                      >
+                        {isTutorialDemo ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={showTutorialDemoMessage}
+                              data-sim-admin-guide="manage-copy"
+                            >
+                              링크 복사
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={showTutorialDemoMessage}
+                              data-sim-admin-guide="manage-open"
+                            >
+                              열어보기
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={showTutorialDemoMessage}
+                              className="deleteButton"
+                              data-sim-admin-guide="manage-delete"
+                            >
+                              삭제 및 비활성화
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => copyLink(link.url)}
+                              data-sim-admin-guide="manage-copy"
+                            >
+                              링크 복사
+                            </button>
+
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              data-sim-admin-guide="manage-open"
+                            >
+                              열어보기
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => deactivateLink(link)}
+                              disabled={
+                                deactivatingId === link.id || !link.is_active
+                              }
+                              className="deleteButton"
+                              data-sim-admin-guide="manage-delete"
+                            >
+                              {!link.is_active
+                                ? "비활성됨"
+                                : deactivatingId === link.id
+                                  ? "처리 중"
+                                  : "삭제 및 비활성화"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
       </div>
@@ -346,12 +523,19 @@ export default function SimulatorLinkManager() {
           padding-bottom: 96px;
           box-sizing: border-box;
           background:
-            radial-gradient(circle at top left, rgba(238, 224, 197, 0.1), transparent 24%),
-            radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 20%),
+            radial-gradient(
+              circle at top left,
+              rgba(238, 224, 197, 0.1),
+              transparent 24%
+            ),
+            radial-gradient(
+              circle at top right,
+              rgba(255, 255, 255, 0.08),
+              transparent 20%
+            ),
             linear-gradient(180deg, #060241 0%, ${COLORS.bg} 100%);
           color: ${COLORS.white};
         }
-
 
         .dashboardMoveOverlay {
           position: fixed;
@@ -360,7 +544,7 @@ export default function SimulatorLinkManager() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(7, 6, 27, 0.30);
+          background: rgba(7, 6, 27, 0.3);
           backdrop-filter: blur(2px);
           pointer-events: none;
         }
@@ -370,8 +554,8 @@ export default function SimulatorLinkManager() {
           border-radius: 999px;
           background: rgba(10, 8, 72, 0.94);
           color: #fff;
-          border: 1px solid rgba(255,255,255,0.18);
-          box-shadow: 0 14px 34px rgba(0,0,0,0.28);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
           font-size: 14px;
           font-weight: 900;
           letter-spacing: -0.02em;
@@ -411,7 +595,11 @@ export default function SimulatorLinkManager() {
         .heroCard {
           border-radius: 30px;
           padding: 22px 18px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.08),
+            rgba(255, 255, 255, 0.03)
+          );
           margin-bottom: 18px;
         }
 
@@ -646,6 +834,16 @@ export default function SimulatorLinkManager() {
           background: rgba(255, 96, 96, 0.12);
           color: #ffd6d6;
           border: 1px solid rgba(255, 96, 96, 0.28);
+        }
+
+        .demoStatus {
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          border: 1px solid rgba(238, 224, 197, 0.35);
+        }
+
+        .tutorialDemoCard {
+          border-style: dashed;
         }
 
         .infoGrid {

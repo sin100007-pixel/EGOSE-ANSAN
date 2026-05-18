@@ -11,6 +11,8 @@ type SimulatorFilmSearchPanelProps = {
   palette: SimulatorPaletteFilterProps;
   onQueryChange: (value: string) => void;
   onSearch: () => void;
+  searchGuideTarget?: string;
+  paletteGuideTarget?: string;
   children: ReactNode;
 };
 
@@ -22,6 +24,8 @@ export default function SimulatorFilmSearchPanel({
   palette,
   onQueryChange,
   onSearch,
+  searchGuideTarget,
+  paletteGuideTarget,
   children,
 }: SimulatorFilmSearchPanelProps) {
   return (
@@ -32,6 +36,7 @@ export default function SimulatorFilmSearchPanel({
           onSearch();
         }}
         className="searchRow"
+        data-sim-admin-guide={searchGuideTarget}
       >
         <input
           value={query}
@@ -41,7 +46,9 @@ export default function SimulatorFilmSearchPanel({
         <button type="submit">{loading ? "검색중" : "검색"}</button>
       </form>
 
-      <SimulatorPaletteFilter {...palette} loading={loading} />
+      <div data-sim-admin-guide={paletteGuideTarget}>
+        <SimulatorPaletteFilter {...palette} loading={loading} />
+      </div>
 
       {children}
     </div>

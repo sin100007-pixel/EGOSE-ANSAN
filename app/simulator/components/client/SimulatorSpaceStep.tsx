@@ -13,7 +13,7 @@ export default function SimulatorSpaceStep({
   onSelectSpace,
 }: SimulatorSpaceStepProps) {
   return (
-    <section className="spaceSelectCard">
+    <section className="spaceSelectCard" data-sim-admin-guide="customer-space-list">
       <div className="sectionHeader spaceSectionHeaderCompact">
         <div>
           <div className="sectionLabel">공간 선택</div>

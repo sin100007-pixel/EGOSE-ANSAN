@@ -42,7 +42,7 @@ export function useSimulatorCustomerGuide({
   }, [token]);
 
   const currentStepGuide = useMemo<CustomerGuideStep | null>(() => {
-    if (step !== "intro" && step !== "space" && step !== "apply") {
+    if (step !== "intro" && step !== "space" && step !== "apply" && step !== "decision") {
       return null;
     }
 
@@ -117,7 +117,7 @@ export function useSimulatorCustomerGuide({
       return;
     }
 
-    if (!guideEnabled || isFilmSheetOpen) {
+    if (!guideEnabled || (isFilmSheetOpen && currentStepGuide !== "apply")) {
       setActiveGuideStep(null);
       return;
     }

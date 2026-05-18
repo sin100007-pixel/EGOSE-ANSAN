@@ -183,49 +183,56 @@ export default function SimulatorIntroOverview({
 
       <section className="introCard">
         <div className="introTop">
-          <div className="logoBox">
-            {logoUrl ? (
-              <img src={logoUrl} alt={`${safeContractorName} 로고`} />
-            ) : (
-              <span>{safeContractorName.slice(0, 1)}</span>
-            )}
+          <div className="introProfileGuideTarget" data-sim-admin-guide="customer-intro-profile">
+            <div className="logoBox">
+              {logoUrl ? (
+                <img src={logoUrl} alt={`${safeContractorName} 로고`} />
+              ) : (
+                <span>{safeContractorName.slice(0, 1)}</span>
+              )}
+            </div>
+
+            <div className="textBox">
+              <p>{safeGreeting}</p>
+
+              {phone || shouldShowKakao ? (
+                <div className="contactRow">
+                  {phone ? (
+                    <ContactButton
+                      href={phoneHref}
+                      label={phone}
+                      icon={<PhoneIcon />}
+                      ariaLabel={`전화 ${phone}`}
+                    />
+                  ) : null}
+                  {shouldShowKakao ? (
+                    <ContactButton
+                      href={kakaoHref}
+                      label="카카오 문의"
+                      icon={<KakaoIcon />}
+                      ariaLabel="카카오 문의"
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          <div className="textBox">
-            <p>{safeGreeting}</p>
-
-            {phone || shouldShowKakao ? (
-              <div className="contactRow">
-                {phone ? (
-                  <ContactButton
-                    href={phoneHref}
-                    label={phone}
-                    icon={<PhoneIcon />}
-                    ariaLabel={`전화 ${phone}`}
-                  />
-                ) : null}
-                {shouldShowKakao ? (
-                  <ContactButton
-                    href={kakaoHref}
-                    label="카카오 문의"
-                    icon={<KakaoIcon />}
-                    ariaLabel="카카오 문의"
-                  />
-                ) : null}
-              </div>
-            ) : null}
-
-            {showStartButton ? (
-              <button type="button" onClick={onStart} className="startButton">
-                {startButtonLabel}
-              </button>
-            ) : null}
-          </div>
+          {showStartButton ? (
+            <button
+              type="button"
+              onClick={onStart}
+              className="startButton"
+              data-sim-admin-guide="customer-intro-start"
+            >
+              {startButtonLabel}
+            </button>
+          ) : null}
         </div>
       </section>
 
       {visiblePhotos.length > 0 ? (
-        <section className="portfolioBlock">
+        <section className="portfolioBlock" data-sim-admin-guide="customer-intro-portfolio">
           <div className="portfolioHeaderRow">
             <div>
               <div className="sectionLabel">대표 시공사진</div>
@@ -392,11 +399,20 @@ export default function SimulatorIntroOverview({
           padding: 18px;
         }
 
-        .introTop {
+        .introTop,
+        .introProfileGuideTarget {
           display: flex;
           flex-direction: column;
-          gap: 16px;
           align-items: stretch;
+        }
+
+        .introTop {
+          gap: 14px;
+        }
+
+        .introProfileGuideTarget {
+          gap: 16px;
+          border-radius: 22px;
         }
 
         .logoBox {

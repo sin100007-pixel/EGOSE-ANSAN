@@ -59,6 +59,7 @@ export default function SimulatorApplyStep({
       </div>
 
       <SimulatorScenePreview
+        guideTarget="customer-apply-preview"
         selectedSpace={selectedSpace}
         maskZones={maskZones}
         zoneFilmMap={zoneFilmMap}
@@ -69,7 +70,7 @@ export default function SimulatorApplyStep({
         onZoneClick={onOpenFilmSheet}
       />
 
-      <div className="zoneApplyGrid">
+      <div className="zoneApplyGrid" data-sim-admin-guide="customer-apply-zone-buttons">
         {maskZones.map((zone) => {
           const active = activeZoneKey === zone.key;
           const film = zoneFilmMap[zone.key] || null;
@@ -119,6 +120,7 @@ export default function SimulatorApplyStep({
           type="button"
           onClick={onAddFavorite}
           className="favoriteSaveButton"
+          data-sim-admin-guide="customer-apply-favorite"
           disabled={!hasAnyFilm}
         >
           ⭐ 즐겨찾기
@@ -128,6 +130,7 @@ export default function SimulatorApplyStep({
           type="button"
           onClick={onGoDecisionStep}
           className="decisionNextButton"
+          data-sim-admin-guide="customer-apply-decision"
           disabled={!hasAnyFilm}
         >
           결정확정으로 넘어가기

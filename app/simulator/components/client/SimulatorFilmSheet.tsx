@@ -63,6 +63,7 @@ export default function SimulatorFilmSheet({
     <div className="sheetOverlay" role="presentation" onClick={onClose}>
       <section
         className="filmSheet"
+        data-sim-admin-guide="customer-apply-sheet"
         role="dialog"
         aria-modal="true"
         aria-label="필름 선택"
@@ -83,7 +84,7 @@ export default function SimulatorFilmSheet({
         </div>
 
         <div className="palettePanel">
-          <div className="paletteGroup">
+          <div className="paletteGroup" data-sim-admin-guide="customer-apply-pattern-filter">
             <div className="paletteHeaderRow">
               <span>1차 분류</span>
               {selectedPaletteMain || selectedPaletteSub || selectedPaletteColors.length > 0 ? (
@@ -137,7 +138,7 @@ export default function SimulatorFilmSheet({
             </div>
           ) : null}
 
-          <div className="paletteGroup">
+          <div className="paletteGroup" data-sim-admin-guide="customer-apply-color-filter">
             <div className="paletteHeaderRow">
               <span>색상 팔레트</span>
               <em>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
+import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
 import SimulatorFilmSearchPanel from "./shared/SimulatorFilmSearchPanel";
 import SimulatorFilmResultCard from "./shared/SimulatorFilmResultCard";
 import SimulatorSamplePreview from "./shared/SimulatorSamplePreview";
@@ -49,6 +50,68 @@ const COLORS = {
   soft: "rgba(255,255,255,0.70)",
   white: "#FFFFFF",
 };
+
+const PRESET_MANAGER_TUTORIAL_STEPS = [
+  {
+    id: "preset-start",
+    target: "preset-hero",
+    title: "필름 묶음을 저장하는 화면입니다",
+    description:
+      "자주 쓰는 추천 필름 조합을 프리셋으로 저장해두고, 고객 링크 생성 화면에서 빠르게 불러올 수 있습니다.",
+    tip: "예: 화이트 추천 20종, 우드 인기색 모음처럼 상담 상황별로 만들어두면 좋아요.",
+  },
+  {
+    id: "preset-name",
+    target: "preset-name",
+    title: "프리셋 이름을 정합니다",
+    description:
+      "링크 생성 화면에서 바로 알아볼 수 있도록 추천 조합의 이름을 입력합니다.",
+    tip: "고객에게 보일 이름은 아니고, 시공자가 관리하기 위한 이름입니다.",
+  },
+  {
+    id: "preset-search",
+    target: "preset-search-keyword",
+    title: "검색으로 필름찾기",
+    description:
+      "제품번호나 색상명으로 검색한뒤 결과 카드에서 프리셋에 넣을 필름을 고릅니다.",
+    scrollBlock: "center",
+  },
+  {
+    id: "preset-palette",
+    target: "preset-palette-filter",
+    title: "색상으로 찾기",
+    description:
+      "색상으로 찾기를 눌러 열어서 패턴이나 색상으로 찾는 범위를 손쉽게 줄일 수 있습니다.",
+    scrollBlock: "center",
+  },
+  {
+    id: "preset-select",
+    target: "preset-select",
+    title: "필름 카드를 눌러 선택합니다",
+    description:
+      "검색 결과의 필름 카드를 누르면 프리셋에 담깁니다. 이미 담긴 필름을 다시 누르면 선택 해제됩니다.",
+    tip: "너무 많이 담기보다 고객에게 보여줄 후보 위주로 적당히 고르는 게 좋아요.",
+    scrollBlock: "center",
+  },
+  {
+    id: "preset-save",
+    target: "preset-save",
+    title: "프리셋을 저장합니다",
+    description:
+      "프리셋 이름과 선택한 필름을 확인한 뒤 저장하면 링크 생성 화면에서 바로 사용할 수 있습니다.",
+    cardBottomMobile: 130,
+  },
+  {
+    id: "preset-list",
+    target: "preset-list",
+    title: "저장된 프리셋을 관리합니다",
+    description:
+      "내 프리셋에서 저장된 묶음을 확인하고, 필요하면 수정하거나 삭제할 수 있습니다.",
+    tip: "수정 버튼을 누르면 왼쪽 작성 영역으로 불러와서 필름 구성을 바꿀 수 있어요.",
+    scrollBlock: "end",
+    cardBottomMobile: 410,
+  },
+] satisfies readonly SimulatorAdminTutorialStep[];
 
 function formatDate(value?: string | null) {
   if (!value) return "";
@@ -442,13 +505,19 @@ export default function SimulatorPresetManager() {
           ← 대시보드
         </button>
 
-        <section className="heroCard">
+        <section className="heroCard" data-sim-admin-guide="preset-hero">
           <div className="stepBadge">필름 제한 프리셋</div>
           <h1>보여줄 필름 묶음 만들기</h1>
           <p>
             자주 쓰는 추천 필름을 프리셋 이름으로 저장해두고, 고객 링크 생성 시 바로 선택할 수 있습니다.
           </p>
         </section>
+
+        <SimulatorAdminTutorial
+          storageKey="preset-manager-v1"
+          steps={PRESET_MANAGER_TUTORIAL_STEPS}
+          buttonLabel="프리셋 도움말"
+        />
 
         {showInitialLoading ? (
           <div className="layout">
@@ -523,7 +592,7 @@ export default function SimulatorPresetManager() {
               {editingId ? <span>수정 중</span> : <span>새 프리셋</span>}
             </div>
 
-            <label className="presetNameField">
+            <label className="presetNameField" data-sim-admin-guide="preset-name">
               <span>프리셋 이름설정</span>
               <input
                 value={presetName}
@@ -532,15 +601,18 @@ export default function SimulatorPresetManager() {
               />
             </label>
 
-            <div className="fieldSectionLabel">프리셋 할 제품 찾기</div>
+            <div data-sim-admin-guide="preset-search">
+              <div className="fieldSectionLabel">프리셋 할 제품 찾기</div>
 
-            <SimulatorFilmSearchPanel
+              <SimulatorFilmSearchPanel
               className="filmPicker"
               query={filmQuery}
               loading={filmLoading}
               placeholder="제품번호/색상명 검색 예: 122, 화이트, SG"
               onQueryChange={setFilmQuery}
               onSearch={() => void searchFilms({ updateFacets: false })}
+              searchGuideTarget="preset-search-keyword"
+              paletteGuideTarget="preset-palette-filter"
               palette={{
                 open: paletteOpen,
                 activeCount: activePaletteCount,
@@ -572,7 +644,7 @@ export default function SimulatorPresetManager() {
                 buttonTitle="누르면 선택 해제"
               />
 
-              <div className="filmResultGrid" aria-busy={filmLoading}>
+              <div className="filmResultGrid" data-sim-admin-guide="preset-select" aria-busy={filmLoading}>
                 {filmLoading ? (
                   Array.from({ length: 9 }).map((_, index) => (
                     <div key={`preset-film-skeleton-${index}`} className="filmResultSkeletonCard" aria-hidden="true">
@@ -605,12 +677,13 @@ export default function SimulatorPresetManager() {
                 film={previewSampleFilm}
                 onClose={() => setPreviewSampleFilm(null)}
               />
-            </SimulatorFilmSearchPanel>
+              </SimulatorFilmSearchPanel>
+            </div>
 
             {error ? <div className="errorBox">{error}</div> : null}
             {message ? <div className="messageBox">{message}</div> : null}
 
-            <div className="actionRow">
+            <div className="actionRow" data-sim-admin-guide="preset-save">
               <button
                 type="button"
                 onClick={savePreset}
@@ -627,7 +700,7 @@ export default function SimulatorPresetManager() {
             </div>
           </section>
 
-          <aside className="panel listPanel">
+          <aside className="panel listPanel" data-sim-admin-guide="preset-list">
             <div className="sectionTitleRow">
               <div>
                 <h2>내 프리셋</h2>
