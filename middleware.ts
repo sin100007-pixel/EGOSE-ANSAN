@@ -39,6 +39,7 @@ const USER_API_PREFIXES = [
 const ADMIN_API_PREFIXES = [
   "/api/ledger-search",
   "/api/ledger-import",
+  "/api/ledger-upload-dates",
   "/api/ledger-clear",
   "/api/dbcheck",
 ];
@@ -216,6 +217,7 @@ export const config = {
 
     "/api/ledger-search",
     "/api/ledger-import",
+    "/api/ledger-upload-dates",
     "/api/ledger-clear",
     "/api/dbcheck",
   ],
