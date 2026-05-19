@@ -13,6 +13,7 @@ export type SimulatorAdminTutorialStep = {
   cardBottom?: number;
   cardBottomMobile?: number;
   cardPlacement?: "top" | "bottom";
+  spotlightFullViewport?: boolean;
 };
 
 type TutorialRect = {
@@ -42,9 +43,11 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getVisibleTargetBounds() {
+function getVisibleTargetBounds(useFullViewport = false) {
   const side = 8;
-  const bottomReserve = Math.min(118, Math.max(84, window.innerHeight * 0.12));
+  const bottomReserve = useFullViewport
+    ? side
+    : Math.min(118, Math.max(84, window.innerHeight * 0.12));
 
   return {
     top: side,
@@ -113,7 +116,7 @@ export default function SimulatorAdminTutorial({
 
     const rect = element.getBoundingClientRect();
     const padding = 10;
-    const bounds = getVisibleTargetBounds();
+    const bounds = getVisibleTargetBounds(Boolean(currentStep?.spotlightFullViewport));
 
     const isOutsideViewport =
       rect.bottom <= bounds.top ||
@@ -137,7 +140,7 @@ export default function SimulatorAdminTutorial({
       width: right - left,
       height: bottom - top,
     });
-  }, [currentStep?.target, open]);
+  }, [currentStep?.spotlightFullViewport, currentStep?.target, open]);
 
   const markDone = useCallback(() => {
     try {
@@ -190,7 +193,7 @@ export default function SimulatorAdminTutorial({
     if (!element) return;
 
     const rect = element.getBoundingClientRect();
-    const bounds = getVisibleTargetBounds();
+    const bounds = getVisibleTargetBounds(Boolean(currentStep?.spotlightFullViewport));
     let scrollAmount = 0;
 
     if (rect.bottom > bounds.bottom) {
@@ -202,7 +205,7 @@ export default function SimulatorAdminTutorial({
     if (scrollAmount !== 0) {
       window.scrollBy({ top: scrollAmount, behavior: "smooth" });
     }
-  }, [currentStep?.target]);
+  }, [currentStep?.spotlightFullViewport, currentStep?.target]);
 
   const goPrev = useCallback(() => {
     setCurrentIndex((prev) => Math.max(prev - 1, 0));

@@ -234,7 +234,7 @@ const CUSTOMER_APPLY_TUTORIAL_STEPS = [
   {
     id: "customer-apply-sheet",
     title: "필름 색상 검색",
-    description: "구역이 선택하면 그 구역에 적용할 필름을 선택하는 창입니다.",
+    description: "구역을 선택하면 그 구역에 적용할 필름을 선택하는 창입니다.",
     target: "customer-apply-sheet",
     scrollBlock: "start",
     cardPlacement: "top",
@@ -349,6 +349,15 @@ const CUSTOMER_DECISION_TUTORIAL_STEPS = [
     target: "customer-decision-kakao",
     scrollBlock: "center",
     cardPlacement: "top",
+  },
+  {
+    id: "customer-decision-bottom-nav",
+    title: "하단 네비게이션 버튼",
+    description: "하단의 버튼을 이용해 원하는 단계로 언제든 이동하실 수 있습니다.",
+    target: "customer-bottom-step-nav",
+    scrollBlock: "nearest",
+    cardPlacement: "top",
+    spotlightFullViewport: true,
   },
 ] satisfies readonly SimulatorAdminTutorialStep[];
 

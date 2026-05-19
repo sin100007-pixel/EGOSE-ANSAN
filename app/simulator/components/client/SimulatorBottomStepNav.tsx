@@ -18,7 +18,11 @@ export default function SimulatorBottomStepNav({
   onDecision,
 }: SimulatorBottomStepNavProps) {
   return (
-    <nav className={`bottomStepNav ${hasIntroStep ? "bottomStepNavFour" : ""}`} aria-label="시뮬레이터 단계 이동">
+    <nav
+      className={`bottomStepNav ${hasIntroStep ? "bottomStepNavFour" : ""}`}
+      aria-label="시뮬레이터 단계 이동"
+      data-sim-admin-guide="customer-bottom-step-nav"
+    >
       {hasIntroStep ? (
         <button
           type="button"
