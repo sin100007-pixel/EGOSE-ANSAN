@@ -359,6 +359,23 @@ const CUSTOMER_DECISION_TUTORIAL_STEPS = [
     cardPlacement: "top",
     spotlightFullViewport: true,
   },
+  {
+    id: "customer-decision-guide-toggle",
+    title: "가이드 켜기/끄기버튼",
+    description: (
+      <>
+        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOn">ON</span>
+        이면 가이드가 켜져있는 상태이고
+        <br />
+        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOff">OFF</span>
+        이면 가이드가 꺼져있는 상태입니다.
+        <br />
+        필요에 따라 끌 수도 있고 켜면 다시 볼 수 있습니다.
+      </>
+    ),
+    target: "customer-intro-guide-toggle",
+    cardPlacement: "bottom",
+  },
 ] satisfies readonly SimulatorAdminTutorialStep[];
 
 
