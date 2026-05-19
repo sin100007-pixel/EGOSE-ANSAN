@@ -71,7 +71,7 @@ const PRESET_MANAGER_TUTORIAL_STEPS = [
   {
     id: "preset-search",
     target: "preset-search-keyword",
-    title: "검색으로 필름찾기",
+    title: "다음 필름을 검색합니다",
     description:
       "제품번호나 색상명으로 검색한뒤 결과 카드에서 프리셋에 넣을 필름을 고릅니다.",
     scrollBlock: "center",
@@ -79,7 +79,7 @@ const PRESET_MANAGER_TUTORIAL_STEPS = [
   {
     id: "preset-palette",
     target: "preset-palette-filter",
-    title: "색상으로 찾기",
+    title: "색상으로 찾기를 사용할 수 있습니다",
     description:
       "색상으로 찾기를 눌러 열어서 패턴이나 색상으로 찾는 범위를 손쉽게 줄일 수 있습니다.",
     scrollBlock: "center",
@@ -109,7 +109,7 @@ const PRESET_MANAGER_TUTORIAL_STEPS = [
       "내 프리셋에서 저장된 묶음을 확인하고, 필요하면 수정하거나 삭제할 수 있습니다.",
     tip: "수정 버튼을 누르면 왼쪽 작성 영역으로 불러와서 필름 구성을 바꿀 수 있어요.",
     scrollBlock: "end",
-    cardBottomMobile: 410,
+    cardBottomMobile: 310,
   },
 ] satisfies readonly SimulatorAdminTutorialStep[];
 
@@ -1251,10 +1251,32 @@ export default function SimulatorPresetManager() {
           background: rgba(238, 224, 197, 0.1);
         }
 
-                .filmResultGrid {
+        .filmResultGrid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
+          max-height: min(52dvh, 560px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          padding-right: 4px;
+          padding-bottom: 4px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(238, 224, 197, 0.55) rgba(255, 255, 255, 0.06);
+        }
+
+        .filmResultGrid::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .filmResultGrid::-webkit-scrollbar-track {
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .filmResultGrid::-webkit-scrollbar-thumb {
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.55);
         }
 
         .filmResultSkeletonCard,
@@ -1793,6 +1815,8 @@ export default function SimulatorPresetManager() {
           .filmResultGrid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 7px;
+            max-height: min(46dvh, 430px);
+            padding-right: 3px;
           }
 
           .filmResultCard {
