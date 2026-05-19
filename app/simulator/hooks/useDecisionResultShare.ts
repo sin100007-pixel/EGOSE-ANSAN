@@ -68,6 +68,8 @@ export function useDecisionResultShare({
     return lines.join("\n");
   };
 
+  const pendingKakaoDownloadRef = useRef<{ dataUrl: string; fileName: string } | null>(null);
+
   const downloadDataUrl = (dataUrl: string, fileName: string) => {
     const linkElement = document.createElement("a");
     linkElement.href = dataUrl;
@@ -75,6 +77,18 @@ export function useDecisionResultShare({
     document.body.appendChild(linkElement);
     linkElement.click();
     document.body.removeChild(linkElement);
+  };
+
+  const closeDecisionPopupMessage = () => {
+    const pendingDownload = pendingKakaoDownloadRef.current;
+    pendingKakaoDownloadRef.current = null;
+    setDecisionPopupMessage("");
+
+    if (pendingDownload) {
+      window.setTimeout(() => {
+        downloadDataUrl(pendingDownload.dataUrl, pendingDownload.fileName);
+      }, 80);
+    }
   };
 
   const createDecisionResultImage = async () => {
@@ -99,21 +113,22 @@ export function useDecisionResultShare({
 
     setDecisionMessage("");
     setDecisionPopupMessage("");
+    pendingKakaoDownloadRef.current = null;
     setIsDecisionSharing(true);
 
     try {
       const dataUrl = await createDecisionResultImage();
 
       if (isKakaoInAppBrowser()) {
+        pendingKakaoDownloadRef.current = { dataUrl, fileName };
+
         try {
           await navigator.clipboard.writeText(text);
-          downloadDataUrl(dataUrl, fileName);
           setDecisionPopupMessage(
             options.kakaoInAppMessage ||
               "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
           );
         } catch {
-          downloadDataUrl(dataUrl, fileName);
           setDecisionPopupMessage(
             options.kakaoInAppCopyOnlyMessage ||
               "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
@@ -176,6 +191,7 @@ export function useDecisionResultShare({
     setDecisionMessage,
     decisionPopupMessage,
     setDecisionPopupMessage,
+    closeDecisionPopupMessage,
     isDecisionSharing,
     shareDecisionResult,
   };

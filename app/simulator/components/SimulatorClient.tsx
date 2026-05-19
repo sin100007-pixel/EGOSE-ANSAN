@@ -647,7 +647,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     decisionMessage,
     setDecisionMessage,
     decisionPopupMessage,
-    setDecisionPopupMessage,
+    closeDecisionPopupMessage,
     isDecisionSharing,
     shareDecisionResult,
   } = useDecisionResultShare({
@@ -1861,7 +1861,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         {decisionPopupMessage ? (
           <SimulatorKakaoShareNoticeModal
             message={decisionPopupMessage}
-            onClose={() => setDecisionPopupMessage("")}
+            onClose={closeDecisionPopupMessage}
           />
         ) : null}
 
