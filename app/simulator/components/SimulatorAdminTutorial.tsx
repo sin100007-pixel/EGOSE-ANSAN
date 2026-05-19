@@ -14,6 +14,7 @@ export type SimulatorAdminTutorialStep = {
   cardBottomMobile?: number;
   cardPlacement?: "top" | "bottom";
   spotlightFullViewport?: boolean;
+  allowTargetInteraction?: boolean;
 };
 
 type TutorialRect = {
@@ -94,6 +95,7 @@ export default function SimulatorAdminTutorial({
   const safeSteps = useMemo(() => steps.filter((step) => step.title.trim()), [steps]);
   const currentStep = safeSteps[currentIndex] || safeSteps[0];
   const totalSteps = safeSteps.length;
+  const allowTargetInteraction = Boolean(currentStep?.allowTargetInteraction);
 
   const cardBottomDesktop = currentStep?.cardBottom ?? 86;
   const cardBottomMobile = currentStep?.cardBottomMobile ?? 78;
@@ -295,7 +297,12 @@ export default function SimulatorAdminTutorial({
       ) : null}
 
       {open && currentStep ? (
-        <div className="simAdminTutorialLayer" role="dialog" aria-modal="true" aria-label={ariaLabel}>
+        <div
+          className={`simAdminTutorialLayer ${allowTargetInteraction ? "isTargetInteractive" : ""}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label={ariaLabel}
+        >
           <div className="simAdminTutorialDim" />
 
           {targetRect ? (
@@ -372,7 +379,7 @@ export default function SimulatorAdminTutorial({
         .simAdminTutorialLayer {
           position: fixed;
           inset: 0;
-          z-index: 9998;
+          z-index: 10080;
           pointer-events: none;
         }
 
@@ -382,6 +389,11 @@ export default function SimulatorAdminTutorial({
           background: rgba(1, 0, 25, 0.33);
           backdrop-filter: blur(0px);
           pointer-events: auto;
+        }
+
+        .simAdminTutorialLayer.isTargetInteractive .simAdminTutorialDim {
+          pointer-events: none;
+          background: rgba(1, 0, 25, 0.18);
         }
 
         .simAdminTutorialSpotlight {
@@ -551,6 +563,27 @@ export default function SimulatorAdminTutorial({
           background: rgba(255, 92, 92, 0.16);
           color: #ffd6d6;
           border: 1px solid rgba(255, 214, 214, 0.24);
+        }
+
+        .simAdminTutorialTip :global(.simAdminTutorialSamplePill) {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 24px;
+          border-radius: 999px;
+          border: 1px solid rgba(238, 224, 197, 0.52);
+          background: rgba(5, 2, 59, 0.72);
+          color: #eee0c5;
+          padding: 0 7px;
+          margin: 0 3px;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          line-height: 1;
+          vertical-align: 1px;
+          white-space: nowrap;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 14px rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(4px);
         }
 
         .simAdminTutorialCard p :global(.simAdminTutorialInlineButtonKakao),

@@ -4,9 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
-import SimulatorFilmSearchPanel from "./shared/SimulatorFilmSearchPanel";
-import SimulatorFilmResultCard from "./shared/SimulatorFilmResultCard";
-import SimulatorSamplePreview from "./shared/SimulatorSamplePreview";
+import SimulatorAdminFilmPickerSheet from "./shared/SimulatorAdminFilmPickerSheet";
 import SimulatorSelectedFilmList from "./shared/SimulatorSelectedFilmList";
 import {
   DEFAULT_PALETTE_COLOR_OPTIONS,
@@ -255,6 +253,7 @@ export default function SimulatorLinkBuilder() {
   const [filmSearchResults, setFilmSearchResults] = useState<SimulatorFilm[]>([]);
   const [selectedFilms, setSelectedFilms] = useState<SimulatorFilm[]>([]);
   const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
+  const [customFilmPickerOpen, setCustomFilmPickerOpen] = useState(false);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedPaletteMain, setSelectedPaletteMain] = useState("");
@@ -373,6 +372,15 @@ export default function SimulatorLinkBuilder() {
     setSelectedFilms((prev) => prev.filter((film) => film.id !== filmId));
   };
 
+  const toggleFilm = (film: SimulatorFilm) => {
+    setSelectedFilms((prev) => {
+      if (prev.some((item) => item.id === film.id)) {
+        return prev.filter((item) => item.id !== film.id);
+      }
+      return [...prev, film];
+    });
+  };
+
   const toggleSamplePreview = (film: SimulatorFilm) => {
     if (!film.sample_url) return;
 
@@ -462,6 +470,7 @@ export default function SimulatorLinkBuilder() {
 
   const openCustomFilmScope = () => {
     setFilmScope("custom");
+    setCustomFilmPickerOpen(true);
 
     if (filmSearchResults.length === 0 && !filmLoading) {
       void searchFilms({
@@ -473,6 +482,11 @@ export default function SimulatorLinkBuilder() {
         recommended: true,
       });
     }
+  };
+
+  const closeCustomFilmPicker = () => {
+    setCustomFilmPickerOpen(false);
+    setPreviewSampleFilm(null);
   };
 
   const resetPaletteFilters = () => {
@@ -773,7 +787,10 @@ export default function SimulatorLinkBuilder() {
                 <div className="scopeRow">
                   <button
                     type="button"
-                    onClick={() => setFilmScope("all")}
+                    onClick={() => {
+                      setFilmScope("all");
+                      setCustomFilmPickerOpen(false);
+                    }}
                     className={filmScope === "all" ? "scopeActive" : ""}
                   >
                     삼성필름 전체 허용
@@ -781,7 +798,10 @@ export default function SimulatorLinkBuilder() {
 
                   <button
                     type="button"
-                    onClick={() => setFilmScope("preset")}
+                    onClick={() => {
+                      setFilmScope("preset");
+                      setCustomFilmPickerOpen(false);
+                    }}
                     className={filmScope === "preset" ? "scopeActive" : ""}
                   >
                     프리셋으로 제한
@@ -828,70 +848,35 @@ export default function SimulatorLinkBuilder() {
                 ) : null}
 
                 {filmScope === "custom" ? (
-                  <SimulatorFilmSearchPanel
-                    className="customFilmBox"
-                    query={filmQuery}
-                    loading={filmLoading}
-                    placeholder="예: 122, SG179, 화이트"
-                    onQueryChange={setFilmQuery}
-                    onSearch={() => void searchFilms()}
-                    palette={{
-                      open: paletteOpen,
-                      activeCount: activePaletteCount,
-                      selectedMain: selectedPaletteMain,
-                      selectedSub: selectedPaletteSub,
-                      selectedColors: selectedPaletteColors,
-                      mainOptions: paletteMainOptions,
-                      subOptions: paletteSubOptions,
-                      colorOptions: paletteColorOptions,
-                      onToggleOpen: () => setPaletteOpen((prev) => !prev),
-                      onClose: () => setPaletteOpen(false),
-                      onReset: resetPaletteFilters,
-                      onMainClick: handlePaletteMainClick,
-                      onSubClick: handlePaletteSubClick,
-                      onColorClick: handlePaletteColorClick,
-                    }}
-                  >
-                    <SimulatorSelectedFilmList
-                      films={selectedFilms}
-                      onRemove={removeFilm}
-                      emptyText="아직 선택한 필름이 없습니다. 검색 결과에서 필름을 눌러 추가하세요."
-                    />
-
-                    <div className="filmGrid" aria-busy={filmLoading}>
-                      {filmLoading ? (
-                        Array.from({ length: 9 }).map((_, index) => (
-                          <div key={`film-skeleton-${index}`} className="filmSkeletonCard" aria-hidden="true">
-                            <div className="filmSkeletonThumb" />
-                            <div className="filmSkeletonLine" />
-                            <div className="filmSkeletonLine short" />
-                          </div>
-                        ))
-                      ) : filmSearchResults.length > 0 ? (
-                        filmSearchResults.map((film) => {
-                          const active = selectedFilmIds.has(film.id);
-
-                          return (
-                            <SimulatorFilmResultCard
-                              key={film.id}
-                              film={film}
-                              active={active}
-                              variant="link"
-                              previewActive={previewSampleFilm?.id === film.id}
-                              onSelect={addFilm}
-                              onPreview={toggleSamplePreview}
-                              selectTitle={active ? "이미 선택된 필름입니다" : "누르면 링크 제한 필름에 담깁니다"}
-                            />
-                          );
-                        })
-                      ) : null}
+                  <div className="customFilmBox">
+                    <div className="filmPickerLaunchBox">
+                      <button type="button" onClick={openCustomFilmScope} className="openFilmSheetButton">
+                        직접 제한할 필름 선택하기
+                      </button>
+                      <div className="pickerStatusBar compactPickerStatus">
+                        <span>검색 결과 {filmSearchResults.length}개</span>
+                        <strong>선택한 필름 {selectedFilms.length}개</strong>
+                      </div>
+                      <p className="filmPickerLaunchHint">
+                        버튼을 누르면 시뮬레이터와 같은 필름 선택창이 하단에서 열립니다.
+                      </p>
                     </div>
 
-                    <SimulatorSamplePreview
-                      film={previewSampleFilm}
-                      onClose={() => setPreviewSampleFilm(null)}
-                    />
-                  </SimulatorFilmSearchPanel>
+                    <div className="selectedFilmSummaryBox">
+                      <div className="selectedFilmSummaryHeader">
+                        <span>고객 링크에 허용할 필름</span>
+                        <strong>{selectedFilms.length}개</strong>
+                      </div>
+                      <SimulatorSelectedFilmList
+                        films={selectedFilms}
+                        onRemove={removeFilm}
+                        emptyText="아직 선택한 필름이 없습니다. 버튼을 눌러 고객에게 보여줄 필름을 골라주세요."
+                        emptyClassName="hintBox compactHint"
+                        ariaLabel="직접 제한할 필름 목록"
+                        buttonTitle="누르면 제한 목록에서 제거"
+                      />
+                    </div>
+                  </div>
                 ) : null}
               </div>
 
@@ -963,6 +948,38 @@ export default function SimulatorLinkBuilder() {
           </div>
         )}
       </div>
+
+      {customFilmPickerOpen && filmScope === "custom" ? (
+        <SimulatorAdminFilmPickerSheet
+          title="직접 제한할 필름"
+          subtitle="고객 링크에서 보여줄 필름만 검색하고 선택해주세요."
+          films={filmSearchResults}
+          selectedFilms={selectedFilms}
+          filmQuery={filmQuery}
+          filmLoading={filmLoading}
+          filmError={error}
+          selectedPaletteMain={selectedPaletteMain}
+          selectedPaletteSub={selectedPaletteSub}
+          selectedPaletteColors={selectedPaletteColors}
+          paletteMainOptions={paletteMainOptions}
+          paletteSubOptions={paletteSubOptions}
+          paletteColorOptions={paletteColorOptions}
+          previewSampleFilm={previewSampleFilm}
+          emptyText="조건에 맞는 필름이 없습니다. 검색어 또는 색상 조건을 바꿔보세요."
+          doneLabel="제한 필름 선택 완료"
+          onClose={closeCustomFilmPicker}
+          onResetPaletteFilters={resetPaletteFilters}
+          onPaletteMainClick={handlePaletteMainClick}
+          onPaletteSubClick={handlePaletteSubClick}
+          onPaletteColorClick={handlePaletteColorClick}
+          onFilmQueryChange={setFilmQuery}
+          onSearchFilms={() => void searchFilms({ updateFacets: false })}
+          onToggleFilm={toggleFilm}
+          onRemoveSelectedFilm={removeFilm}
+          onToggleSamplePreview={toggleSamplePreview}
+          onCloseSamplePreview={() => setPreviewSampleFilm(null)}
+        />
+      ) : null}
 
       <SimulatorLinkTabs active="new" />
 
@@ -1482,6 +1499,58 @@ export default function SimulatorLinkBuilder() {
         .presetSelectBox,
         .customFilmBox {
           margin-top: 12px;
+        }
+
+        .filmPickerLaunchBox,
+        .selectedFilmSummaryBox {
+          border-radius: 18px;
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.045);
+          padding: 12px;
+          margin-bottom: 12px;
+        }
+
+        .openFilmSheetButton {
+          width: 100%;
+          min-height: 52px;
+          border: 0;
+          border-radius: 16px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 15px;
+          font-weight: 1000;
+          cursor: pointer;
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+        }
+
+        .compactPickerStatus {
+          margin-top: 10px;
+        }
+
+        .filmPickerLaunchHint {
+          margin: 9px 2px 0;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.55;
+        }
+
+        .selectedFilmSummaryHeader {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 8px;
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 1000;
+        }
+
+        .selectedFilmSummaryHeader strong {
+          border-radius: 999px;
+          padding: 5px 9px;
+          background: rgba(238, 224, 197, 0.12);
+          color: ${COLORS.cream};
+          font-size: 12px;
         }
 
         .hintBox a {

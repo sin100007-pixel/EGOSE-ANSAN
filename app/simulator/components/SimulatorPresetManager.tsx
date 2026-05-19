@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
-import SimulatorFilmSearchPanel from "./shared/SimulatorFilmSearchPanel";
-import SimulatorFilmResultCard from "./shared/SimulatorFilmResultCard";
-import SimulatorSamplePreview from "./shared/SimulatorSamplePreview";
+import SimulatorAdminFilmPickerSheet from "./shared/SimulatorAdminFilmPickerSheet";
 import SimulatorSelectedFilmList from "./shared/SimulatorSelectedFilmList";
 import {
   DEFAULT_PALETTE_COLOR_OPTIONS,
@@ -55,42 +53,51 @@ const PRESET_MANAGER_TUTORIAL_STEPS = [
   {
     id: "preset-start",
     target: "preset-hero",
-    title: "필름 묶음을 저장하는 화면입니다",
+    title: "프리셋을 만드는 화면입니다",
     description:
-      "자주 쓰는 추천 필름 조합을 프리셋으로 저장해두고, 고객 링크 생성 화면에서 빠르게 불러올 수 있습니다.",
-    tip: "예: 화이트 추천 20종, 우드 인기색 모음처럼 상담 상황별로 만들어두면 좋아요.",
+      "고객에게 추천할 필름 묶음을 저장해두고, 링크 생성에서 빠르게 불러올 수 있습니다.",
+    tip: "예: 화이트 추천, 우드 인기색, 주방 추천색처럼 상담 상황별로 만들어두면 좋아요.",
   },
   {
     id: "preset-name",
     target: "preset-name",
-    title: "프리셋 이름을 정합니다",
+    title: "프리셋 이름을 입력합니다",
     description:
       "링크 생성 화면에서 바로 알아볼 수 있도록 추천 조합의 이름을 입력합니다.",
-    tip: "고객에게 보일 이름은 아니고, 시공자가 관리하기 위한 이름입니다.",
+    tip: "고객에게 보이는 이름이 아니라 시공자가 관리하기 위한 이름입니다.",
   },
   {
-    id: "preset-search",
-    target: "preset-search-keyword",
-    title: "다음 필름을 검색합니다",
+    id: "preset-picker-launch",
+    target: "preset-picker-launch",
+    title: "프리셋으로 만들 색상을 선택합니다",
     description:
-      "제품번호나 색상명으로 검색한뒤 결과 카드에서 프리셋에 넣을 필름을 고릅니다.",
+      "버튼을 누르면 하단에서 필름 선택창이 올라옵니다. 그 안에서 검색, 패턴, 색상으로 필름을 고를 수 있습니다.",
     scrollBlock: "center",
   },
   {
-    id: "preset-palette",
-    target: "preset-palette-filter",
-    title: "색상으로 찾기를 사용할 수 있습니다",
+    id: "preset-picker-sheet",
+    target: "preset-picker-sheet",
+    title: "필름묶음을 만들 필름을 고릅니다",
     description:
-      "색상으로 찾기를 눌러 열어서 패턴이나 색상으로 찾는 범위를 손쉽게 줄일 수 있습니다.",
+      "하단 필름 선택창 안에서 검색, 패턴, 색상으로 원하는 필름을 고를 수 있습니다.",
+    tip: (
+      <>
+        필름 이미지 오른쪽 위에 있는 <span className="simAdminTutorialSamplePill">샘플</span>을 누르면 크게 확대해서 볼 수 있어요.
+      </>
+    ),
     scrollBlock: "center",
+    cardPlacement: "bottom",
+    cardBottom: 118,
+    cardBottomMobile: 104,
+    spotlightFullViewport: true,
+    allowTargetInteraction: true,
   },
   {
-    id: "preset-select",
-    target: "preset-select",
-    title: "필름 카드를 눌러 선택합니다",
+    id: "preset-selected-list",
+    target: "preset-selected-list",
+    title: "선택한 필름을 확인합니다",
     description:
-      "검색 결과의 필름 카드를 누르면 프리셋에 담깁니다. 이미 담긴 필름을 다시 누르면 선택 해제됩니다.",
-    tip: "너무 많이 담기보다 고객에게 보여줄 후보 위주로 적당히 고르는 게 좋아요.",
+      "프리셋에 담긴 필름이 이곳에 표시됩니다. 필요 없는 필름은 칩을 눌러 제거할 수 있습니다.",
     scrollBlock: "center",
   },
   {
@@ -107,7 +114,7 @@ const PRESET_MANAGER_TUTORIAL_STEPS = [
     title: "저장된 프리셋을 관리합니다",
     description:
       "내 프리셋에서 저장된 묶음을 확인하고, 필요하면 수정하거나 삭제할 수 있습니다.",
-    tip: "수정 버튼을 누르면 왼쪽 작성 영역으로 불러와서 필름 구성을 바꿀 수 있어요.",
+    tip: "수정 버튼을 누르면 작성 영역으로 불러와서 필름 구성을 바꿀 수 있어요.",
     scrollBlock: "end",
     cardBottomMobile: 310,
   },
@@ -147,6 +154,7 @@ export default function SimulatorPresetManager() {
   const [filmSearchResults, setFilmSearchResults] = useState<SimulatorFilm[]>([]);
   const [selectedFilms, setSelectedFilms] = useState<SimulatorFilm[]>([]);
   const [previewSampleFilm, setPreviewSampleFilm] = useState<SimulatorFilm | null>(null);
+  const [filmPickerOpen, setFilmPickerOpen] = useState(false);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedPaletteMain, setSelectedPaletteMain] = useState("");
@@ -329,6 +337,42 @@ export default function SimulatorPresetManager() {
 
     setPreviewSampleFilm((prev) => (prev?.id === film.id ? null : film));
   };
+
+  const openFilmPicker = () => {
+    setFilmPickerOpen(true);
+
+    if (filmSearchResults.length === 0 && !filmLoading) {
+      void searchFilms({ query: "", paletteMain: "", paletteSub: "", paletteColors: [], updateFacets: true, recommended: true });
+    }
+  };
+
+  const closeFilmPicker = () => {
+    setFilmPickerOpen(false);
+    setPreviewSampleFilm(null);
+  };
+
+  const handlePresetTutorialStepChange = useCallback(
+    (
+      tutorialStep: SimulatorAdminTutorialStep,
+      _index: number,
+      isOpen: boolean,
+    ) => {
+      if (!isOpen) {
+        setFilmPickerOpen(false);
+        setPreviewSampleFilm(null);
+        return;
+      }
+
+      if (tutorialStep.id === "preset-picker-sheet") {
+        setFilmPickerOpen(true);
+        return;
+      }
+
+      setFilmPickerOpen(false);
+      setPreviewSampleFilm(null);
+    },
+    [],
+  );
 
   const resetForm = () => {
     setEditingId("");
@@ -514,9 +558,10 @@ export default function SimulatorPresetManager() {
         </section>
 
         <SimulatorAdminTutorial
-          storageKey="preset-manager-v1"
+          storageKey="preset-manager-v2"
           steps={PRESET_MANAGER_TUTORIAL_STEPS}
           buttonLabel="프리셋 도움말"
+          onStepChange={handlePresetTutorialStepChange}
         />
 
         {showInitialLoading ? (
@@ -601,83 +646,36 @@ export default function SimulatorPresetManager() {
               />
             </label>
 
-            <div data-sim-admin-guide="preset-search">
+            <div data-sim-admin-guide="preset-picker-area">
               <div className="fieldSectionLabel">프리셋 할 제품 찾기</div>
 
-              <SimulatorFilmSearchPanel
-              className="filmPicker"
-              query={filmQuery}
-              loading={filmLoading}
-              placeholder="제품번호/색상명 검색 예: 122, 화이트, SG"
-              onQueryChange={setFilmQuery}
-              onSearch={() => void searchFilms({ updateFacets: false })}
-              searchGuideTarget="preset-search-keyword"
-              paletteGuideTarget="preset-palette-filter"
-              palette={{
-                open: paletteOpen,
-                activeCount: activePaletteCount,
-                selectedMain: selectedPaletteMain,
-                selectedSub: selectedPaletteSub,
-                selectedColors: selectedPaletteColors,
-                mainOptions: paletteMainOptions,
-                subOptions: paletteSubOptions,
-                colorOptions: paletteColorOptions,
-                onToggleOpen: () => setPaletteOpen((prev) => !prev),
-                onClose: () => setPaletteOpen(false),
-                onReset: resetPaletteFilters,
-                onMainClick: handlePaletteMainClick,
-                onSubClick: handlePaletteSubClick,
-                onColorClick: handlePaletteColorClick,
-              }}
-            >
-              <div className="pickerStatusBar">
-                <span>검색 결과 {filmSearchResults.length}개</span>
-                <strong>선택한 필름 {selectedFilms.length}개</strong>
+              <div className="filmPickerLaunchBox" data-sim-admin-guide="preset-picker-launch">
+                <button type="button" onClick={openFilmPicker} className="openFilmSheetButton">
+                  프리셋으로 만들 색상 선택하기
+                </button>
+                <div className="pickerStatusBar compactPickerStatus">
+                  <span>검색 결과 {filmSearchResults.length}개</span>
+                  <strong>선택한 필름 {selectedFilms.length}개</strong>
+                </div>
+                <p className="filmPickerLaunchHint">
+                  버튼을 누르면 시뮬레이터와 같은 필름 선택창이 하단에서 열립니다. 패턴과 색상으로 좁혀서 고를 수 있어요.
+                </p>
               </div>
 
-              <SimulatorSelectedFilmList
-                films={selectedFilms}
-                onRemove={removeFilm}
-                emptyText="검색 결과에서 필름을 누르면 프리셋에 담깁니다."
-                emptyClassName="hintBox compactHint"
-                ariaLabel="선택한 필름 목록"
-                buttonTitle="누르면 선택 해제"
-              />
-
-              <div className="filmResultGrid" data-sim-admin-guide="preset-select" aria-busy={filmLoading}>
-                {filmLoading ? (
-                  Array.from({ length: 9 }).map((_, index) => (
-                    <div key={`preset-film-skeleton-${index}`} className="filmResultSkeletonCard" aria-hidden="true">
-                      <div className="filmResultSkeletonThumb" />
-                      <div className="filmResultSkeletonLine" />
-                      <div className="filmResultSkeletonLine short" />
-                    </div>
-                  ))
-                ) : filmSearchResults.length > 0 ? (
-                  filmSearchResults.map((film) => {
-                    const active = selectedFilmIds.has(film.id);
-
-                    return (
-                      <SimulatorFilmResultCard
-                        key={film.id}
-                        film={film}
-                        active={active}
-                        variant="preset"
-                        previewActive={previewSampleFilm?.id === film.id}
-                        onSelect={toggleFilm}
-                        onPreview={toggleSamplePreview}
-                        selectTitle={active ? "누르면 프리셋에서 제거" : "누르면 프리셋에 담기"}
-                      />
-                    );
-                  })
-                ) : null}
+              <div className="selectedFilmSummaryBox" data-sim-admin-guide="preset-selected-list">
+                <div className="selectedFilmSummaryHeader">
+                  <span>프리셋에 담긴 필름</span>
+                  <strong>{selectedFilms.length}개</strong>
+                </div>
+                <SimulatorSelectedFilmList
+                  films={selectedFilms}
+                  onRemove={removeFilm}
+                  emptyText="아직 선택한 필름이 없습니다. 버튼을 눌러 프리셋에 넣을 필름을 골라주세요."
+                  emptyClassName="hintBox compactHint"
+                  ariaLabel="선택한 필름 목록"
+                  buttonTitle="누르면 선택 해제"
+                />
               </div>
-
-              <SimulatorSamplePreview
-                film={previewSampleFilm}
-                onClose={() => setPreviewSampleFilm(null)}
-              />
-              </SimulatorFilmSearchPanel>
             </div>
 
             {error ? <div className="errorBox">{error}</div> : null}
@@ -751,6 +749,39 @@ export default function SimulatorPresetManager() {
         </div>
         )}
       </div>
+
+      {filmPickerOpen ? (
+        <SimulatorAdminFilmPickerSheet
+          title="프리셋으로 만들 필름"
+          subtitle="고객에게 추천할 필름을 검색하고 선택해 프리셋에 담아주세요."
+          films={filmSearchResults}
+          selectedFilms={selectedFilms}
+          filmQuery={filmQuery}
+          filmLoading={filmLoading}
+          filmError={error}
+          selectedPaletteMain={selectedPaletteMain}
+          selectedPaletteSub={selectedPaletteSub}
+          selectedPaletteColors={selectedPaletteColors}
+          paletteMainOptions={paletteMainOptions}
+          paletteSubOptions={paletteSubOptions}
+          paletteColorOptions={paletteColorOptions}
+          previewSampleFilm={previewSampleFilm}
+          emptyText="조건에 맞는 필름이 없습니다. 검색어 또는 색상 조건을 바꿔보세요."
+          doneLabel="프리셋에 담기 완료"
+          guideTarget="preset-picker-sheet"
+          onClose={closeFilmPicker}
+          onResetPaletteFilters={resetPaletteFilters}
+          onPaletteMainClick={handlePaletteMainClick}
+          onPaletteSubClick={handlePaletteSubClick}
+          onPaletteColorClick={handlePaletteColorClick}
+          onFilmQueryChange={setFilmQuery}
+          onSearchFilms={() => void searchFilms({ updateFacets: false })}
+          onToggleFilm={toggleFilm}
+          onRemoveSelectedFilm={removeFilm}
+          onToggleSamplePreview={toggleSamplePreview}
+          onCloseSamplePreview={() => setPreviewSampleFilm(null)}
+        />
+      ) : null}
 
       <SimulatorLinkTabs active="presets" />
 
@@ -1011,12 +1042,27 @@ export default function SimulatorPresetManager() {
           box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.12) inset;
         }
 
-        .activeFilterList,
-        .selectedFilmList {
+        .activeFilterList {
           display: flex;
           gap: 8px;
           overflow-x: auto;
           padding-bottom: 2px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .selectedFilmList {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          overflow-x: hidden;
+          overflow-y: auto;
+          max-height: 112px;
+          padding: 1px 2px 2px;
+          box-sizing: border-box;
+          overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
         }
 
@@ -1035,6 +1081,12 @@ export default function SimulatorPresetManager() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .selectedFilmList button {
+          flex: 0 1 auto;
+          max-width: 100%;
+          min-width: 0;
         }
 
         .palettePanel {
@@ -1249,6 +1301,62 @@ export default function SimulatorPresetManager() {
           border: 1px solid rgba(238, 224, 197, 0.38);
           color: ${COLORS.cream};
           background: rgba(238, 224, 197, 0.1);
+        }
+
+        .filmPickerLaunchBox,
+        .selectedFilmSummaryBox {
+          min-width: 0;
+          max-width: 100%;
+          overflow: hidden;
+          border-radius: 18px;
+          border: 1px solid ${COLORS.line};
+          background: rgba(255, 255, 255, 0.045);
+          padding: 12px;
+          margin-bottom: 12px;
+          box-sizing: border-box;
+        }
+
+        .openFilmSheetButton {
+          width: 100%;
+          min-height: 52px;
+          border: 0;
+          border-radius: 16px;
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+          font-size: 15px;
+          font-weight: 1000;
+          cursor: pointer;
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+        }
+
+        .compactPickerStatus {
+          margin-top: 10px;
+        }
+
+        .filmPickerLaunchHint {
+          margin: 9px 2px 0;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          line-height: 1.55;
+        }
+
+        .selectedFilmSummaryHeader {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 8px;
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 1000;
+        }
+
+        .selectedFilmSummaryHeader strong {
+          border-radius: 999px;
+          padding: 5px 9px;
+          background: rgba(238, 224, 197, 0.12);
+          color: ${COLORS.cream};
+          font-size: 12px;
         }
 
         .filmResultGrid {
