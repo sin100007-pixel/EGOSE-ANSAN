@@ -1331,12 +1331,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   };
 
   const goDecisionStep = () => {
-    const hasAnyFilm = maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]));
-
-    if (!hasAnyFilm) {
-      return;
-    }
-
     rememberUndoSnapshot();
     setDecisionMessage("");
     setStep("decision");

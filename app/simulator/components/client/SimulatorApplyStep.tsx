@@ -131,7 +131,6 @@ export default function SimulatorApplyStep({
           onClick={onGoDecisionStep}
           className="decisionNextButton"
           data-sim-admin-guide="customer-apply-decision"
-          disabled={!hasAnyFilm}
         >
           결정확정으로 넘어가기
         </button>
