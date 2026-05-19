@@ -1417,9 +1417,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         text: buildFavoriteCandidatesShareText(selectedFavoriteCandidates),
         fileNamePrefix: "simulation-favorites",
         successMessage: "선택한 즐겨찾기 후보 이미지와 내용을 전송했습니다.",
-        textShareMessage: "선택한 즐겨찾기 후보 내용을 전송했고, 이미지는 파일로 저장했습니다.",
-        copyMessage: "선택한 즐겨찾기 후보 내용을 복사했고, 이미지는 파일로 저장했습니다. 문자, 메신저로 붙여넣어 전송해주세요.",
+        textShareMessage: "선택한 즐겨찾기 후보 내용을 전송했고, 이미지는 파일 저장을 시도했습니다.",
+        copyMessage: "선택한 즐겨찾기 후보 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 문자, 메신저로 붙여넣어 전송해주세요.",
         copyWithoutImageMessage: "선택한 즐겨찾기 후보 내용을 복사했습니다. 이미지는 저장하지 못했습니다.",
+        kakaoInAppMessage:
+          "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 선택한 후보 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 카카오톡 대화방에 직접 붙여넣거나 이미지를 첨부해주세요.",
+        kakaoInAppCopyOnlyMessage:
+          "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 이미지는 파일 저장을 시도했습니다. 내용 복사가 안 되면 화면을 캡쳐해서 보내주세요.",
       });
     } finally {
       setFavoriteShareExportCandidates([]);

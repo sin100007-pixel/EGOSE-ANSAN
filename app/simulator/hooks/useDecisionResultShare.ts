@@ -23,6 +23,14 @@ type ShareDecisionResultOptions = {
   textShareMessage?: string;
   copyMessage?: string;
   copyWithoutImageMessage?: string;
+  kakaoInAppMessage?: string;
+  kakaoInAppCopyOnlyMessage?: string;
+};
+
+const isKakaoInAppBrowser = () => {
+  if (typeof navigator === "undefined") return false;
+
+  return /KAKAOTALK/i.test(navigator.userAgent || "");
 };
 
 export function useDecisionResultShare({
@@ -94,6 +102,24 @@ export function useDecisionResultShare({
     try {
       const dataUrl = await createDecisionResultImage();
 
+      if (isKakaoInAppBrowser()) {
+        try {
+          await navigator.clipboard.writeText(text);
+          downloadDataUrl(dataUrl, fileName);
+          setDecisionMessage(
+            options.kakaoInAppMessage ||
+              "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 결정 결과 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 카카오톡 대화방에 직접 붙여넣거나 이미지를 첨부해주세요.",
+          );
+        } catch {
+          downloadDataUrl(dataUrl, fileName);
+          setDecisionMessage(
+            options.kakaoInAppCopyOnlyMessage ||
+              "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 이미지는 파일 저장을 시도했습니다. 내용 복사가 안 되면 화면을 캡쳐해서 보내주세요.",
+          );
+        }
+        return;
+      }
+
       try {
         const response = await fetch(dataUrl);
         const blob = await response.blob();
@@ -117,19 +143,19 @@ export function useDecisionResultShare({
         // 파일 공유가 되지 않으면 아래 텍스트 공유/복사 흐름으로 진행합니다.
       }
 
-      if (navigator.share) {
+      if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({
           title,
           text,
         });
         downloadDataUrl(dataUrl, fileName);
-        setDecisionMessage(options.textShareMessage || "결정 결과 문구를 전송했고, 이미지는 파일로 저장했습니다.");
+        setDecisionMessage(options.textShareMessage || "결정 결과 문구를 전송했고, 이미지는 파일 저장을 시도했습니다.");
         return;
       }
 
       await navigator.clipboard.writeText(text);
       downloadDataUrl(dataUrl, fileName);
-      setDecisionMessage(options.copyMessage || "결정 결과를 복사했고, 이미지는 파일로 저장했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
+      setDecisionMessage(options.copyMessage || "결정 결과를 복사했고, 이미지는 파일 저장을 시도했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
     } catch {
       try {
         await navigator.clipboard.writeText(text);
