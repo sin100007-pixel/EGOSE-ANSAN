@@ -646,6 +646,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     decisionExportRef,
     decisionMessage,
     setDecisionMessage,
+    decisionPopupMessage,
+    setDecisionPopupMessage,
     isDecisionSharing,
     shareDecisionResult,
   } = useDecisionResultShare({
@@ -1421,9 +1423,9 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         copyMessage: "선택한 즐겨찾기 후보 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 문자, 메신저로 붙여넣어 전송해주세요.",
         copyWithoutImageMessage: "선택한 즐겨찾기 후보 내용을 복사했습니다. 이미지는 저장하지 못했습니다.",
         kakaoInAppMessage:
-          "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 선택한 후보 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 카카오톡 대화방에 직접 붙여넣거나 이미지를 첨부해주세요.",
+          "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n즐겨찾기 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
         kakaoInAppCopyOnlyMessage:
-          "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 이미지는 파일 저장을 시도했습니다. 내용 복사가 안 되면 화면을 캡쳐해서 보내주세요.",
+          "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n즐겨찾기 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
       });
     } finally {
       setFavoriteShareExportCandidates([]);
@@ -1856,6 +1858,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           </div>
         ) : null}
 
+        {decisionPopupMessage ? (
+          <SimulatorKakaoShareNoticeModal
+            message={decisionPopupMessage}
+            onClose={() => setDecisionPopupMessage("")}
+          />
+        ) : null}
+
         {currentGuide ? (
           currentGuide.stepLabel === "1단계 소개" ? (
             <SimulatorAdminTutorial
@@ -1983,4 +1992,110 @@ function noticeStyle(type: "default" | "warning" | "danger" = "default"): CSSPro
     lineHeight: 1.7,
     boxShadow: "0 18px 48px rgba(0,0,0,0.18)",
   };
+}
+
+type SimulatorKakaoShareNoticeModalProps = {
+  message: string;
+  onClose: () => void;
+};
+
+function SimulatorKakaoShareNoticeModal({
+  message,
+  onClose,
+}: SimulatorKakaoShareNoticeModalProps) {
+  return (
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 400000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "rgba(8, 10, 18, 0.72)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="simulator-kakao-share-notice-title"
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: "min(360px, 100%)",
+          borderRadius: 28,
+          padding: "28px 22px 22px",
+          border: "1px solid rgba(238, 224, 197, 0.7)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,242,230,0.98))",
+          color: "#16120c",
+          boxShadow: "0 28px 80px rgba(0,0,0,0.38)",
+          textAlign: "center",
+        }}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            width: 58,
+            height: 58,
+            margin: "0 auto 14px",
+            borderRadius: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(35, 30, 20, 0.08)",
+            fontSize: 30,
+          }}
+        >
+          📥
+        </div>
+
+        <h3
+          id="simulator-kakao-share-notice-title"
+          style={{
+            margin: 0,
+            fontSize: 21,
+            fontWeight: 900,
+            letterSpacing: "-0.04em",
+          }}
+        >
+          공유 안내
+        </h3>
+
+        <p
+          style={{
+            margin: "14px 0 22px",
+            whiteSpace: "pre-line",
+            fontSize: 15,
+            fontWeight: 700,
+            lineHeight: 1.65,
+            letterSpacing: "-0.04em",
+          }}
+        >
+          {message}
+        </p>
+
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            width: "100%",
+            minHeight: 52,
+            border: 0,
+            borderRadius: 18,
+            background: "#1f1a12",
+            color: "#fff7e8",
+            fontSize: 16,
+            fontWeight: 900,
+            letterSpacing: "-0.04em",
+            boxShadow: "0 14px 30px rgba(31,26,18,0.22)",
+          }}
+        >
+          알겠어요
+        </button>
+      </section>
+    </div>
+  );
 }

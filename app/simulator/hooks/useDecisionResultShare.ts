@@ -43,6 +43,7 @@ export function useDecisionResultShare({
 }: UseDecisionResultShareArgs) {
   const decisionExportRef = useRef<HTMLDivElement | null>(null);
   const [decisionMessage, setDecisionMessage] = useState("");
+  const [decisionPopupMessage, setDecisionPopupMessage] = useState("");
   const [isDecisionSharing, setIsDecisionSharing] = useState(false);
 
   const buildDecisionText = () => {
@@ -97,6 +98,7 @@ export function useDecisionResultShare({
     const fileName = `${fileNamePrefix}-${new Date().toISOString().slice(0, 10)}.png`;
 
     setDecisionMessage("");
+    setDecisionPopupMessage("");
     setIsDecisionSharing(true);
 
     try {
@@ -106,15 +108,15 @@ export function useDecisionResultShare({
         try {
           await navigator.clipboard.writeText(text);
           downloadDataUrl(dataUrl, fileName);
-          setDecisionMessage(
+          setDecisionPopupMessage(
             options.kakaoInAppMessage ||
-              "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 결정 결과 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 카카오톡 대화방에 직접 붙여넣거나 이미지를 첨부해주세요.",
+              "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
           );
         } catch {
           downloadDataUrl(dataUrl, fileName);
-          setDecisionMessage(
+          setDecisionPopupMessage(
             options.kakaoInAppCopyOnlyMessage ||
-              "카카오톡 브라우저에서는 공유창이 열리지 않을 수 있어요. 이미지는 파일 저장을 시도했습니다. 내용 복사가 안 되면 화면을 캡쳐해서 보내주세요.",
+              "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
           );
         }
         return;
@@ -172,6 +174,8 @@ export function useDecisionResultShare({
     decisionExportRef,
     decisionMessage,
     setDecisionMessage,
+    decisionPopupMessage,
+    setDecisionPopupMessage,
     isDecisionSharing,
     shareDecisionResult,
   };
