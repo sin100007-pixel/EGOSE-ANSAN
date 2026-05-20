@@ -1688,20 +1688,23 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .customerGuideCheckerDot {
-          width: 18px;
-          height: 18px;
+          width: 22px;
+          height: 22px;
           display: inline-block;
-          border-radius: 999px;
-          border: 1px solid rgba(238, 224, 197, 0.7);
-          background-color: rgba(255, 255, 255, 0.92);
+          flex: 0 0 auto;
+          border-radius: 6px;
+          border: 1px solid rgba(238, 224, 197, 0.82);
+          background-color: rgba(255, 255, 255, 0.94);
           background-image:
-            linear-gradient(45deg, rgba(18, 18, 40, 0.14) 25%, transparent 25%),
-            linear-gradient(-45deg, rgba(18, 18, 40, 0.14) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, rgba(18, 18, 40, 0.14) 75%),
-            linear-gradient(-45deg, transparent 75%, rgba(18, 18, 40, 0.14) 75%);
-          background-size: 8px 8px;
-          background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+            linear-gradient(45deg, rgba(175, 181, 202, 0.92) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(175, 181, 202, 0.92) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(175, 181, 202, 0.92) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(175, 181, 202, 0.92) 75%);
+          background-size: 12px 12px;
+          background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
+          box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.34),
+            0 4px 10px rgba(0, 0, 0, 0.18);
         }
 
         .customerGuidePrimaryButton {
