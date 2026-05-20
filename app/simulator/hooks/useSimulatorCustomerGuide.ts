@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CUSTOMER_GUIDES,
   CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX,
+  CUSTOMER_GUIDE_STEPS,
   type CustomerGuideStep,
   type SimulatorMode,
   type SimulatorStep,
@@ -35,11 +36,21 @@ export function useSimulatorCustomerGuide({
   const [promptHandledInSession, setPromptHandledInSession] = useState(false);
   const [showGuideStartPrompt, setShowGuideStartPrompt] = useState(false);
   const [showGuideSkippedNotice, setShowGuideSkippedNotice] = useState(false);
+  const [guidedSequenceActive, setGuidedSequenceActive] = useState(false);
+  const [guidedSequenceCompletedSteps, setGuidedSequenceCompletedSteps] = useState<CustomerGuideStep[]>([]);
   const promptShownInSessionRef = useRef(false);
 
   const customerGuidePromptStorageKey = useMemo(() => {
     return `${CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX}:${token || "default"}`;
   }, [token]);
+
+  const guidedSequenceSteps = useMemo<CustomerGuideStep[]>(() => {
+    if (hasIntroStep) {
+      return [...CUSTOMER_GUIDE_STEPS];
+    }
+
+    return CUSTOMER_GUIDE_STEPS.filter((guideStep) => guideStep !== "intro");
+  }, [hasIntroStep]);
 
   const currentStepGuide = useMemo<CustomerGuideStep | null>(() => {
     if (step !== "intro" && step !== "space" && step !== "apply" && step !== "decision") {
@@ -79,6 +90,8 @@ export function useSimulatorCustomerGuide({
 
   useEffect(() => {
     promptShownInSessionRef.current = false;
+    setGuidedSequenceActive(false);
+    setGuidedSequenceCompletedSteps([]);
 
     if (mode !== "customer") {
       setActiveGuideStep(null);
@@ -140,11 +153,47 @@ export function useSimulatorCustomerGuide({
     setActiveGuideStep(null);
   }, [activeGuideStep, currentStepGuide]);
 
+  useEffect(() => {
+    if (!guidedSequenceActive || !canOpenCurrentGuide || !currentStepGuide) {
+      return;
+    }
+
+    if (activeGuideStep || showGuideStartPrompt || showGuideSkippedNotice) {
+      return;
+    }
+
+    if (guidedSequenceCompletedSteps.includes(currentStepGuide)) {
+      return;
+    }
+
+    if (!guidedSequenceSteps.includes(currentStepGuide)) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setActiveGuideStep(currentStepGuide);
+    }, 160);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    activeGuideStep,
+    canOpenCurrentGuide,
+    currentStepGuide,
+    guidedSequenceActive,
+    guidedSequenceCompletedSteps,
+    guidedSequenceSteps,
+    showGuideSkippedNotice,
+    showGuideStartPrompt,
+  ]);
+
   const openCustomerGuide = useCallback(() => {
     if (!canOpenCurrentGuide || !currentStepGuide) {
       return;
     }
 
+    setGuidedSequenceActive(false);
     setShowGuideStartPrompt(false);
     setShowGuideSkippedNotice(false);
     setActiveGuideStep(currentStepGuide);
@@ -156,6 +205,8 @@ export function useSimulatorCustomerGuide({
     }
 
     markPromptHandled();
+    setGuidedSequenceCompletedSteps([]);
+    setGuidedSequenceActive(true);
     setShowGuideStartPrompt(false);
     setShowGuideSkippedNotice(false);
     setActiveGuideStep(currentStepGuide);
@@ -163,6 +214,8 @@ export function useSimulatorCustomerGuide({
 
   const skipCustomerGuideFromPrompt = useCallback(() => {
     markPromptHandled();
+    setGuidedSequenceActive(false);
+    setGuidedSequenceCompletedSteps([]);
     setShowGuideStartPrompt(false);
     setActiveGuideStep(null);
     setShowGuideSkippedNotice(true);
@@ -170,12 +223,25 @@ export function useSimulatorCustomerGuide({
 
   const closeGuideStartPrompt = useCallback(() => {
     markPromptHandled();
+    setGuidedSequenceActive(false);
+    setGuidedSequenceCompletedSteps([]);
     setShowGuideStartPrompt(false);
   }, [markPromptHandled]);
 
   const closeCustomerGuide = useCallback(() => {
+    if (activeGuideStep) {
+      setGuidedSequenceCompletedSteps((prev) => (
+        prev.includes(activeGuideStep) ? prev : [...prev, activeGuideStep]
+      ));
+
+      const closedStepIndex = guidedSequenceSteps.indexOf(activeGuideStep);
+      if (closedStepIndex >= guidedSequenceSteps.length - 1) {
+        setGuidedSequenceActive(false);
+      }
+    }
+
     setActiveGuideStep(null);
-  }, []);
+  }, [activeGuideStep, guidedSequenceSteps]);
 
   const closeGuideSkippedNotice = useCallback(() => {
     setShowGuideSkippedNotice(false);
