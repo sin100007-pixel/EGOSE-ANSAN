@@ -165,7 +165,7 @@ const CUSTOMER_INTRO_TUTORIAL_STEPS = [
         <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOff">OFF</span>
         이면 가이드가 꺼져있는 상태입니다.
         <br />
-        필요에 따라 끌 수도 있고 켜면 다시 볼 수 있습니다.
+        누르시면 필요에 따라 끌 수도 있고 켜면 다시 볼 수도 있습니다.
       </>
     ),
     target: "customer-intro-guide-toggle",
@@ -370,7 +370,7 @@ const CUSTOMER_DECISION_TUTORIAL_STEPS = [
         <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOff">OFF</span>
         이면 가이드가 꺼져있는 상태입니다.
         <br />
-        필요에 따라 끌 수도 있고 켜면 다시 볼 수 있습니다.
+        누르시면 필요에 따라 끌 수도 있고 켜면 다시 볼 수도 있습니다.
       </>
     ),
     target: "customer-intro-guide-toggle",
