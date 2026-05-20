@@ -3149,19 +3149,20 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           position: absolute;
           bottom: calc(100% + 10px);
           box-sizing: border-box;
-          width: min(286px, calc(100vw - 44px));
-          max-width: 286px;
-          border-radius: 16px;
+          width: min(292px, calc(100vw - 24px));
+          max-width: min(292px, calc(100vw - 24px));
+          border-radius: 18px;
           border: 1px solid rgba(238, 224, 197, 0.34);
-          background: rgba(12, 10, 72, 0.98);
+          background: linear-gradient(180deg, rgba(18, 16, 92, 0.99) 0%, rgba(9, 8, 70, 0.985) 100%);
           color: ${COLORS.white};
-          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
-          padding: 12px 13px;
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.36);
+          padding: 13px 14px;
           font-size: 12px;
           font-weight: 800;
           line-height: 1.55;
           letter-spacing: -0.02em;
           word-break: keep-all;
+          overflow-wrap: anywhere;
           white-space: normal;
           text-align: left;
           z-index: 130;
@@ -3176,7 +3177,49 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           transform: rotate(45deg);
           border-right: 1px solid rgba(238, 224, 197, 0.34);
           border-bottom: 1px solid rgba(238, 224, 197, 0.34);
-          background: rgba(12, 10, 72, 0.98);
+          background: rgba(15, 13, 82, 0.99);
+        }
+
+        .simHelpBubbleHeader {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 8px;
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 1000;
+          letter-spacing: -0.02em;
+        }
+
+        .simHelpBubbleIcon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.18);
+          border: 1px solid rgba(238, 224, 197, 0.32);
+          color: ${COLORS.cream};
+          font-size: 11px;
+          line-height: 1;
+          flex: 0 0 auto;
+        }
+
+        .simHelpBubbleTitle {
+          color: ${COLORS.cream};
+          font-weight: 1000;
+        }
+
+        .simHelpBubbleBody {
+          display: block;
+          color: ${COLORS.white};
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.6;
+          word-break: keep-all;
+          overflow-wrap: anywhere;
+          white-space: normal;
         }
 
         .applySplitHelpAction-favorite .applySplitHelpBubble {
@@ -3529,10 +3572,27 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .applySplitHelpBubble {
-            width: min(268px, calc(100vw - 34px));
-            max-width: 268px;
-            padding: 11px 12px;
+            width: min(280px, calc(100vw - 34px));
+            max-width: min(280px, calc(100vw - 34px));
+            padding: 12px 13px;
             font-size: 11px;
+          }
+
+          .simHelpBubbleHeader {
+            font-size: 11px;
+            gap: 6px;
+            margin-bottom: 7px;
+          }
+
+          .simHelpBubbleIcon {
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+          }
+
+          .simHelpBubbleBody {
+            font-size: 11px;
+            line-height: 1.58;
           }
 
           .applySplitHelpAction-favorite .applySplitHelpBubble::before {

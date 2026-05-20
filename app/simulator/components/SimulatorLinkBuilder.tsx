@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
@@ -177,6 +177,76 @@ const LINK_HELP_MESSAGES: Record<LinkHelpKey, string> = {
     "고객이 시뮬레이션 할 수 있는 필름 종류를 직접 고릅니다. 고객은 허락된 필름만 시뮬레이션에 적용해볼 수 있습니다.",
 };
 
+type HelpBubblePlacement = "top" | "bottom";
+
+const HELP_BUBBLE_SIDE_MARGIN = 12;
+const HELP_BUBBLE_MAX_WIDTH = 318;
+
+function useSmartHelpBubble(opened: boolean, placement: HelpBubblePlacement = "bottom") {
+  const wrapRef = useRef<HTMLElement | null>(null);
+  const [bubbleStyle, setBubbleStyle] = useState<CSSProperties>({});
+
+  const setWrapRef = (node: HTMLElement | null) => {
+    wrapRef.current = node;
+  };
+
+  useEffect(() => {
+    if (!opened) return;
+
+    const updatePosition = () => {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+
+      const rect = wrap.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 360;
+      const bubbleWidth = Math.max(
+        220,
+        Math.min(HELP_BUBBLE_MAX_WIDTH, viewportWidth - HELP_BUBBLE_SIDE_MARGIN * 2)
+      );
+      const preferredLeft = rect.left + rect.width / 2 - bubbleWidth / 2;
+      const clampedLeft = Math.min(
+        Math.max(preferredLeft, HELP_BUBBLE_SIDE_MARGIN),
+        viewportWidth - HELP_BUBBLE_SIDE_MARGIN - bubbleWidth
+      );
+      const arrowLeft = Math.min(
+        Math.max(rect.left + rect.width / 2 - clampedLeft - 5, 14),
+        bubbleWidth - 24
+      );
+
+      setBubbleStyle({
+        "--help-bubble-left": `${Math.round(clampedLeft - rect.left)}px`,
+        "--help-bubble-width": `${Math.round(bubbleWidth)}px`,
+        "--help-arrow-left": `${Math.round(arrowLeft)}px`,
+      } as CSSProperties);
+    };
+
+    updatePosition();
+    const frame = window.requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [opened, placement]);
+
+  return { setWrapRef, bubbleStyle };
+}
+
+function LinkHelpBubbleContent({ message }: { message: string }) {
+  return (
+    <>
+      <span className="simHelpBubbleHeader">
+        <span className="simHelpBubbleIcon" aria-hidden="true">!</span>
+        <span className="simHelpBubbleTitle">풍선 도움말</span>
+      </span>
+      <span className="simHelpBubbleBody">{message}</span>
+    </>
+  );
+}
+
 type LinkHelpButtonProps = {
   helpKey: LinkHelpKey;
   label: string;
@@ -193,9 +263,13 @@ function LinkHelpButton({
   className = "",
 }: LinkHelpButtonProps) {
   const opened = activeHelp === helpKey;
+  const { setWrapRef, bubbleStyle } = useSmartHelpBubble(opened, "bottom");
 
   return (
-    <span className={`linkHelpWrap ${className}`}>
+    <span
+      ref={setWrapRef}
+      className={`linkHelpWrap ${opened ? "isHelpOpen" : ""} ${className}`}
+    >
       <button
         type="button"
         className="linkHelpButton"
@@ -211,8 +285,12 @@ function LinkHelpButton({
         ?
       </button>
       {opened ? (
-        <span className="linkHelpBubble" role="tooltip">
-          {LINK_HELP_MESSAGES[helpKey]}
+        <span
+          className="linkHelpBubble linkHelpBubbleBottom"
+          role="tooltip"
+          style={bubbleStyle}
+        >
+          <LinkHelpBubbleContent message={LINK_HELP_MESSAGES[helpKey]} />
         </span>
       ) : null}
     </span>
@@ -237,9 +315,13 @@ function ScopeChoiceHelpButton({
   onSelect,
 }: ScopeChoiceHelpButtonProps) {
   const opened = activeHelp === helpKey;
+  const { setWrapRef, bubbleStyle } = useSmartHelpBubble(opened, "top");
 
   return (
-    <div className={`scopeChoiceSplit ${active ? "scopeActive" : ""}`}>
+    <div
+      ref={setWrapRef}
+      className={`scopeChoiceSplit ${active ? "scopeActive" : ""} ${opened ? "isHelpOpen" : ""}`}
+    >
       <button type="button" className="scopeChoiceMainButton" onClick={onSelect}>
         {label}
       </button>
@@ -260,8 +342,12 @@ function ScopeChoiceHelpButton({
       </button>
 
       {opened ? (
-        <span className="linkHelpBubble scopeChoiceBubble" role="tooltip">
-          {LINK_HELP_MESSAGES[helpKey]}
+        <span
+          className="linkHelpBubble linkHelpBubbleTop scopeChoiceBubble"
+          role="tooltip"
+          style={bubbleStyle}
+        >
+          <LinkHelpBubbleContent message={LINK_HELP_MESSAGES[helpKey]} />
         </span>
       ) : null}
     </div>
@@ -1477,7 +1563,12 @@ export default function SimulatorLinkBuilder() {
           flex: 0 0 auto;
           line-height: 1;
           vertical-align: middle;
-          z-index: 30;
+          z-index: 80;
+        }
+
+        .linkHelpWrap.isHelpOpen,
+        .scopeChoiceSplit.isHelpOpen {
+          z-index: 1400;
         }
 
         .linkHelpButton {
@@ -1510,38 +1601,108 @@ export default function SimulatorLinkBuilder() {
 
         .linkHelpBubble {
           position: absolute;
-          top: calc(100% + 9px);
-          left: 50%;
-          transform: translateX(-50%);
-          width: min(288px, calc(100vw - 32px));
+          top: auto;
+          bottom: auto;
+          left: var(--help-bubble-left, 0px);
+          right: auto;
+          transform: none;
+          width: var(--help-bubble-width, min(318px, calc(100vw - 24px)));
+          max-width: var(--help-bubble-width, min(318px, calc(100vw - 24px)));
           box-sizing: border-box;
-          border-radius: 16px;
+          border-radius: 18px;
           border: 1px solid rgba(238, 224, 197, 0.34);
-          background: rgba(12, 10, 72, 0.98);
+          background: linear-gradient(180deg, rgba(18, 16, 92, 0.99) 0%, rgba(9, 8, 70, 0.985) 100%);
           color: ${COLORS.white};
-          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
-          padding: 12px 13px;
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.36);
+          padding: 13px 14px;
           font-size: 12px;
           font-weight: 800;
           line-height: 1.55;
           letter-spacing: -0.02em;
           word-break: keep-all;
+          overflow-wrap: anywhere;
           white-space: normal;
           text-align: left;
-          z-index: 120;
+          z-index: 1400;
+        }
+
+        .linkHelpBubbleBottom {
+          top: calc(100% + 10px);
+        }
+
+        .linkHelpBubbleTop {
+          bottom: calc(100% + 10px);
         }
 
         .linkHelpBubble::before {
           content: "";
           position: absolute;
-          top: -6px;
-          left: 50%;
+          left: var(--help-arrow-left, 16px);
+          right: auto;
           width: 10px;
           height: 10px;
-          transform: translateX(-50%) rotate(45deg);
+          transform: rotate(45deg);
+          background: rgba(15, 13, 82, 0.99);
+        }
+
+        .linkHelpBubbleBottom::before {
+          top: -6px;
+          bottom: auto;
           border-left: 1px solid rgba(238, 224, 197, 0.34);
           border-top: 1px solid rgba(238, 224, 197, 0.34);
-          background: rgba(12, 10, 72, 0.98);
+          border-right: 0;
+          border-bottom: 0;
+        }
+
+        .linkHelpBubbleTop::before {
+          top: auto;
+          bottom: -6px;
+          border-top: 0;
+          border-left: 0;
+          border-right: 1px solid rgba(238, 224, 197, 0.34);
+          border-bottom: 1px solid rgba(238, 224, 197, 0.34);
+        }
+
+        .simHelpBubbleHeader {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 8px;
+          color: ${COLORS.cream};
+          font-size: 12px;
+          font-weight: 1000;
+          letter-spacing: -0.02em;
+        }
+
+        .simHelpBubbleIcon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: rgba(238, 224, 197, 0.18);
+          border: 1px solid rgba(238, 224, 197, 0.32);
+          color: ${COLORS.cream};
+          font-size: 11px;
+          line-height: 1;
+          flex: 0 0 auto;
+        }
+
+        .simHelpBubbleTitle {
+          color: ${COLORS.cream};
+          font-weight: 1000;
+        }
+
+        .simHelpBubbleBody {
+          display: block;
+          color: ${COLORS.white};
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.6;
+          word-break: keep-all;
+          white-space: normal;
+          overflow-wrap: anywhere;
         }
 
         input,
@@ -1815,16 +1976,7 @@ export default function SimulatorLinkBuilder() {
         }
 
         .scopeChoiceBubble {
-          top: calc(100% + 11px);
-          right: 0;
-          left: auto;
-          transform: none;
-        }
-
-        .scopeChoiceBubble::before {
-          right: 19px;
-          left: auto;
-          transform: rotate(45deg);
+          bottom: calc(100% + 10px);
         }
 
         .presetSelectBox,

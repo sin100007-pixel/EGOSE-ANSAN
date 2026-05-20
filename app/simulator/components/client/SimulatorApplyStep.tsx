@@ -15,6 +15,18 @@ const APPLY_HELP_MESSAGES: Record<ApplyHelpKey, string> = {
     "4단계인 결정확정으로 이동합니다. 즐겨찾기로 저장된 즐겨찾기 후보가 저장되어 있습니다.",
 };
 
+function ApplyHelpBubbleContent({ message }: { message: string }) {
+  return (
+    <>
+      <span className="simHelpBubbleHeader">
+        <span className="simHelpBubbleIcon" aria-hidden="true">!</span>
+        <span className="simHelpBubbleTitle">풍선 도움말</span>
+      </span>
+      <span className="simHelpBubbleBody">{message}</span>
+    </>
+  );
+}
+
 type ApplySplitHelpButtonProps = {
   helpKey: ApplyHelpKey;
   activeHelp: ApplyHelpKey | null;
@@ -73,7 +85,7 @@ function ApplySplitHelpButton({
 
       {opened ? (
         <span className="applySplitHelpBubble" role="tooltip">
-          {APPLY_HELP_MESSAGES[helpKey]}
+          <ApplyHelpBubbleContent message={APPLY_HELP_MESSAGES[helpKey]} />
         </span>
       ) : null}
     </div>

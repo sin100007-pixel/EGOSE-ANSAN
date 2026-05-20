@@ -40,6 +40,18 @@ const TUTORIAL_DEMO_FAVORITE_ID = "__tutorial-decision-favorite-demo__";
 const FAVORITE_SHARE_HELP_MESSAGE =
   "선택한 후보를 공유 할 수 있습니다. 단일로도 가능하고 여러개도 같이 보낼 수 있습니다.";
 
+function ApplyHelpBubbleContent({ message }: { message: string }) {
+  return (
+    <>
+      <span className="simHelpBubbleHeader">
+        <span className="simHelpBubbleIcon" aria-hidden="true">!</span>
+        <span className="simHelpBubbleTitle">풍선 도움말</span>
+      </span>
+      <span className="simHelpBubbleBody">{message}</span>
+    </>
+  );
+}
+
 function formatFavoriteDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "저장일 확인 불가";
@@ -278,7 +290,7 @@ export default function SimulatorDecisionStep({
 
               {showFavoriteShareHelp ? (
                 <span className="applySplitHelpBubble favoriteShareHelpBubble" role="tooltip">
-                  {FAVORITE_SHARE_HELP_MESSAGE}
+                  <ApplyHelpBubbleContent message={FAVORITE_SHARE_HELP_MESSAGE} />
                 </span>
               ) : null}
             </div>
