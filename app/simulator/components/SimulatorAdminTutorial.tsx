@@ -759,15 +759,23 @@ export default function SimulatorAdminTutorial({
         .simAdminTutorialCard p :global(.simAdminTutorialCheckerIcon),
         .simAdminTutorialTip :global(.simAdminTutorialCheckerIcon) {
           display: inline-block;
-          width: 16px;
-          height: 16px;
-          margin: 0 4px;
-          border-radius: 999px;
-          vertical-align: -3px;
-          border: 1px solid rgba(255,255,255,0.55);
-          background:
-            conic-gradient(from 45deg, rgba(255,255,255,0.95) 0 25%, rgba(15,10,70,0.88) 0 50%, rgba(255,255,255,0.95) 0 75%, rgba(15,10,70,0.88) 0 100%);
-          box-shadow: 0 0 0 1px rgba(238,224,197,0.18);
+          width: 30px;
+          height: 20px;
+          margin: 0 6px 0 2px;
+          border-radius: 5px;
+          vertical-align: -5px;
+          border: 1px solid rgba(238, 224, 197, 0.74);
+          background-color: rgba(255, 255, 255, 0.94);
+          background-image:
+            linear-gradient(45deg, rgba(175, 181, 202, 0.92) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(175, 181, 202, 0.92) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(175, 181, 202, 0.92) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(175, 181, 202, 0.92) 75%);
+          background-size: 12px 12px;
+          background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+          box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.34),
+            0 3px 9px rgba(0, 0, 0, 0.2);
         }
 
         .simAdminTutorialCard p :global(.simAdminTutorialInlineButton),
