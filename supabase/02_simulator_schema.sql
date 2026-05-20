@@ -107,3 +107,21 @@ select '테스트 공간', '1단계 연결 확인용 공간입니다. 실제 공
 where not exists (
   select 1 from simulator_spaces where name = '테스트 공간'
 );
+
+-- 6) 시뮬레이터 필름 검색/팔레트/썸네일 안정화용 products 컬럼
+-- 이미 있는 DB에서는 값만 유지하고 컬럼이 없을 때만 추가합니다.
+alter table if exists products
+  add column if not exists simulation_image_path text,
+  add column if not exists simulation_thumb_path text,
+  add column if not exists palette_main text,
+  add column if not exists palette_sub text,
+  add column if not exists palette_color text;
+
+create index if not exists idx_products_simulator_palette_main
+  on products (palette_main);
+
+create index if not exists idx_products_simulator_palette_sub
+  on products (palette_sub);
+
+create index if not exists idx_products_simulator_palette_color
+  on products (palette_color);

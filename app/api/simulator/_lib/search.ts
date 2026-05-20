@@ -59,20 +59,19 @@ export function buildQueryTokens(query: string) {
     .slice(0, 10);
 }
 
-export function buildDbOrFilter(query: string) {
+export function buildDbOrFilter(query: string, includeOptionalFields = true) {
   const tokens = buildQueryTokens(query);
-  const fields = [
+  const coreFields = [
     "product_code_1",
     "product_code_2",
     "full_name",
     "color_name",
     "category_main",
     "category_sub",
-    "palette_main",
-    "palette_sub",
-    "palette_color",
     "manufacturer",
   ];
+  const optionalFields = ["palette_main", "palette_sub", "palette_color"];
+  const fields = includeOptionalFields ? [...coreFields, ...optionalFields] : coreFields;
 
   const conditions: string[] = [];
 

@@ -335,7 +335,11 @@ export function addApiCacheBuster(path: string, params: URLSearchParams) {
 }
 
 export function normalizeImageSrc(src: string | null | undefined) {
-  const value = String(src || "").trim();
+  const value = String(src || "")
+    .trim()
+    .replace(/\\[nr]/g, "")
+    .replace(/[\r\n\t]+/g, "")
+    .replace(/^\/?public\/simulator\//i, "/simulator/");
   if (!value) return "";
   if (/^(data:|blob:|tel:|mailto:)/i.test(value)) return value;
 

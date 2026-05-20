@@ -1,6 +1,14 @@
+export function cleanRuntimeEnvValue(value: string | null | undefined) {
+  return String(value || "")
+    .trim()
+    .replace(/^['\"]|['\"]$/g, "")
+    .replace(/\\[nr]/g, "")
+    .replace(/[\r\n\t ]+/g, "");
+}
+
 export function getCleanSupabaseUrl() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return rawUrl.replace(/\s+/g, "").replace(/\/+$/, "");
+  return cleanRuntimeEnvValue(rawUrl).replace(/\/+$/, "");
 }
 
 export function encodeStoragePath(pathValue: string) {
@@ -16,7 +24,10 @@ export function toPublicImageUrl(imagePath: string | null | undefined) {
   const baseUrl = getCleanSupabaseUrl();
   if (!baseUrl) return null;
 
-  const cleaned = String(imagePath).trim().replace(/\s+/g, "");
+  const cleaned = String(imagePath)
+    .trim()
+    .replace(/\\[nr]/g, "")
+    .replace(/[\r\n\t ]+/g, "");
 
   if (/^https?:\/\//i.test(cleaned)) {
     try {

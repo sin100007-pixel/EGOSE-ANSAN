@@ -8,6 +8,8 @@ import { getSupabase } from "../_lib/supabase";
 import { getCleanSupabaseUrl } from "../_lib/image-url";
 import {
   PRODUCT_SELECT,
+  PRODUCT_LEGACY_SELECT,
+  isMissingProductOptionalColumnError,
   normalizeFilm,
   sortProductsByOrder,
   type ProductRow,
@@ -146,7 +148,11 @@ function getImageMimeType(filePath: string) {
 }
 
 async function toInlinePublicAsset(src: string | null | undefined) {
-  const value = String(src || "").trim();
+  const value = String(src || "")
+    .trim()
+    .replace(/\\[nr]/g, "")
+    .replace(/[\r\n\t]+/g, "")
+    .replace(/^\/?public\/simulator\//i, "/simulator/");
   if (!value) return value;
   if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return value;
 
@@ -189,7 +195,11 @@ async function toInlinePublicAsset(src: string | null | undefined) {
 }
 
 function getPublicAssetPathname(src: string | null | undefined) {
-  const value = String(src || "").trim();
+  const value = String(src || "")
+    .trim()
+    .replace(/\\[nr]/g, "")
+    .replace(/[\r\n\t]+/g, "")
+    .replace(/^\/?public\/simulator\//i, "/simulator/");
   if (!value || /^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return "";
 
   try {
@@ -516,11 +526,12 @@ async function readSearchCorpusProducts(
     hasToken: boolean;
     filmScope: "all" | "custom" | "preset";
     allowedProductIds: number[];
-  }
+  },
+  includeOptionalColumns = true
 ) {
   let query = supabase
     .from("products")
-    .select(PRODUCT_SELECT)
+    .select(includeOptionalColumns ? PRODUCT_SELECT : PRODUCT_LEGACY_SELECT)
     .eq("manufacturer", "삼성필름")
     .eq("is_simulatable", true)
     .or("simulation_image_path.not.is.null,image_path.not.is.null")
@@ -534,7 +545,13 @@ async function readSearchCorpusProducts(
   }
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    if (includeOptionalColumns && isMissingProductOptionalColumnError(error)) {
+      console.error("[simulator/bootstrap] optional products columns missing, retrying legacy search corpus:", error);
+      return readSearchCorpusProducts(supabase, options, false);
+    }
+    throw error;
+  }
 
   const rows = ((data || []) as ProductRow[]).filter(Boolean);
 
@@ -602,6 +619,43 @@ async function readContractorProfile(
     ...typedProfile,
     portfolio_photos: ((photos || []) as ContractorPortfolioPhotoRow[]),
   };
+}
+
+async function readBootstrapProducts(
+  supabase: any,
+  options: {
+    hasToken: boolean;
+    filmScope: "all" | "custom" | "preset";
+    allowedProductIds: number[];
+    recommendedProductIds: number[];
+  },
+  includeOptionalColumns = true
+) {
+  let productQuery = supabase
+    .from("products")
+    .select(includeOptionalColumns ? PRODUCT_SELECT : PRODUCT_LEGACY_SELECT)
+    .eq("manufacturer", "삼성필름")
+    .eq("is_simulatable", true)
+    .or("simulation_image_path.not.is.null,image_path.not.is.null")
+    .limit(200);
+
+  if (options.hasToken && options.filmScope !== "all") {
+    productQuery = productQuery.in("id", options.allowedProductIds);
+  } else if (options.recommendedProductIds.length > 0) {
+    productQuery = productQuery.in("id", options.recommendedProductIds);
+  }
+
+  const { data, error } = await productQuery;
+
+  if (error) {
+    if (includeOptionalColumns && isMissingProductOptionalColumnError(error)) {
+      console.error("[simulator/bootstrap] optional products columns missing, retrying legacy products:", error);
+      return readBootstrapProducts(supabase, options, false);
+    }
+    throw error;
+  }
+
+  return ((data || []) as ProductRow[]);
 }
 
 export async function GET(req: NextRequest) {
@@ -866,28 +920,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let productQuery = supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .eq("manufacturer", "삼성필름")
-      .eq("is_simulatable", true)
-      .or("simulation_image_path.not.is.null,image_path.not.is.null")
-      .limit(200);
-
-    if (hasToken && filmScope !== "all") {
-      productQuery = productQuery.in("id", allowedProductIds);
-    } else if (recommendedProductIds.length > 0) {
-      productQuery = productQuery.in("id", recommendedProductIds);
-    }
-
-    const { data: products, error: productsError } = await productQuery;
-
-    if (productsError) {
-      throw productsError;
-    }
+    const products = await readBootstrapProducts(supabase, {
+      hasToken,
+      filmScope,
+      allowedProductIds,
+      recommendedProductIds,
+    });
 
     const productRows = sortProductsByOrder(
-      ((products || []) as ProductRow[]),
+      products,
       filmScope !== "all" ? allowedOrderMap : recommendedOrderMap
     );
 

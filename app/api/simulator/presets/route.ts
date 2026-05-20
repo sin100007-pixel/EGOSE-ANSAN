@@ -4,6 +4,8 @@ import { requireSimulatorInstaller } from "../../../simulator/auth";
 import { getSupabase } from "../_lib/supabase";
 import {
   PRODUCT_SELECT,
+  PRODUCT_LEGACY_SELECT,
+  isMissingProductOptionalColumnError,
   normalizeFilm,
   type ProductRow,
 } from "../_lib/film-normalizer";
@@ -79,16 +81,32 @@ async function readPresetDetail(
   let films: ReturnType<typeof normalizeFilm>[] = [];
 
   if (productIds.length > 0) {
-    const { data: products, error: productsError } = await supabase
+    let products: ProductRow[] = [];
+
+    const { data: productData, error: productsError } = await supabase
       .from("products")
       .select(PRODUCT_SELECT)
       .in("id", productIds);
 
-    if (productsError) throw productsError;
+    if (productsError) {
+      if (!isMissingProductOptionalColumnError(productsError)) throw productsError;
+
+      console.error("[simulator/presets] optional products columns missing, retrying legacy select:", productsError);
+
+      const { data: legacyProductData, error: legacyProductsError } = await supabase
+        .from("products")
+        .select(PRODUCT_LEGACY_SELECT)
+        .in("id", productIds);
+
+      if (legacyProductsError) throw legacyProductsError;
+      products = (legacyProductData || []) as ProductRow[];
+    } else {
+      products = (productData || []) as ProductRow[];
+    }
 
     const orderMap = new Map(productIds.map((id: number, index: number) => [id, index]));
 
-    films = ((products || []) as ProductRow[])
+    films = products
       .map((item) => normalizeFilm(item))
       .sort((a, b) => {
         const ai: number = Number(orderMap.get(Number(a.id)) ?? 99999);
