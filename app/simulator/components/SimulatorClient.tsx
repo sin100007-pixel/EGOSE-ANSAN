@@ -26,12 +26,15 @@ import { useSimulatorCustomerGuide } from "../hooks/useSimulatorCustomerGuide";
 import { useDecisionResultShare } from "../hooks/useDecisionResultShare";
 import { useDashboardNavigation } from "../hooks/useDashboardNavigation";
 import guideOnImage from "../assets/guide-on.png";
-import guideOffImage from "../assets/guide-off.png";
 
 const SimulatorApplyStep = dynamic(() => import("./client/SimulatorApplyStep"), { ssr: false });
 const SimulatorDecisionStep = dynamic(() => import("./client/SimulatorDecisionStep"), { ssr: false });
 const SimulatorCustomerGuideModal = dynamic(
   () => import("./client/SimulatorCustomerGuideModal"),
+  { ssr: false }
+);
+const SimulatorCustomerGuidePromptModal = dynamic(
+  () => import("./client/SimulatorCustomerGuidePromptModal"),
   { ssr: false }
 );
 const SimulatorCustomerGuideNoticeModal = dynamic(
@@ -156,18 +159,8 @@ const CUSTOMER_INTRO_TUTORIAL_STEPS = [
   },
   {
     id: "customer-intro-guide-toggle",
-    title: "가이드 켜기/끄기버튼",
-    description: (
-      <>
-        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOn">ON</span>
-        이면 가이드가 켜져있는 상태이고
-        <br />
-        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOff">OFF</span>
-        이면 가이드가 꺼져있는 상태입니다.
-        <br />
-        누르시면 필요에 따라 끌 수도 있고 켜면 다시 볼 수도 있습니다.
-      </>
-    ),
+    title: "가이드 다시 보기 버튼",
+    description: "오른쪽 상단의 가이드 버튼을 누르면 현재 화면의 사용설명을 다시 볼 수 있습니다.",
     target: "customer-intro-guide-toggle",
     cardPlacement: "bottom",
   },
@@ -361,18 +354,8 @@ const CUSTOMER_DECISION_TUTORIAL_STEPS = [
   },
   {
     id: "customer-decision-guide-toggle",
-    title: "가이드 켜기/끄기버튼",
-    description: (
-      <>
-        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOn">ON</span>
-        이면 가이드가 켜져있는 상태이고
-        <br />
-        <span className="simAdminTutorialStatusPill simAdminTutorialStatusPillOff">OFF</span>
-        이면 가이드가 꺼져있는 상태입니다.
-        <br />
-        누르시면 필요에 따라 끌 수도 있고 켜면 다시 볼 수도 있습니다.
-      </>
-    ),
+    title: "가이드 다시 보기 버튼",
+    description: "오른쪽 상단의 가이드 버튼을 누르면 현재 화면의 사용설명을 다시 볼 수 있습니다.",
     target: "customer-intro-guide-toggle",
     cardPlacement: "bottom",
   },
@@ -690,12 +673,14 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const {
     activeGuideStep,
     currentGuide,
-    guideEnabled,
-    toggleGuideEnabled,
+    openCustomerGuide,
     closeCustomerGuide,
-    disableCustomerGuide,
-    showGuideDisabledNotice,
-    closeGuideDisabledNotice,
+    showGuideStartPrompt,
+    startCustomerGuideFromPrompt,
+    skipCustomerGuideFromPrompt,
+    closeGuideStartPrompt,
+    showGuideSkippedNotice,
+    closeGuideSkippedNotice,
   } = useSimulatorCustomerGuide({
     mode,
     token,
@@ -711,7 +696,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const latestSnapshotRef = useRef<SimulatorUndoSnapshot | null>(null);
   const showExitConfirmRef = useRef(false);
   const activeGuideStepRef = useRef(activeGuideStep);
-  const showGuideDisabledNoticeRef = useRef(showGuideDisabledNotice);
+  const showGuideStartPromptRef = useRef(showGuideStartPrompt);
+  const showGuideSkippedNoticeRef = useRef(showGuideSkippedNotice);
   const allowNativeBackRef = useRef(false);
   const backGuardRepairPopCountRef = useRef(0);
   const backGuardActionLockRef = useRef(false);
@@ -827,8 +813,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   }, [activeGuideStep]);
 
   useEffect(() => {
-    showGuideDisabledNoticeRef.current = showGuideDisabledNotice;
-  }, [showGuideDisabledNotice]);
+    showGuideStartPromptRef.current = showGuideStartPrompt;
+  }, [showGuideStartPrompt]);
+
+  useEffect(() => {
+    showGuideSkippedNoticeRef.current = showGuideSkippedNotice;
+  }, [showGuideSkippedNotice]);
 
   useEffect(() => {
     favoriteCandidatesRef.current = favoriteCandidates;
@@ -1054,9 +1044,15 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
       return true;
     }
 
-    if (showGuideDisabledNoticeRef.current) {
-      closeGuideDisabledNotice();
-      showGuideDisabledNoticeRef.current = false;
+    if (showGuideStartPromptRef.current) {
+      closeGuideStartPrompt();
+      showGuideStartPromptRef.current = false;
+      return true;
+    }
+
+    if (showGuideSkippedNoticeRef.current) {
+      closeGuideSkippedNotice();
+      showGuideSkippedNoticeRef.current = false;
       return true;
     }
 
@@ -1070,7 +1066,8 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     return false;
   }, [
     closeCustomerGuide,
-    closeGuideDisabledNotice,
+    closeGuideSkippedNotice,
+    closeGuideStartPrompt,
     restoreUndoSnapshot,
   ]);
 
@@ -1536,8 +1533,6 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     !state.setupNeeded &&
     (isCustomerIntroStep || step === "space" || step === "apply" || step === "decision");
 
-  const guideToggleImage = guideEnabled ? guideOnImage : guideOffImage;
-  const guideToggleAlt = guideEnabled ? "가이드 켜짐" : "가이드 꺼짐";
 
   const handleApplyTutorialStepChange = useCallback((tutorialStep: SimulatorAdminTutorialStep, _index: number, isOpen: boolean) => {
     if (!isOpen) return;
@@ -1611,14 +1606,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           <button
             type="button"
             className="guideToggleFloatingButton"
-            onClick={toggleGuideEnabled}
-            aria-pressed={guideEnabled}
-            aria-label={guideEnabled ? "가이드 끄기" : "가이드 켜기"}
+            onClick={openCustomerGuide}
+            aria-label="사용설명 열기"
             data-sim-admin-guide="customer-intro-guide-toggle"
           >
             <Image
-              src={guideToggleImage}
-              alt={guideToggleAlt}
+              src={guideOnImage}
+              alt="가이드"
               width={120}
               height={120}
               className="guideToggleFloatingImage"
@@ -1885,6 +1879,13 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
           />
         ) : null}
 
+        {showGuideStartPrompt ? (
+          <SimulatorCustomerGuidePromptModal
+            onStart={startCustomerGuideFromPrompt}
+            onSkip={skipCustomerGuideFromPrompt}
+          />
+        ) : null}
+
         {currentGuide ? (
           currentGuide.stepLabel === "1단계 소개" ? (
             <SimulatorAdminTutorial
@@ -1935,13 +1936,12 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
             <SimulatorCustomerGuideModal
               guide={currentGuide}
               onClose={closeCustomerGuide}
-              onDisable={disableCustomerGuide}
             />
           )
         ) : null}
 
-        {showGuideDisabledNotice ? (
-          <SimulatorCustomerGuideNoticeModal onClose={closeGuideDisabledNotice} />
+        {showGuideSkippedNotice ? (
+          <SimulatorCustomerGuideNoticeModal onClose={closeGuideSkippedNotice} />
         ) : null}
 
         {isFilmSheetOpen ? (

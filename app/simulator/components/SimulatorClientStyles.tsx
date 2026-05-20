@@ -1586,6 +1586,64 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           align-items: stretch;
         }
 
+        .customerGuideActionsSingle {
+          grid-template-columns: 1fr;
+        }
+
+        .customerGuidePromptModal {
+          text-align: center;
+        }
+
+        .customerGuidePromptImageWrap {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: -8px 0 2px;
+        }
+
+        .customerGuidePromptImage {
+          width: 116px;
+          height: auto;
+          display: block;
+        }
+
+        .customerGuidePromptBadge {
+          margin: 0 auto 12px;
+        }
+
+        .customerGuidePromptTitle {
+          margin-bottom: 10px;
+        }
+
+        .customerGuidePromptText {
+          margin: 0 auto;
+          color: rgba(255, 255, 255, 0.78);
+          font-size: 14px;
+          line-height: 1.62;
+          letter-spacing: -0.03em;
+          word-break: keep-all;
+        }
+
+        .customerGuidePromptActions {
+          display: grid;
+          grid-template-columns: 0.92fr 1.08fr;
+          gap: 9px;
+          margin-top: 20px;
+        }
+
+        .customerGuidePromptGhostButton {
+          width: 100%;
+          min-height: 52px;
+          border-radius: 18px;
+          border: 1px solid rgba(238, 224, 197, 0.24);
+          background: rgba(255, 255, 255, 0.06);
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 15px;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          cursor: pointer;
+        }
+
 
         .customerGuideCheckerInline {
           display: inline-flex;
@@ -1730,6 +1788,18 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
           .customerGuideActions {
             gap: 8px;
+          }
+
+          .customerGuideActionsSingle {
+            grid-template-columns: 1fr;
+          }
+
+          .customerGuidePromptActions {
+            grid-template-columns: 1fr;
+          }
+
+          .customerGuidePromptImage {
+            width: 104px;
           }
 
           .customerGuideSecondaryButton {

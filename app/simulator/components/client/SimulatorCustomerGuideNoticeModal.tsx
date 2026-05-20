@@ -30,7 +30,7 @@ export default function SimulatorCustomerGuideNoticeModal({
         </div>
 
         <h3 id="customer-guide-notice-title" className="customerGuideTitle">
-          가이드를 껐어요.
+          가이드 없이 시작할게요.
         </h3>
 
         <div className="customerGuideBody customerGuideNoticeBody">
@@ -46,7 +46,7 @@ export default function SimulatorCustomerGuideNoticeModal({
           </div>
 
           <p className="customerGuideNoticeText">
-            오른쪽 상단에 위 가이드 버튼을 누르시면 언제든 가이드를 다시 킬 수 있습니다.
+            오른쪽상단에 가이드 버튼이 있으니 사용설명이 필요하시면 언제든 눌러주세요.
           </p>
         </div>
 

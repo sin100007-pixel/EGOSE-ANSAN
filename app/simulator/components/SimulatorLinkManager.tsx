@@ -316,9 +316,9 @@ export default function SimulatorLinkManager() {
         </section>
 
         <SimulatorAdminTutorial
-          storageKey="link-manager-v2"
+          storageKey="link-manager-guide-choice-v1"
           steps={LINK_MANAGER_TUTORIAL_STEPS}
-          buttonLabel="링크관리 도움말"
+          buttonLabel="링크관리"
         />
 
         <section className="panel" data-sim-admin-guide="manage-list">

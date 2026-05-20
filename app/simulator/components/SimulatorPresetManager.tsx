@@ -558,9 +558,9 @@ export default function SimulatorPresetManager() {
         </section>
 
         <SimulatorAdminTutorial
-          storageKey="preset-manager-v2"
+          storageKey="preset-manager-guide-choice-v1"
           steps={PRESET_MANAGER_TUTORIAL_STEPS}
-          buttonLabel="프리셋 도움말"
+          buttonLabel="프리셋"
           onStepChange={handlePresetTutorialStepChange}
         />
 

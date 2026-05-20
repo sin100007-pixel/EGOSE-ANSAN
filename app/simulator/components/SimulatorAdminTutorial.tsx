@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import guideOnImage from "../assets/guide-on.png";
 
 export type SimulatorAdminTutorialStep = {
   id: string;
@@ -74,6 +76,8 @@ export default function SimulatorAdminTutorial({
   const [internalOpen, setInternalOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<TutorialRect | null>(null);
+  const [showStartPrompt, setShowStartPrompt] = useState(false);
+  const [showSkipNotice, setShowSkipNotice] = useState(false);
   const isControlled = typeof controlledOpen === "boolean";
   const open = isControlled ? Boolean(controlledOpen) : internalOpen;
 
@@ -95,6 +99,15 @@ export default function SimulatorAdminTutorial({
   const safeSteps = useMemo(() => steps.filter((step) => step.title.trim()), [steps]);
   const currentStep = safeSteps[currentIndex] || safeSteps[0];
   const totalSteps = safeSteps.length;
+  const guideName = useMemo(() => {
+    const cleaned = buttonLabel
+      .replace(/도움말/g, "")
+      .replace(/보기/g, "")
+      .replace(/사용설명/g, "")
+      .trim();
+
+    return cleaned || "시뮬봇";
+  }, [buttonLabel]);
   const allowTargetInteraction = Boolean(currentStep?.allowTargetInteraction);
 
   const cardBottomDesktop = currentStep?.cardBottom ?? 86;
@@ -161,9 +174,28 @@ export default function SimulatorAdminTutorial({
 
   const openTutorial = useCallback(() => {
     if (safeSteps.length === 0) return;
+    if (!skipStorageMarkDone) {
+      markDone();
+    }
+    setShowStartPrompt(false);
+    setShowSkipNotice(false);
     setCurrentIndex(0);
     setOpenState(true);
-  }, [safeSteps.length, setOpenState]);
+  }, [markDone, safeSteps.length, setOpenState, skipStorageMarkDone]);
+
+  const startTutorialFromPrompt = useCallback(() => {
+    openTutorial();
+  }, [openTutorial]);
+
+  const skipTutorialFromPrompt = useCallback(() => {
+    markDone();
+    setShowStartPrompt(false);
+    setShowSkipNotice(true);
+  }, [markDone]);
+
+  const closeSkipNotice = useCallback(() => {
+    setShowSkipNotice(false);
+  }, []);
 
   const goNext = useCallback(() => {
     if (currentIndex >= totalSteps - 1) {
@@ -227,13 +259,23 @@ export default function SimulatorAdminTutorial({
     if (alreadyDone) return;
 
     const timer = window.setTimeout(() => {
-      setOpenState(true);
+      let doneAfterDelay = false;
+
+      try {
+        doneAfterDelay = window.localStorage.getItem(storageName) === "done";
+      } catch {
+        doneAfterDelay = false;
+      }
+
+      if (!doneAfterDelay) {
+        setShowStartPrompt(true);
+      }
     }, autoOpenDelay);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [autoOpen, autoOpenDelay, isControlled, safeSteps.length, setOpenState, storageName]);
+  }, [autoOpen, autoOpenDelay, isControlled, safeSteps.length, storageName]);
 
   useEffect(() => {
     if (!open || !currentStep?.target) {
@@ -289,10 +331,89 @@ export default function SimulatorAdminTutorial({
   return (
     <>
       {!hideButton ? (
-        <div className="simAdminTutorialButtonRow">
-          <button type="button" className="simAdminTutorialHelpButton" onClick={openTutorial}>
-            {buttonLabel}
-          </button>
+        <button
+          type="button"
+          className="simAdminTutorialGuideButton"
+          onClick={openTutorial}
+          aria-label={`${guideName} 사용설명 열기`}
+          title={`${guideName} 사용설명`}
+        >
+          <Image
+            src={guideOnImage}
+            alt=""
+            width={120}
+            height={120}
+            className="simAdminTutorialGuideImage"
+            priority={false}
+          />
+        </button>
+      ) : null}
+
+      {showStartPrompt && !open ? (
+        <div className="simAdminTutorialPromptLayer" role="presentation">
+          <section
+            className="simAdminTutorialPromptCard"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sim-admin-tutorial-prompt-title"
+          >
+            <div className="simAdminTutorialPromptIcon" aria-hidden="true">
+              <Image
+                src={guideOnImage}
+                alt=""
+                width={120}
+                height={120}
+                className="simAdminTutorialPromptImage"
+                priority={false}
+              />
+            </div>
+            <div className="simAdminTutorialPromptBadge">시뮬봇 사용설명</div>
+            <h2 id="sim-admin-tutorial-prompt-title">
+              {guideName} 사용설명을 들으시겠습니까?
+            </h2>
+            <p>
+              처음 사용하는 화면이면 가이드를 보면서 어떤 버튼을 눌러야 하는지 차례대로 확인할 수 있습니다.
+            </p>
+            <div className="simAdminTutorialPromptActions">
+              <button type="button" onClick={skipTutorialFromPrompt} className="ghost">
+                필요없어요
+              </button>
+              <button type="button" onClick={startTutorialFromPrompt}>
+                들을게요
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showSkipNotice && !open ? (
+        <div className="simAdminTutorialPromptLayer" role="presentation">
+          <section
+            className="simAdminTutorialPromptCard simAdminTutorialNoticeCard"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sim-admin-tutorial-notice-title"
+          >
+            <div className="simAdminTutorialPromptIcon" aria-hidden="true">
+              <Image
+                src={guideOnImage}
+                alt=""
+                width={120}
+                height={120}
+                className="simAdminTutorialPromptImage"
+                priority={false}
+              />
+            </div>
+            <h2 id="sim-admin-tutorial-notice-title">가이드 없이 시작할게요.</h2>
+            <p>
+              오른쪽 상단에 가이드 버튼이 있으니 사용설명이 필요하면 눌러주세요.
+            </p>
+            <div className="simAdminTutorialPromptActions single">
+              <button type="button" onClick={closeSkipNotice}>
+                알겠어요
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
 
@@ -357,23 +478,139 @@ export default function SimulatorAdminTutorial({
       ) : null}
 
       <style jsx>{`
-        .simAdminTutorialButtonRow {
-          display: flex;
-          justify-content: flex-end;
-          margin: -6px 0 14px;
+        .simAdminTutorialGuideButton {
+          position: fixed;
+          top: calc(env(safe-area-inset-top, 0px) + 10px);
+          right: 10px;
+          z-index: 100;
+          width: 88px;
+          height: 88px;
+          padding: 0;
+          margin: 0;
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
         }
 
-        .simAdminTutorialHelpButton {
-          border: 1px solid rgba(238, 224, 197, 0.24);
+        :global(.simAdminTutorialGuideImage) {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+        }
+
+        .simAdminTutorialGuideButton:focus-visible {
+          outline: 2px solid #eee0c5;
+          outline-offset: 3px;
+          border-radius: 18px;
+        }
+
+        .simAdminTutorialPromptLayer {
+          position: fixed;
+          inset: 0;
+          z-index: 10070;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+          background: rgba(1, 0, 25, 0.48);
+          backdrop-filter: blur(4px);
+          box-sizing: border-box;
+        }
+
+        .simAdminTutorialPromptCard {
+          width: min(430px, calc(100vw - 32px));
+          border-radius: 28px;
+          border: 1px solid rgba(238, 224, 197, 0.28);
+          background: linear-gradient(180deg, rgba(17, 12, 82, 0.98), rgba(9, 6, 62, 0.98));
+          color: #fff;
+          padding: 22px 18px 18px;
+          box-sizing: border-box;
+          text-align: center;
+          box-shadow: 0 28px 78px rgba(0, 0, 0, 0.46);
+        }
+
+        .simAdminTutorialPromptIcon {
+          width: 90px;
+          height: 90px;
+          margin: -6px auto 2px;
+        }
+
+        :global(.simAdminTutorialPromptImage) {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+        }
+
+        .simAdminTutorialPromptBadge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 28px;
           border-radius: 999px;
-          padding: 10px 14px;
-          background: rgba(238, 224, 197, 0.12);
+          padding: 0 11px;
+          background: rgba(238, 224, 197, 0.13);
           color: #eee0c5;
-          font-size: 13px;
+          font-size: 12px;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .simAdminTutorialPromptCard h2 {
+          margin: 0;
+          color: #eee0c5;
+          font-size: 23px;
+          line-height: 1.25;
+          letter-spacing: -0.04em;
+          word-break: keep-all;
+        }
+
+        .simAdminTutorialPromptCard p {
+          margin: 12px auto 0;
+          color: rgba(255, 255, 255, 0.82);
+          font-size: 14px;
+          line-height: 1.6;
+          word-break: keep-all;
+        }
+
+        .simAdminTutorialPromptActions {
+          display: grid;
+          grid-template-columns: 0.9fr 1.1fr;
+          gap: 8px;
+          margin-top: 18px;
+        }
+
+        .simAdminTutorialPromptActions.single {
+          grid-template-columns: 1fr;
+        }
+
+        .simAdminTutorialPromptActions button {
+          border: 0;
+          border-radius: 999px;
+          min-height: 44px;
+          padding: 0 16px;
+          background: #eee0c5;
+          color: #765630;
+          font-size: 14px;
           font-weight: 900;
           cursor: pointer;
-          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
-          touch-action: manipulation;
+        }
+
+        .simAdminTutorialPromptActions button.ghost {
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.13);
+        }
+
+        .simAdminTutorialNoticeCard .simAdminTutorialPromptIcon {
+          margin-bottom: 8px;
         }
 
         .simAdminTutorialLayer {
@@ -641,8 +878,29 @@ export default function SimulatorAdminTutorial({
         }
 
         @media (max-width: 640px) {
-          .simAdminTutorialButtonRow {
-            margin: -4px 0 12px;
+          .simAdminTutorialGuideButton {
+            width: 78px;
+            height: 78px;
+            top: calc(env(safe-area-inset-top, 0px) + 8px);
+            right: 8px;
+          }
+
+          .simAdminTutorialPromptCard {
+            border-radius: 24px;
+            padding: 20px 16px 16px;
+          }
+
+          .simAdminTutorialPromptIcon {
+            width: 82px;
+            height: 82px;
+          }
+
+          .simAdminTutorialPromptCard h2 {
+            font-size: 21px;
+          }
+
+          .simAdminTutorialPromptCard p {
+            font-size: 13px;
           }
 
           .simAdminTutorialCard {

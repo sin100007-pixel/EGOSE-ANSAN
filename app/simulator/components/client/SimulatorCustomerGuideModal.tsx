@@ -3,7 +3,6 @@ import type { CustomerGuide, CustomerGuideSectionLine } from "../../lib/client-s
 type SimulatorCustomerGuideModalProps = {
   guide: CustomerGuide;
   onClose: () => void;
-  onDisable: () => void;
 };
 
 function renderGuideLine(line: CustomerGuideSectionLine) {
@@ -47,7 +46,6 @@ function renderGuideLine(line: CustomerGuideSectionLine) {
 export default function SimulatorCustomerGuideModal({
   guide,
   onClose,
-  onDisable,
 }: SimulatorCustomerGuideModalProps) {
   return (
     <div className="customerGuideOverlay" role="presentation" onClick={onClose}>
@@ -90,21 +88,9 @@ export default function SimulatorCustomerGuideModal({
           ))}
         </div>
 
-        <div className="customerGuideActions">
+        <div className="customerGuideActions customerGuideActionsSingle">
           <button type="button" onClick={onClose} className="customerGuidePrimaryButton">
             {guide.buttonLabel}
-          </button>
-
-          <button
-            type="button"
-            onClick={onDisable}
-            className="customerGuideSecondaryButton"
-            aria-label="가이드 끄기"
-          >
-            <span className="customerGuideSecondaryButtonLabel">
-              <span>가이드</span>
-              <span>끄기</span>
-            </span>
           </button>
         </div>
       </section>

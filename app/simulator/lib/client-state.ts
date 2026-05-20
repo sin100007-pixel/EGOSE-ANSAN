@@ -134,4 +134,4 @@ export const CUSTOMER_GUIDES: Record<CustomerGuideStep, CustomerGuide> = {
 
 export const CUSTOMER_GUIDE_STEPS: CustomerGuideStep[] = ["intro", "space", "apply", "decision"];
 export const CUSTOMER_GUIDE_STORAGE_PREFIX = "egose-simulator-customer-guide-v1";
-export const CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX = "egose-simulator-customer-guide-enabled-v1";
+export const CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX = "egose-simulator-customer-guide-start-prompt-v1";

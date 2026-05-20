@@ -622,9 +622,9 @@ export default function SimulatorLinkBuilder() {
         </section>
 
         <SimulatorAdminTutorial
-          storageKey="link-builder-v1"
+          storageKey="link-builder-guide-choice-v1"
           steps={LINK_BUILDER_TUTORIAL_STEPS}
-          buttonLabel="링크 만들기 도움말"
+          buttonLabel="링크생성"
         />
 
         {loading ? (

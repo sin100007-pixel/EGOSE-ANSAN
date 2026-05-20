@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CUSTOMER_GUIDES,
-  CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX,
+  CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX,
   type CustomerGuideStep,
   type SimulatorMode,
   type SimulatorStep,
@@ -32,13 +32,13 @@ export function useSimulatorCustomerGuide({
 }: UseSimulatorCustomerGuideArgs) {
   const [activeGuideStep, setActiveGuideStep] = useState<CustomerGuideStep | null>(null);
   const [guideReady, setGuideReady] = useState(false);
-  const [guideEnabled, setGuideEnabled] = useState(true);
-  const [pendingGuideStep, setPendingGuideStep] = useState<CustomerGuideStep | null>(null);
-  const [showGuideDisabledNotice, setShowGuideDisabledNotice] = useState(false);
-  const previousStepGuideRef = useRef<CustomerGuideStep | null>(null);
+  const [promptHandledInSession, setPromptHandledInSession] = useState(false);
+  const [showGuideStartPrompt, setShowGuideStartPrompt] = useState(false);
+  const [showGuideSkippedNotice, setShowGuideSkippedNotice] = useState(false);
+  const promptShownInSessionRef = useRef(false);
 
-  const customerGuideEnabledStorageKey = useMemo(() => {
-    return `${CUSTOMER_GUIDE_ENABLED_STORAGE_PREFIX}:${token || "default"}`;
+  const customerGuidePromptStorageKey = useMemo(() => {
+    return `${CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX}:${token || "default"}`;
   }, [token]);
 
   const currentStepGuide = useMemo<CustomerGuideStep | null>(() => {
@@ -53,21 +53,38 @@ export function useSimulatorCustomerGuide({
     return step as CustomerGuideStep;
   }, [hasIntroStep, step]);
 
-  const persistGuideEnabled = (value: boolean) => {
+  const canOpenCurrentGuide = Boolean(
+    mode === "customer" &&
+      guideReady &&
+      !loading &&
+      !expired &&
+      !setupNeeded &&
+      currentStepGuide &&
+      (!isFilmSheetOpen || currentStepGuide === "apply")
+  );
+
+  const shouldPromptAtCurrentStep = Boolean(
+    currentStepGuide === "intro" || (!hasIntroStep && currentStepGuide === "space")
+  );
+
+  const markPromptHandled = useCallback(() => {
+    setPromptHandledInSession(true);
+
     try {
-      window.localStorage.setItem(customerGuideEnabledStorageKey, JSON.stringify(value));
+      window.localStorage.setItem(customerGuidePromptStorageKey, "done");
     } catch {
-      // localStorage를 사용할 수 없는 브라우저여도 화면 동작은 유지합니다.
+      // localStorage를 사용할 수 없는 브라우저여도 현재 화면에서는 다시 묻지 않습니다.
     }
-  };
+  }, [customerGuidePromptStorageKey]);
 
   useEffect(() => {
+    promptShownInSessionRef.current = false;
+
     if (mode !== "customer") {
       setActiveGuideStep(null);
-      setGuideEnabled(true);
-      setPendingGuideStep(null);
-      setShowGuideDisabledNotice(false);
-      previousStepGuideRef.current = null;
+      setPromptHandledInSession(true);
+      setShowGuideStartPrompt(false);
+      setShowGuideSkippedNotice(false);
       setGuideReady(true);
       return;
     }
@@ -75,114 +92,105 @@ export function useSimulatorCustomerGuide({
     setGuideReady(false);
 
     try {
-      const raw = window.localStorage.getItem(customerGuideEnabledStorageKey);
-      const parsed = raw === null ? true : JSON.parse(raw);
-      setGuideEnabled(parsed !== false);
+      setPromptHandledInSession(window.localStorage.getItem(customerGuidePromptStorageKey) === "done");
     } catch {
-      setGuideEnabled(true);
+      setPromptHandledInSession(false);
     } finally {
       setActiveGuideStep(null);
-      setPendingGuideStep(null);
-      setShowGuideDisabledNotice(false);
-      previousStepGuideRef.current = null;
+      setShowGuideStartPrompt(false);
+      setShowGuideSkippedNotice(false);
       setGuideReady(true);
     }
-  }, [customerGuideEnabledStorageKey, mode]);
-
-  useEffect(() => {
-    if (mode !== "customer" || !guideReady) {
-      previousStepGuideRef.current = currentStepGuide;
-      return;
-    }
-
-    if (currentStepGuide !== previousStepGuideRef.current) {
-      if (currentStepGuide) {
-        setPendingGuideStep(currentStepGuide);
-      } else {
-        setPendingGuideStep(null);
-        setActiveGuideStep(null);
-      }
-
-      previousStepGuideRef.current = currentStepGuide;
-    }
-  }, [currentStepGuide, guideReady, mode]);
+  }, [customerGuidePromptStorageKey, mode]);
 
   useEffect(() => {
     if (mode !== "customer" || !guideReady || loading || expired || setupNeeded) {
       return;
     }
 
-    if (!currentStepGuide) {
-      setActiveGuideStep(null);
+    if (!currentStepGuide || !shouldPromptAtCurrentStep || promptHandledInSession) {
       return;
     }
 
-    if (!guideEnabled || (isFilmSheetOpen && currentStepGuide !== "apply")) {
-      setActiveGuideStep(null);
+    if (promptShownInSessionRef.current || showGuideStartPrompt || activeGuideStep || showGuideSkippedNotice) {
       return;
     }
 
-    if (pendingGuideStep && pendingGuideStep === currentStepGuide) {
-      setActiveGuideStep(currentStepGuide);
-      setPendingGuideStep(null);
-    }
+    promptShownInSessionRef.current = true;
+    setShowGuideStartPrompt(true);
   }, [
+    activeGuideStep,
     currentStepGuide,
     expired,
-    guideEnabled,
     guideReady,
-    isFilmSheetOpen,
     loading,
     mode,
-    pendingGuideStep,
+    promptHandledInSession,
     setupNeeded,
+    shouldPromptAtCurrentStep,
+    showGuideSkippedNotice,
+    showGuideStartPrompt,
   ]);
 
-  const toggleGuideEnabled = () => {
-    if (mode !== "customer" || !guideReady || loading || expired || setupNeeded || !currentStepGuide) {
+  useEffect(() => {
+    if (!activeGuideStep || activeGuideStep === currentStepGuide) {
       return;
     }
 
-    const nextEnabled = !guideEnabled;
-    setGuideEnabled(nextEnabled);
-    persistGuideEnabled(nextEnabled);
-    setShowGuideDisabledNotice(false);
+    setActiveGuideStep(null);
+  }, [activeGuideStep, currentStepGuide]);
 
-    if (!nextEnabled) {
-      setActiveGuideStep(null);
-      setPendingGuideStep(null);
+  const openCustomerGuide = useCallback(() => {
+    if (!canOpenCurrentGuide || !currentStepGuide) {
       return;
     }
 
-    if (!isFilmSheetOpen) {
-      setActiveGuideStep(currentStepGuide);
+    setShowGuideStartPrompt(false);
+    setShowGuideSkippedNotice(false);
+    setActiveGuideStep(currentStepGuide);
+  }, [canOpenCurrentGuide, currentStepGuide]);
+
+  const startCustomerGuideFromPrompt = useCallback(() => {
+    if (!canOpenCurrentGuide || !currentStepGuide) {
+      return;
     }
-  };
 
-  const closeCustomerGuide = () => {
+    markPromptHandled();
+    setShowGuideStartPrompt(false);
+    setShowGuideSkippedNotice(false);
+    setActiveGuideStep(currentStepGuide);
+  }, [canOpenCurrentGuide, currentStepGuide, markPromptHandled]);
+
+  const skipCustomerGuideFromPrompt = useCallback(() => {
+    markPromptHandled();
+    setShowGuideStartPrompt(false);
     setActiveGuideStep(null);
-  };
+    setShowGuideSkippedNotice(true);
+  }, [markPromptHandled]);
 
-  const disableCustomerGuide = () => {
-    setGuideEnabled(false);
-    persistGuideEnabled(false);
-    setPendingGuideStep(null);
+  const closeGuideStartPrompt = useCallback(() => {
+    markPromptHandled();
+    setShowGuideStartPrompt(false);
+  }, [markPromptHandled]);
+
+  const closeCustomerGuide = useCallback(() => {
     setActiveGuideStep(null);
-    setShowGuideDisabledNotice(true);
-  };
+  }, []);
 
-  const closeGuideDisabledNotice = () => {
-    setShowGuideDisabledNotice(false);
-  };
+  const closeGuideSkippedNotice = useCallback(() => {
+    setShowGuideSkippedNotice(false);
+  }, []);
 
   return {
     activeGuideStep,
     currentGuide: activeGuideStep ? CUSTOMER_GUIDES[activeGuideStep] : null,
-    guideEnabled,
-    toggleGuideEnabled,
+    openCustomerGuide,
     closeCustomerGuide,
-    disableCustomerGuide,
-    showGuideDisabledNotice,
-    closeGuideDisabledNotice,
+    showGuideStartPrompt,
+    startCustomerGuideFromPrompt,
+    skipCustomerGuideFromPrompt,
+    closeGuideStartPrompt,
+    showGuideSkippedNotice,
+    closeGuideSkippedNotice,
   };
 }

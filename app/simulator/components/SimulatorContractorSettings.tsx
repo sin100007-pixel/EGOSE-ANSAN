@@ -431,9 +431,9 @@ export default function SimulatorContractorSettings() {
       </section>
 
       <SimulatorAdminTutorial
-        storageKey="contractor-settings-v1"
+        storageKey="contractor-settings-guide-choice-v1"
         steps={SETTINGS_TUTORIAL_STEPS}
-        buttonLabel="소개 설정 도움말"
+        buttonLabel="소개설정"
       />
 
       {loading ? (
