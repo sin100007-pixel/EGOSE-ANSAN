@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
@@ -121,7 +121,7 @@ type SplitHelpActionButtonProps = {
   onToggle: (helpKey: SettingsHelpKey) => void;
   className?: string;
   disabled?: boolean;
-  children: JSX.Element;
+  children: ReactElement;
 };
 
 function SplitHelpActionButton({
