@@ -48,10 +48,22 @@ function startsWithAny(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname.startsWith(prefix));
 }
 
+
+function isPublicStaticAssetPath(pathname: string) {
+  // public/simulator 안의 PNG/JPG/WEBP/SVG 같은 정적 파일은
+  // 고객 공유 링크에서도 로그인 없이 열려야 합니다.
+  return (
+    pathname.startsWith("/simulator/") &&
+    /\.(?:png|jpe?g|webp|gif|svg|avif|ico|bmp|css|js|map|txt|json|woff2?|ttf|otf)$/i.test(pathname)
+  );
+}
+
 function isPublicPath(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
   if (pathname.startsWith("/simulator/share")) return true;
+
+  if (isPublicStaticAssetPath(pathname)) return true;
 
   if (pathname === "/api/simulator/bootstrap" && searchParams.get("token")) {
     return true;
