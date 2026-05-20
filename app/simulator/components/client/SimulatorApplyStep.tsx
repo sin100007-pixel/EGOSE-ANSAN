@@ -1,7 +1,84 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
 import { getFilmName } from "../../lib/client-utils";
 import SimulatorScenePreview from "./SimulatorScenePreview";
+
+type ApplyHelpKey = "favorite" | "decision";
+
+const APPLY_HELP_MESSAGES: Record<ApplyHelpKey, string> = {
+  favorite:
+    "선택한공간과 필름을 즐겨찾기 후보로 저장합니다. 나중에 다시 꺼내 볼 수 있고 다른사람과 공유할 수 있습니다. 필름을 1개라도 선택해야 즐겨찾기로 저장할 수 있습니다.",
+  decision:
+    "4단계인 결정확정으로 이동합니다. 즐겨찾기로 저장된 즐겨찾기 후보가 저장되어 있습니다.",
+};
+
+type ApplySplitHelpButtonProps = {
+  helpKey: ApplyHelpKey;
+  activeHelp: ApplyHelpKey | null;
+  onToggleHelp: (helpKey: ApplyHelpKey) => void;
+  onMainClick: () => void;
+  mainDisabled?: boolean;
+  guideTarget: string;
+  className?: string;
+  mainClassName?: string;
+  children: ReactNode;
+};
+
+function ApplySplitHelpButton({
+  helpKey,
+  activeHelp,
+  onToggleHelp,
+  onMainClick,
+  mainDisabled = false,
+  guideTarget,
+  className = "",
+  mainClassName = "",
+  children,
+}: ApplySplitHelpButtonProps) {
+  const opened = activeHelp === helpKey;
+
+  return (
+    <div
+      className={`applySplitHelpAction applySplitHelpAction-${helpKey} ${
+        mainDisabled ? "isMainDisabled" : ""
+      } ${className}`}
+      data-sim-admin-guide={guideTarget}
+      data-apply-help-ui="true"
+    >
+      <button
+        type="button"
+        onClick={onMainClick}
+        className={`applySplitMainButton ${mainClassName}`}
+        disabled={mainDisabled}
+      >
+        {children}
+      </button>
+
+      <button
+        type="button"
+        className="applySplitHelpButton"
+        aria-label="도움말 보기"
+        aria-expanded={opened}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggleHelp(helpKey);
+        }}
+      >
+        ?
+      </button>
+
+      {opened ? (
+        <span className="applySplitHelpBubble" role="tooltip">
+          {APPLY_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 type SimulatorApplyStepProps = {
   selectedSpace: SimulatorSpace | null;
@@ -44,6 +121,26 @@ export default function SimulatorApplyStep({
   onGoDecisionStep,
 }: SimulatorApplyStepProps) {
   const hasAnyFilm = maskZones.some((zone) => Boolean(zoneFilmMap[zone.key]));
+  const [activeHelp, setActiveHelp] = useState<ApplyHelpKey | null>(null);
+
+  const toggleHelp = (helpKey: ApplyHelpKey) => {
+    setActiveHelp((prev) => (prev === helpKey ? null : helpKey));
+  };
+
+  useEffect(() => {
+    if (!activeHelp) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-apply-help-ui="true"]')) {
+        return;
+      }
+      setActiveHelp(null);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [activeHelp]);
 
   return (
     <section className="applyCard">
@@ -116,24 +213,30 @@ export default function SimulatorApplyStep({
       </p>
 
       <div className="applyDecisionRow applyDecisionRowWithFavorite">
-        <button
-          type="button"
-          onClick={onAddFavorite}
-          className="favoriteSaveButton"
-          data-sim-admin-guide="customer-apply-favorite"
-          disabled={!hasAnyFilm}
+        <ApplySplitHelpButton
+          helpKey="favorite"
+          activeHelp={activeHelp}
+          onToggleHelp={toggleHelp}
+          onMainClick={onAddFavorite}
+          mainDisabled={!hasAnyFilm}
+          guideTarget="customer-apply-favorite"
+          className="applyFavoriteSplitAction"
+          mainClassName="applyFavoriteSplitMain"
         >
           ⭐ 즐겨찾기
-        </button>
+        </ApplySplitHelpButton>
 
-        <button
-          type="button"
-          onClick={onGoDecisionStep}
-          className="decisionNextButton"
-          data-sim-admin-guide="customer-apply-decision"
+        <ApplySplitHelpButton
+          helpKey="decision"
+          activeHelp={activeHelp}
+          onToggleHelp={toggleHelp}
+          onMainClick={onGoDecisionStep}
+          guideTarget="customer-apply-decision"
+          className="applyDecisionSplitAction"
+          mainClassName="applyDecisionSplitMain"
         >
-          결정확정으로 넘어가기
-        </button>
+          결정확정으로
+        </ApplySplitHelpButton>
       </div>
     </section>
   );

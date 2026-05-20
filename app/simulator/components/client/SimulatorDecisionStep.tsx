@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
 import { getFilmName, readPreviewAspectRatio } from "../../lib/client-utils";
@@ -34,6 +37,8 @@ type SimulatorDecisionStepProps = {
 };
 
 const TUTORIAL_DEMO_FAVORITE_ID = "__tutorial-decision-favorite-demo__";
+const FAVORITE_SHARE_HELP_MESSAGE =
+  "선택한 후보를 공유 할 수 있습니다. 단일로도 가능하고 여러개도 같이 보낼 수 있습니다.";
 
 function formatFavoriteDate(value: string) {
   const date = new Date(value);
@@ -73,6 +78,23 @@ export default function SimulatorDecisionStep({
   };
   const visibleFavoriteCandidates = hasDemoFavorite ? [demoFavoriteCandidate] : favoriteCandidates;
   const selectedFavoriteCount = hasDemoFavorite ? 1 : selectedFavoriteCandidateIds.length;
+  const shareButtonDisabled = !hasDemoFavorite && (selectedFavoriteCount === 0 || isDecisionSharing);
+  const [showFavoriteShareHelp, setShowFavoriteShareHelp] = useState(false);
+
+  useEffect(() => {
+    if (!showFavoriteShareHelp) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-decision-share-help-ui="true"]')) {
+        return;
+      }
+      setShowFavoriteShareHelp(false);
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [showFavoriteShareHelp]);
 
   return (
     <section className="decisionCard">
@@ -222,17 +244,44 @@ export default function SimulatorDecisionStep({
                 : "공유하고 싶은 후보를 선택해주세요."}
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (hasDemoFavorite) return;
-                onShareFavoriteCandidates();
-              }}
-              className="favoriteShareButton"
-              disabled={!hasDemoFavorite && (selectedFavoriteCount === 0 || isDecisionSharing)}
+            <div
+              className={`favoriteShareSplitAction applySplitHelpAction applyDecisionSplitAction ${
+                shareButtonDisabled ? "isMainDisabled" : ""
+              }`}
+              data-decision-share-help-ui="true"
             >
-              {isDecisionSharing ? "공유 준비 중..." : "선택한 후보 공유"}
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (hasDemoFavorite) return;
+                  onShareFavoriteCandidates();
+                }}
+                className="applySplitMainButton favoriteShareMainButton"
+                disabled={shareButtonDisabled}
+              >
+                {isDecisionSharing ? "공유 준비 중..." : "선택한 후보 공유"}
+              </button>
+
+              <button
+                type="button"
+                className="applySplitHelpButton favoriteShareHelpButton"
+                aria-label="선택한 후보 공유 도움말 보기"
+                aria-expanded={showFavoriteShareHelp}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowFavoriteShareHelp((prev) => !prev);
+                }}
+              >
+                ?
+              </button>
+
+              {showFavoriteShareHelp ? (
+                <span className="applySplitHelpBubble favoriteShareHelpBubble" role="tooltip">
+                  {FAVORITE_SHARE_HELP_MESSAGE}
+                </span>
+              ) : null}
+            </div>
 
             {decisionMessage ? <div className="decisionMessage favoriteShareMessage">{decisionMessage}</div> : null}
           </div>

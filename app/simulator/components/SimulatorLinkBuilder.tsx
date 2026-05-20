@@ -155,6 +155,119 @@ const LINK_BUILDER_TUTORIAL_STEPS = [
   },
 ] satisfies readonly SimulatorAdminTutorialStep[];
 
+
+type LinkHelpKey =
+  | "expires"
+  | "spaces"
+  | "films"
+  | "allFilms"
+  | "preset"
+  | "custom";
+
+const LINK_HELP_MESSAGES: Record<LinkHelpKey, string> = {
+  expires: "고객이 시뮬레이션을 할 수 있는 기간을 정합니다. 1/3/7일중에 골라주세요.",
+  spaces:
+    "고객이 시뮬레이션 할 수 있는 공간을 정합니다. 중복으로 선택가능합니다. 고객은 선택된 공간만 시뮬레이션 할 수 있습니다.",
+  films:
+    "고객이 시뮬레이션 할 수 있는 필름을 정합니다. 고객은 선택된 필름만 시뮬레이션 할 수 있습니다.",
+  allFilms: "고객이 모든 필름을 시뮬레이션 할 수 있게 허용합니다.",
+  preset:
+    "프리셋은 자신만의 필름묶음이며 하단에 프리셋메뉴로 이동해서 생성할 수 있습니다. 자주 추천할 필름을 프리셋으로 묶어놓으면 링크를 만들때 빠르고 쉽게 자신만의 추천필름 묶음을 적용할 수 있습니다.",
+  custom:
+    "고객이 시뮬레이션 할 수 있는 필름 종류를 직접 고릅니다. 고객은 허락된 필름만 시뮬레이션에 적용해볼 수 있습니다.",
+};
+
+type LinkHelpButtonProps = {
+  helpKey: LinkHelpKey;
+  label: string;
+  activeHelp: LinkHelpKey | null;
+  onToggle: (helpKey: LinkHelpKey) => void;
+  className?: string;
+};
+
+function LinkHelpButton({
+  helpKey,
+  label,
+  activeHelp,
+  onToggle,
+  className = "",
+}: LinkHelpButtonProps) {
+  const opened = activeHelp === helpKey;
+
+  return (
+    <span className={`linkHelpWrap ${className}`}>
+      <button
+        type="button"
+        className="linkHelpButton"
+        data-link-help-trigger="true"
+        aria-label={`${label} 설명 보기`}
+        aria-expanded={opened}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(helpKey);
+        }}
+      >
+        ?
+      </button>
+      {opened ? (
+        <span className="linkHelpBubble" role="tooltip">
+          {LINK_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+type ScopeChoiceHelpButtonProps = {
+  helpKey: LinkHelpKey;
+  label: string;
+  activeHelp: LinkHelpKey | null;
+  onToggle: (helpKey: LinkHelpKey) => void;
+  active?: boolean;
+  onSelect: () => void;
+};
+
+function ScopeChoiceHelpButton({
+  helpKey,
+  label,
+  activeHelp,
+  onToggle,
+  active = false,
+  onSelect,
+}: ScopeChoiceHelpButtonProps) {
+  const opened = activeHelp === helpKey;
+
+  return (
+    <div className={`scopeChoiceSplit ${active ? "scopeActive" : ""}`}>
+      <button type="button" className="scopeChoiceMainButton" onClick={onSelect}>
+        {label}
+      </button>
+
+      <button
+        type="button"
+        className="scopeChoiceHelpButton"
+        data-link-help-trigger="true"
+        aria-label={`${label} 설명 보기`}
+        aria-expanded={opened}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(helpKey);
+        }}
+      >
+        ?
+      </button>
+
+      {opened ? (
+        <span className="linkHelpBubble scopeChoiceBubble" role="tooltip">
+          {LINK_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 const COLORS = {
   bg: "#05023B",
   panel: "rgba(12,10,72,0.74)",
@@ -264,6 +377,37 @@ export default function SimulatorLinkBuilder() {
   const [paletteColorOptions, setPaletteColorOptions] = useState<string[]>(DEFAULT_PALETTE_COLOR_OPTIONS);
 
   const [result, setResult] = useState<LinkResult | null>(null);
+  const [activeHelp, setActiveHelp] = useState<LinkHelpKey | null>(null);
+
+  const toggleHelp = (helpKey: LinkHelpKey) => {
+    setActiveHelp((prev) => (prev === helpKey ? null : helpKey));
+  };
+
+  useEffect(() => {
+    if (!activeHelp) return;
+
+    const closeHelp = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (target instanceof Element && target.closest('[data-link-help-trigger="true"]')) return;
+
+      setActiveHelp(null);
+    };
+
+    const closeHelpWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveHelp(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeHelp, true);
+    document.addEventListener("keydown", closeHelpWithEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeHelp, true);
+      document.removeEventListener("keydown", closeHelpWithEscape);
+    };
+  }, [activeHelp]);
 
 
   useEffect(() => {
@@ -708,7 +852,15 @@ export default function SimulatorLinkBuilder() {
                 </label>
 
                 <label>
-                  <span>유효기간</span>
+                  <span className="fieldLabelWithHelp">
+                    유효기간
+                    <LinkHelpButton
+                      helpKey="expires"
+                      label="유효기간"
+                      activeHelp={activeHelp}
+                      onToggle={toggleHelp}
+                    />
+                  </span>
                   <select
                     value={expiresInDays}
                     onChange={(event) => setExpiresInDays(Number(event.target.value))}
@@ -732,7 +884,15 @@ export default function SimulatorLinkBuilder() {
               <div className="sectionBlock" data-sim-admin-guide="link-spaces">
                 <div className="sectionTitleRow">
                   <div>
-                    <h2>공간 제한</h2>
+                    <h2 className="titleWithHelp">
+                      공간 제한
+                      <LinkHelpButton
+                        helpKey="spaces"
+                        label="공간 제한"
+                        activeHelp={activeHelp}
+                        onToggle={toggleHelp}
+                      />
+                    </h2>
                     <p>고객에게 보여줄 공간을 선택합니다.</p>
                   </div>
                   <span>{selectedSpaceIds.length}개 선택</span>
@@ -779,41 +939,58 @@ export default function SimulatorLinkBuilder() {
               <div className="sectionBlock" data-sim-admin-guide="link-films">
                 <div className="sectionTitleRow">
                   <div>
-                    <h2>필름 제한</h2>
+                    <h2 className="titleWithHelp">
+                      필름 제한
+                      <LinkHelpButton
+                        helpKey="films"
+                        label="필름 제한"
+                        activeHelp={activeHelp}
+                        onToggle={toggleHelp}
+                      />
+                    </h2>
                     <p>전체 삼성필름, 직접 선택한 필름, 또는 미리 만들어둔 프리셋 중에서 고를 수 있습니다.</p>
                   </div>
                 </div>
 
                 <div className="scopeRow">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilmScope("all");
-                      setCustomFilmPickerOpen(false);
-                    }}
-                    className={filmScope === "all" ? "scopeActive" : ""}
-                  >
-                    삼성필름 전체 허용
-                  </button>
+                  <div className="scopeOption">
+                    <ScopeChoiceHelpButton
+                      helpKey="allFilms"
+                      label="삼성필름 전체 허용"
+                      activeHelp={activeHelp}
+                      onToggle={toggleHelp}
+                      active={filmScope === "all"}
+                      onSelect={() => {
+                        setFilmScope("all");
+                        setCustomFilmPickerOpen(false);
+                      }}
+                    />
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilmScope("preset");
-                      setCustomFilmPickerOpen(false);
-                    }}
-                    className={filmScope === "preset" ? "scopeActive" : ""}
-                  >
-                    프리셋으로 제한
-                  </button>
+                  <div className="scopeOption">
+                    <ScopeChoiceHelpButton
+                      helpKey="preset"
+                      label="프리셋으로 제한"
+                      activeHelp={activeHelp}
+                      onToggle={toggleHelp}
+                      active={filmScope === "preset"}
+                      onSelect={() => {
+                        setFilmScope("preset");
+                        setCustomFilmPickerOpen(false);
+                      }}
+                    />
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={openCustomFilmScope}
-                    className={filmScope === "custom" ? "scopeActive" : ""}
-                  >
-                    직접 선택
-                  </button>
+                  <div className="scopeOption">
+                    <ScopeChoiceHelpButton
+                      helpKey="custom"
+                      label="직접 선택"
+                      activeHelp={activeHelp}
+                      onToggle={toggleHelp}
+                      active={filmScope === "custom"}
+                      onSelect={openCustomFilmScope}
+                    />
+                  </div>
                 </div>
 
                 {filmScope === "preset" ? (
@@ -1284,6 +1461,89 @@ export default function SimulatorLinkBuilder() {
           font-size: 13px;
         }
 
+        .fieldLabelWithHelp,
+        .titleWithHelp {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .linkHelpWrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          line-height: 1;
+          vertical-align: middle;
+          z-index: 30;
+        }
+
+        .linkHelpButton {
+          width: 20px;
+          height: 20px;
+          min-width: 20px;
+          min-height: 20px;
+          border: 1px solid rgba(238, 224, 197, 0.68);
+          border-radius: 999px;
+          padding: 0;
+          background: rgba(238, 224, 197, 0.13);
+          color: ${COLORS.cream};
+          box-shadow: 0 5px 14px rgba(0, 0, 0, 0.18);
+          font-size: 12px;
+          font-weight: 1000;
+          line-height: 1;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          appearance: none;
+        }
+
+        .linkHelpButton:hover,
+        .linkHelpButton:focus-visible {
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          outline: none;
+        }
+
+        .linkHelpBubble {
+          position: absolute;
+          top: calc(100% + 9px);
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(288px, calc(100vw - 32px));
+          box-sizing: border-box;
+          border-radius: 16px;
+          border: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+          color: ${COLORS.white};
+          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+          padding: 12px 13px;
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.55;
+          letter-spacing: -0.02em;
+          word-break: keep-all;
+          white-space: normal;
+          text-align: left;
+          z-index: 120;
+        }
+
+        .linkHelpBubble::before {
+          content: "";
+          position: absolute;
+          top: -6px;
+          left: 50%;
+          width: 10px;
+          height: 10px;
+          transform: translateX(-50%) rotate(45deg);
+          border-left: 1px solid rgba(238, 224, 197, 0.34);
+          border-top: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+        }
+
         input,
         select {
           width: 100%;
@@ -1479,21 +1739,92 @@ export default function SimulatorLinkBuilder() {
           gap: 8px;
         }
 
-        .scopeRow button {
+        .scopeOption {
+          position: relative;
+          min-width: 0;
+        }
+
+        .scopeChoiceSplit {
+          position: relative;
+          display: flex;
+          align-items: stretch;
+          width: 100%;
+          min-height: 48px;
           border: 1px solid ${COLORS.line};
           border-radius: 16px;
-          padding: 12px 10px;
           background: rgba(255, 255, 255, 0.05);
+          overflow: visible;
+        }
+
+        .scopeChoiceMainButton,
+        .scopeChoiceHelpButton {
+          appearance: none;
+          border: 0;
           color: ${COLORS.white};
           font-size: 14px;
           font-weight: 900;
           cursor: pointer;
         }
 
-        .scopeRow .scopeActive {
-          border-color: rgba(238, 224, 197, 0.6);
+        .scopeChoiceMainButton {
+          flex: 1 1 auto;
+          min-width: 0;
+          border-radius: 15px 0 0 15px;
+          padding: 12px 10px;
+          background: transparent;
+          text-align: center;
+        }
+
+        .scopeChoiceHelpButton {
+          flex: 0 0 48px;
+          width: 48px;
+          min-width: 48px;
+          border-left: 1px solid rgba(238, 224, 197, 0.22);
+          border-radius: 0 15px 15px 0;
           background: rgba(238, 224, 197, 0.16);
           color: ${COLORS.cream};
+          box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.12);
+        }
+
+        .scopeChoiceMainButton:hover,
+        .scopeChoiceMainButton:focus-visible,
+        .scopeChoiceHelpButton:hover,
+        .scopeChoiceHelpButton:focus-visible {
+          outline: none;
+        }
+
+        .scopeChoiceHelpButton:hover,
+        .scopeChoiceHelpButton:focus-visible {
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+        }
+
+        .scopeChoiceSplit.scopeActive {
+          border-color: rgba(238, 224, 197, 0.6);
+          background: rgba(238, 224, 197, 0.16);
+        }
+
+        .scopeChoiceSplit.scopeActive .scopeChoiceMainButton,
+        .scopeChoiceSplit.scopeActive .scopeChoiceHelpButton {
+          color: ${COLORS.cream};
+        }
+
+        .scopeChoiceSplit.scopeActive .scopeChoiceHelpButton {
+          background: rgba(238, 224, 197, 0.23);
+          border-left-color: rgba(238, 224, 197, 0.34);
+        }
+
+        .scopeChoiceBubble {
+          top: calc(100% + 11px);
+          right: 0;
+          left: auto;
+          transform: none;
+        }
+
+        .scopeChoiceBubble::before {
+          right: 19px;
+          left: auto;
+          transform: rotate(45deg);
         }
 
         .presetSelectBox,

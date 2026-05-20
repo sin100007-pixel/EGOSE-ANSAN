@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
-import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
+import SimulatorAdminTutorial, {
+  type SimulatorAdminTutorialStep,
+} from "./SimulatorAdminTutorial";
 
 type ContractorProfile = {
   id?: string;
@@ -50,6 +52,117 @@ type UploadResponse = {
   url?: string;
   error?: string;
 };
+
+type SettingsHelpKey =
+  | "preview"
+  | "logoUpload"
+  | "kakao"
+  | "photoUpload"
+  | "introActive";
+
+const SETTINGS_HELP_MESSAGES: Record<SettingsHelpKey, string> = {
+  preview:
+    "고객이 보게될 소개 화면을 미리보기합니다. 기본정보와 대표사진등을 변경하신후 잘 변경됐는지 확인하기위한 버튼입니다.",
+  logoUpload:
+    "상호나 상징 이미지를 소개 페이지에 올릴 수 있습니다. 없으시다면 사무실로 연락주세요. 만들어 드릴 수 있습니다.",
+  kakao:
+    "고객이 문의 할 수 있는 카카오톡 오픈 채팅방 주소를 넣으시면됩니다. 없으시다면 사무실로 연락주세요 만드는걸 도와드리겠습니다.",
+  photoUpload: "대표적인 시공사진을 소개페이지에 올립니다.",
+  introActive:
+    "체크되어있으면 고객이 링크를 타고 시뮬레이터에 들어왔을때 소개화면이 보이고 체크가 되어있지않으면 소개화면이 보이지 않게됩니다.",
+};
+
+type InlineHelpButtonProps = {
+  helpKey: SettingsHelpKey;
+  activeHelp: SettingsHelpKey | null;
+  onToggle: (helpKey: SettingsHelpKey) => void;
+  className?: string;
+};
+
+function InlineHelpButton({
+  helpKey,
+  activeHelp,
+  onToggle,
+  className = "",
+}: InlineHelpButtonProps) {
+  const opened = activeHelp === helpKey;
+
+  return (
+    <span
+      className={`settingsHelpWrap settingsHelpWrap-${helpKey} ${className}`}
+      data-help-wrap={helpKey}
+    >
+      <button
+        type="button"
+        className="settingsHelpButton"
+        data-help-trigger={helpKey}
+        aria-label="도움말 보기"
+        aria-expanded={opened}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(helpKey);
+        }}
+      >
+        ?
+      </button>
+      {opened ? (
+        <span className="settingsHelpBubble" role="tooltip">
+          {SETTINGS_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+type SplitHelpActionButtonProps = {
+  helpKey: SettingsHelpKey;
+  activeHelp: SettingsHelpKey | null;
+  onToggle: (helpKey: SettingsHelpKey) => void;
+  className?: string;
+  disabled?: boolean;
+  children: JSX.Element;
+};
+
+function SplitHelpActionButton({
+  helpKey,
+  activeHelp,
+  onToggle,
+  className = "",
+  disabled = false,
+  children,
+}: SplitHelpActionButtonProps) {
+  const opened = activeHelp === helpKey;
+
+  return (
+    <div
+      className={`splitHelpAction ${disabled ? "isDisabled" : ""} ${className}`}
+      data-help-wrap={helpKey}
+    >
+      {children}
+      <button
+        type="button"
+        className="splitHelpButton"
+        data-help-trigger={helpKey}
+        aria-label="도움말 보기"
+        aria-expanded={opened}
+        disabled={disabled}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(helpKey);
+        }}
+      >
+        ?
+      </button>
+      {opened ? (
+        <span className="settingsHelpBubble splitHelpBubble" role="tooltip">
+          {SETTINGS_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 const COLORS = {
   bg: "#05023B",
@@ -125,7 +238,6 @@ const SETTINGS_TUTORIAL_STEPS = [
   },
 ] satisfies readonly SimulatorAdminTutorialStep[];
 
-
 const emptyPhoto = (sortOrder: number): ContractorPhoto => ({
   image_url: "",
   title: "",
@@ -153,7 +265,9 @@ export default function SimulatorContractorSettings() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingTarget, setUploadingTarget] = useState<"logo" | number | null>(null);
+  const [uploadingTarget, setUploadingTarget] = useState<
+    "logo" | number | null
+  >(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -165,6 +279,7 @@ export default function SimulatorContractorSettings() {
   const [kakaoUrl, setKakaoUrl] = useState("");
   const [brandColor, setBrandColor] = useState("#11104a");
   const [isActive, setIsActive] = useState(true);
+  const [activeHelp, setActiveHelp] = useState<SettingsHelpKey | null>(null);
   const [photos, setPhotos] = useState<ContractorPhoto[]>([
     emptyPhoto(1),
     emptyPhoto(2),
@@ -182,6 +297,36 @@ export default function SimulatorContractorSettings() {
     };
   }, [router]);
 
+  const toggleHelp = (helpKey: SettingsHelpKey) => {
+    setActiveHelp((prev) => (prev === helpKey ? null : helpKey));
+  };
+
+  useEffect(() => {
+    if (!activeHelp) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(`[data-help-trigger="${activeHelp}"]`)) {
+        return;
+      }
+      setActiveHelp(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveHelp(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeHelp]);
+
   const paintThenNavigateToDashboard = () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -198,7 +343,6 @@ export default function SimulatorContractorSettings() {
     paintThenNavigateToDashboard();
   };
 
-
   const visiblePhotos = useMemo(() => {
     return photos.filter((photo) => photo.image_url.trim() && photo.is_visible);
   }, [photos]);
@@ -206,25 +350,26 @@ export default function SimulatorContractorSettings() {
   const previewName = displayName || installerName || "시공자";
 
   const renderCustomerPreview = () => (
-  <SimulatorIntroOverview
-    contractorName={previewName}
-    logoUrl={logoUrl}
-    greeting={greeting}
-    phone={phone}
-    showKakao={Boolean(kakaoUrl)}
-    photos={visiblePhotos}
-    customerName="최진규"
-    expiresAt="2026. 05. 05. 오전 08:11"
-    brandColor={brandColor}
-    showHero={false}
-    showBottomNav
-    showStartButton={false}
-  />
-);
+    <SimulatorIntroOverview
+      contractorName={previewName}
+      logoUrl={logoUrl}
+      greeting={greeting}
+      phone={phone}
+      showKakao={Boolean(kakaoUrl)}
+      photos={visiblePhotos}
+      customerName="최진규"
+      expiresAt="2026. 05. 05. 오전 08:11"
+      brandColor={brandColor}
+      showHero={false}
+      showBottomNav
+      showStartButton={false}
+    />
+  );
 
   const applyResponse = (json: ApiResponse) => {
     const profile = json.profile || null;
-    const nextInstallerName = json.installer_name || profile?.installer_name || "";
+    const nextInstallerName =
+      json.installer_name || profile?.installer_name || "";
 
     setInstallerName(nextInstallerName || "");
     setDisplayName(profile?.display_name || nextInstallerName || "");
@@ -309,15 +454,22 @@ export default function SimulatorContractorSettings() {
     setPhotos((prev) => {
       const next = prev.filter((_, photoIndex) => photoIndex !== index);
       return next.length > 0
-        ? next.map((photo, photoIndex) => ({ ...photo, sort_order: photoIndex + 1 }))
+        ? next.map((photo, photoIndex) => ({
+            ...photo,
+            sort_order: photoIndex + 1,
+          }))
         : [emptyPhoto(1)];
     });
   };
 
-  const uploadImage = async (file: File | undefined, type: "logo" | "portfolio", photoIndex?: number) => {
+  const uploadImage = async (
+    file: File | undefined,
+    type: "logo" | "portfolio",
+    photoIndex?: number,
+  ) => {
     if (!file) return;
 
-    const target = type === "logo" ? "logo" : photoIndex ?? 0;
+    const target = type === "logo" ? "logo" : (photoIndex ?? 0);
     setUploadingTarget(target);
     setError("");
     setMessage("");
@@ -344,7 +496,9 @@ export default function SimulatorContractorSettings() {
         updatePhoto(photoIndex, { image_url: json.url });
       }
 
-      setMessage("이미지를 업로드했습니다. 마지막에 설정 저장을 눌러 반영해주세요.");
+      setMessage(
+        "이미지를 업로드했습니다. 마지막에 설정 저장을 눌러 반영해주세요.",
+      );
     } catch {
       setError("이미지를 업로드하지 못했습니다.");
     } finally {
@@ -408,7 +562,12 @@ export default function SimulatorContractorSettings() {
         </div>
       ) : null}
 
-      <button type="button" onClick={goToDashboard} className="backButton" disabled={isDashboardMoving}>
+      <button
+        type="button"
+        onClick={goToDashboard}
+        className="backButton"
+        disabled={isDashboardMoving}
+      >
         ← 대시보드
       </button>
 
@@ -416,17 +575,29 @@ export default function SimulatorContractorSettings() {
         <div>
           <span className="stepPill">시공자 설정</span>
           <h1>고객용 시뮬레이터 소개 화면</h1>
-          <p>고객 링크 첫 화면에 보일 로고, 인삿말, 연락처, 대표 시공사진을 관리합니다.</p>
+          <p>
+            고객 링크 첫 화면에 보일 로고, 인삿말, 연락처, 대표 시공사진을
+            관리합니다.
+          </p>
         </div>
         <div className="heroActions">
-          <button
-            type="button"
-            onClick={() => setIsPreviewOpen(true)}
+          <SplitHelpActionButton
+            helpKey="preview"
+            activeHelp={activeHelp}
+            onToggle={toggleHelp}
             disabled={loading}
-            data-sim-admin-guide="settings-preview-button"
+            className="previewSplitHelp"
           >
-            미리보기
-          </button>
+            <button
+              type="button"
+              className="splitHelpMainButton"
+              onClick={() => setIsPreviewOpen(true)}
+              disabled={loading}
+              data-sim-admin-guide="settings-preview-button"
+            >
+              미리보기
+            </button>
+          </SplitHelpActionButton>
         </div>
       </section>
 
@@ -441,13 +612,20 @@ export default function SimulatorContractorSettings() {
       ) : (
         <>
           {error ? <div className="notice errorNotice">{error}</div> : null}
-          {message ? <div className="notice successNotice">{message}</div> : null}
+          {message ? (
+            <div className="notice successNotice">{message}</div>
+          ) : null}
 
           <section className="gridLayout">
-            <div className="panel formPanel" data-sim-admin-guide="settings-basic">
+            <div
+              className="panel formPanel"
+              data-sim-admin-guide="settings-basic"
+            >
               <div className="sectionHeader">
                 <span>기본 정보</span>
-                <strong>{installerName ? `${installerName} 계정` : "현재 계정"}</strong>
+                <strong>
+                  {installerName ? `${installerName} 계정` : "현재 계정"}
+                </strong>
               </div>
 
               <label>
@@ -469,19 +647,31 @@ export default function SimulatorContractorSettings() {
               </label>
 
               <div className="uploadRow">
-                <label className="uploadButton">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={uploadingTarget !== null}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      void uploadImage(file, "logo");
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  <span>{uploadingTarget === "logo" ? "로고 업로드 중..." : "로고 이미지 업로드"}</span>
-                </label>
+                <SplitHelpActionButton
+                  helpKey="logoUpload"
+                  activeHelp={activeHelp}
+                  onToggle={toggleHelp}
+                  disabled={uploadingTarget !== null}
+                  className="uploadSplitHelpAction"
+                >
+                  <label className="uploadButton splitHelpUploadLabel">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={uploadingTarget !== null}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        void uploadImage(file, "logo");
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    <span>
+                      {uploadingTarget === "logo"
+                        ? "로고 업로드 중..."
+                        : "로고 이미지 업로드"}
+                    </span>
+                  </label>
+                </SplitHelpActionButton>
                 <small>JPG, PNG, WEBP / 8MB 이하</small>
               </div>
 
@@ -516,7 +706,14 @@ export default function SimulatorContractorSettings() {
               </div>
 
               <label>
-                <span>카카오 문의 링크</span>
+                <span className="labelWithHelp">
+                  카카오 문의 링크
+                  <InlineHelpButton
+                    helpKey="kakao"
+                    activeHelp={activeHelp}
+                    onToggle={toggleHelp}
+                  />
+                </span>
                 <input
                   value={kakaoUrl}
                   onChange={(event) => setKakaoUrl(event.target.value)}
@@ -524,29 +721,48 @@ export default function SimulatorContractorSettings() {
                 />
               </label>
 
-              <label className="checkRow" data-sim-admin-guide="settings-active">
+              <label
+                className="checkRow"
+                data-sim-admin-guide="settings-active"
+              >
                 <input
                   type="checkbox"
                   checked={isActive}
                   onChange={(event) => setIsActive(event.target.checked)}
                 />
-                <span>고객 링크에 시공자 소개 화면 노출</span>
+                <span className="labelWithHelp">
+                  고객 링크에 시공자 소개 화면 노출
+                  <InlineHelpButton
+                    helpKey="introActive"
+                    activeHelp={activeHelp}
+                    onToggle={toggleHelp}
+                  />
+                </span>
               </label>
             </div>
 
-            <div className="panel previewPanel" data-sim-admin-guide="settings-preview-panel">
+            <div
+              className="panel previewPanel"
+              data-sim-admin-guide="settings-preview-panel"
+            >
               <div className="sectionHeader">
                 <span>미리보기</span>
                 <strong>고객 첫 화면</strong>
               </div>
 
-              <div className="introPreview introPreviewFrame" style={{ borderColor: `${brandColor}88` }}>
+              <div
+                className="introPreview introPreviewFrame"
+                style={{ borderColor: `${brandColor}88` }}
+              >
                 {renderCustomerPreview()}
               </div>
             </div>
           </section>
 
-          <section className="panel photoPanel" data-sim-admin-guide="settings-photos">
+          <section
+            className="panel photoPanel"
+            data-sim-admin-guide="settings-photos"
+          >
             <div className="sectionHeader">
               <span>대표 시공사진</span>
               <strong>최대 12장 저장 가능</strong>
@@ -556,34 +772,59 @@ export default function SimulatorContractorSettings() {
               {photos.map((photo, index) => (
                 <article className="photoItem" key={index}>
                   <div className="photoThumb">
-                    {photo.image_url ? <img src={photo.image_url} alt="시공사진 미리보기" /> : <span>{index + 1}</span>}
+                    {photo.image_url ? (
+                      <img src={photo.image_url} alt="시공사진 미리보기" />
+                    ) : (
+                      <span>{index + 1}</span>
+                    )}
                   </div>
 
                   <div className="photoFields">
-                    <div className="photoGuideFields" data-sim-admin-guide={index === 0 ? "settings-photo-fields" : undefined}>
+                    <div
+                      className="photoGuideFields"
+                      data-sim-admin-guide={
+                        index === 0 ? "settings-photo-fields" : undefined
+                      }
+                    >
                       <label>
                         <span>사진 URL</span>
                         <input
                           value={photo.image_url}
-                          onChange={(event) => updatePhoto(index, { image_url: event.target.value })}
+                          onChange={(event) =>
+                            updatePhoto(index, {
+                              image_url: event.target.value,
+                            })
+                          }
                           placeholder="사진을 업로드하면 자동으로 입력됩니다."
                         />
                       </label>
 
                       <div className="uploadRow compactUploadRow">
-                        <label className="uploadButton">
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            disabled={uploadingTarget !== null}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              void uploadImage(file, "portfolio", index);
-                              event.currentTarget.value = "";
-                            }}
-                          />
-                          <span>{uploadingTarget === index ? "사진 업로드 중..." : "시공사진 업로드"}</span>
-                        </label>
+                        <SplitHelpActionButton
+                          helpKey="photoUpload"
+                          activeHelp={activeHelp}
+                          onToggle={toggleHelp}
+                          disabled={uploadingTarget !== null}
+                          className="uploadSplitHelpAction"
+                        >
+                          <label className="uploadButton splitHelpUploadLabel">
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              disabled={uploadingTarget !== null}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                void uploadImage(file, "portfolio", index);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            <span>
+                              {uploadingTarget === index
+                                ? "사진 업로드 중..."
+                                : "시공사진 업로드"}
+                            </span>
+                          </label>
+                        </SplitHelpActionButton>
                         <small>업로드 후 URL이 자동 입력됩니다.</small>
                       </div>
 
@@ -592,7 +833,9 @@ export default function SimulatorContractorSettings() {
                           <span>제목</span>
                           <input
                             value={photo.title}
-                            onChange={(event) => updatePhoto(index, { title: event.target.value })}
+                            onChange={(event) =>
+                              updatePhoto(index, { title: event.target.value })
+                            }
                             placeholder="예: 싱크대 필름 시공"
                           />
                         </label>
@@ -601,19 +844,32 @@ export default function SimulatorContractorSettings() {
                           <span>설명</span>
                           <input
                             value={photo.description}
-                            onChange={(event) => updatePhoto(index, { description: event.target.value })}
+                            onChange={(event) =>
+                              updatePhoto(index, {
+                                description: event.target.value,
+                              })
+                            }
                             placeholder="예: 화이트 계열 상하부장 시공"
                           />
                         </label>
                       </div>
                     </div>
 
-                    <div className="photoOptions" data-sim-admin-guide={index === 0 ? "settings-photo-options" : undefined}>
+                    <div
+                      className="photoOptions"
+                      data-sim-admin-guide={
+                        index === 0 ? "settings-photo-options" : undefined
+                      }
+                    >
                       <label>
                         <input
                           type="checkbox"
                           checked={photo.is_visible}
-                          onChange={(event) => updatePhoto(index, { is_visible: event.target.checked })}
+                          onChange={(event) =>
+                            updatePhoto(index, {
+                              is_visible: event.target.checked,
+                            })
+                          }
                         />
                         <span>공개</span>
                       </label>
@@ -628,17 +884,40 @@ export default function SimulatorContractorSettings() {
                         <span>대표</span>
                       </label>
 
-                      <button type="button" onClick={() => removePhotoSlot(index)}>삭제</button>
+                      <button
+                        type="button"
+                        onClick={() => removePhotoSlot(index)}
+                      >
+                        삭제
+                      </button>
                     </div>
                   </div>
                 </article>
               ))}
             </div>
 
-            <div className="footerActions" data-sim-admin-guide="settings-footer-actions">
-              <button type="button" className="subButton" onClick={addPhotoSlot}>사진 입력칸 추가</button>
-              <button type="button" className="saveButton" onClick={save} disabled={saving || uploadingTarget !== null}>
-                {saving ? "저장 중..." : uploadingTarget !== null ? "업로드 중..." : "설정 저장"}
+            <div
+              className="footerActions"
+              data-sim-admin-guide="settings-footer-actions"
+            >
+              <button
+                type="button"
+                className="subButton"
+                onClick={addPhotoSlot}
+              >
+                사진 입력칸 추가
+              </button>
+              <button
+                type="button"
+                className="saveButton"
+                onClick={save}
+                disabled={saving || uploadingTarget !== null}
+              >
+                {saving
+                  ? "저장 중..."
+                  : uploadingTarget !== null
+                    ? "업로드 중..."
+                    : "설정 저장"}
               </button>
             </div>
           </section>
@@ -646,17 +925,32 @@ export default function SimulatorContractorSettings() {
       )}
 
       {isPreviewOpen ? (
-        <div className="previewBubbleBackdrop" role="presentation" onClick={() => setIsPreviewOpen(false)}>
-          <div className="previewBubble" role="dialog" aria-modal="true" aria-label="고객 첫 화면 미리보기" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="previewBubbleBackdrop"
+          role="presentation"
+          onClick={() => setIsPreviewOpen(false)}
+        >
+          <div
+            className="previewBubble"
+            role="dialog"
+            aria-modal="true"
+            aria-label="고객 첫 화면 미리보기"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="previewBubbleHeader">
               <div>
                 <span>미리보기</span>
                 <strong>고객 첫 화면</strong>
               </div>
-              <button type="button" onClick={() => setIsPreviewOpen(false)}>닫기</button>
+              <button type="button" onClick={() => setIsPreviewOpen(false)}>
+                닫기
+              </button>
             </div>
 
-            <div className="introPreview introPreviewFrame" style={{ borderColor: `${brandColor}88` }}>
+            <div
+              className="introPreview introPreviewFrame"
+              style={{ borderColor: `${brandColor}88` }}
+            >
               {renderCustomerPreview()}
             </div>
           </div>
@@ -682,11 +976,19 @@ export default function SimulatorContractorSettings() {
           min-height: 100vh;
           overflow-x: hidden;
           padding: 28px 22px 142px;
-          background:
-            radial-gradient(circle at 16% 0%, rgba(238, 224, 197, 0.13), transparent 32%),
+          background: radial-gradient(
+              circle at 16% 0%,
+              rgba(238, 224, 197, 0.13),
+              transparent 32%
+            ),
             ${COLORS.bg};
           color: ${COLORS.white};
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-family:
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
         }
 
         .routeOverlay {
@@ -781,7 +1083,245 @@ export default function SimulatorContractorSettings() {
           justify-content: flex-end;
         }
 
-        .heroActions button,
+        .labelWithHelp,
+        :global(.labelWithHelp) {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        :global(.settingsHelpWrap) {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          line-height: 1;
+          vertical-align: middle;
+          z-index: 40;
+        }
+
+        :global(.settingsHelpButton) {
+          width: 20px;
+          height: 20px;
+          min-width: 20px;
+          min-height: 20px;
+          border: 1px solid rgba(238, 224, 197, 0.68);
+          border-radius: 999px;
+          padding: 0;
+          background: rgba(238, 224, 197, 0.13);
+          color: ${COLORS.cream};
+          box-shadow: 0 5px 14px rgba(0, 0, 0, 0.18);
+          font-size: 12px;
+          font-weight: 1000;
+          line-height: 1;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          appearance: none;
+          -webkit-appearance: none;
+        }
+
+        :global(.settingsHelpButton:hover),
+        :global(.settingsHelpButton:focus-visible) {
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          outline: none;
+        }
+
+        :global(.settingsHelpBubble) {
+          position: absolute;
+          top: calc(100% + 10px);
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(300px, calc(100vw - 36px));
+          box-sizing: border-box;
+          border-radius: 16px;
+          border: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+          color: ${COLORS.white};
+          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+          padding: 12px 13px;
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.55;
+          letter-spacing: -0.02em;
+          word-break: keep-all;
+          white-space: normal;
+          text-align: left;
+          z-index: 120;
+        }
+
+        :global(.settingsHelpBubble::before) {
+          content: "";
+          position: absolute;
+          top: -6px;
+          left: 50%;
+          width: 10px;
+          height: 10px;
+          transform: translateX(-50%) rotate(45deg);
+          border-left: 1px solid rgba(238, 224, 197, 0.34);
+          border-top: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+        }
+
+        :global(.settingsHelpWrap-introActive .settingsHelpBubble) {
+          top: auto;
+          bottom: calc(100% + 10px);
+          right: -8px;
+          left: auto;
+          transform: none;
+          width: min(260px, calc(100vw - 112px));
+          max-width: 260px;
+        }
+
+        :global(.settingsHelpWrap-introActive .settingsHelpBubble::before) {
+          top: auto;
+          bottom: -6px;
+          right: 14px;
+          left: auto;
+          transform: rotate(45deg);
+          border-top: 0;
+          border-left: 0;
+          border-right: 1px solid rgba(238, 224, 197, 0.34);
+          border-bottom: 1px solid rgba(238, 224, 197, 0.34);
+        }
+
+        :global(.splitHelpAction) {
+          position: relative;
+          display: flex;
+          align-items: stretch;
+          width: 100%;
+          min-height: 48px;
+          border: 1px solid rgba(238, 224, 197, 0.3);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.055);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+          overflow: visible;
+          isolation: isolate;
+        }
+
+        :global(.splitHelpAction.isDisabled) {
+          opacity: 0.6;
+        }
+
+        :global(.splitHelpMainButton),
+        :global(.splitHelpButton) {
+          appearance: none;
+          -webkit-appearance: none;
+          border: 0;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        :global(.splitHelpMainButton),
+        :global(.splitHelpUploadLabel) {
+          flex: 1 1 auto;
+          width: 100%;
+          min-width: 0;
+          min-height: 48px;
+          margin: 0;
+          border: 0;
+          border-radius: 15px 0 0 15px;
+          background: transparent;
+          color: ${COLORS.cream};
+          text-align: center;
+        }
+
+        :global(.splitHelpMainButton) {
+          padding: 12px 14px;
+          font-size: 14px;
+        }
+
+        :global(.splitHelpUploadLabel) {
+          padding: 11px 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 1000;
+        }
+
+        :global(.splitHelpMainButton:hover),
+        :global(.splitHelpMainButton:focus-visible),
+        :global(.splitHelpUploadLabel:hover),
+        :global(.splitHelpUploadLabel:focus-within) {
+          background: rgba(238, 224, 197, 0.08);
+          outline: none;
+        }
+
+        :global(.splitHelpMainButton:disabled),
+        :global(.splitHelpButton:disabled) {
+          cursor: wait;
+        }
+
+        :global(.splitHelpButton) {
+          flex: 0 0 54px;
+          width: 54px;
+          min-width: 54px;
+          min-height: 48px;
+          border-left: 1px solid rgba(238, 224, 197, 0.24);
+          border-radius: 0 15px 15px 0;
+          background: rgba(238, 224, 197, 0.15);
+          color: ${COLORS.cream};
+          box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.1);
+          font-size: 15px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+        }
+
+        :global(.splitHelpButton:hover),
+        :global(.splitHelpButton:focus-visible),
+        :global(.splitHelpMainButton:hover),
+        :global(.splitHelpMainButton:focus-visible) {
+          outline: none;
+        }
+
+        :global(.splitHelpButton:hover),
+        :global(.splitHelpButton:focus-visible) {
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+        }
+
+        :global(.splitHelpBubble) {
+          top: calc(100% + 11px);
+          right: 0;
+          left: auto;
+          transform: none;
+        }
+
+        :global(.splitHelpBubble::before) {
+          right: 20px;
+          left: auto;
+          transform: rotate(45deg);
+        }
+
+        :global(.previewSplitHelp) {
+          width: min(320px, 100%);
+        }
+
+        :global(.uploadSplitHelpAction) {
+          width: min(400px, 100%);
+        }
+
+        :global(.splitHelpUploadLabel input) {
+          display: none;
+        }
+
+        :global(.splitHelpUploadLabel span) {
+          width: 100%;
+          text-align: center;
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 1000;
+        }
+
+        .heroActions > button,
         .subButton,
         .saveButton,
         .photoOptions button {
@@ -793,13 +1333,13 @@ export default function SimulatorContractorSettings() {
           text-decoration: none;
         }
 
-        .heroActions button,
+        .heroActions > button,
         .subButton,
         .photoOptions button {
           background: rgba(255, 255, 255, 0.06);
           color: ${COLORS.cream};
         }
-        .heroActions button:disabled {
+        .heroActions > button:disabled {
           opacity: 0.5;
           cursor: wait;
         }
@@ -857,7 +1397,6 @@ export default function SimulatorContractorSettings() {
           cursor: pointer;
         }
 
-
         .gridLayout {
           width: min(1120px, 100%);
           max-width: 100%;
@@ -865,6 +1404,24 @@ export default function SimulatorContractorSettings() {
           display: grid;
           grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
           gap: 18px;
+        }
+
+        .formPanel,
+        .previewPanel,
+        .photoPanel {
+          position: relative;
+        }
+
+        .formPanel {
+          z-index: 35;
+        }
+
+        .previewPanel {
+          z-index: 10;
+        }
+
+        .photoPanel {
+          z-index: 5;
         }
 
         .panel {
@@ -989,6 +1546,15 @@ export default function SimulatorContractorSettings() {
           font-size: 13px;
         }
 
+        :global(.splitHelpAction) .uploadButton.splitHelpUploadLabel {
+          width: 100%;
+          margin: 0;
+          border: 0;
+          border-radius: 15px 0 0 15px;
+          background: transparent;
+          box-shadow: none;
+        }
+
         .uploadRow small {
           color: ${COLORS.soft};
           font-weight: 800;
@@ -1037,7 +1603,11 @@ export default function SimulatorContractorSettings() {
         .customerPreviewPortfolioBlock {
           border: 1px solid ${COLORS.line};
           border-radius: 24px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.075),
+            rgba(255, 255, 255, 0.035)
+          );
           box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
         }
 
@@ -1148,7 +1718,9 @@ export default function SimulatorContractorSettings() {
           gap: 8px;
           background: rgba(238, 224, 197, 0.1);
           border: 1px solid rgba(238, 224, 197, 0.2);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 24px rgba(0, 0, 0, 0.18);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.12),
+            0 12px 24px rgba(0, 0, 0, 0.18);
           color: ${COLORS.cream};
           text-decoration: none;
           font-size: 14px;
@@ -1474,7 +2046,11 @@ export default function SimulatorContractorSettings() {
             width: 100%;
           }
 
-          .heroActions button,
+          :global(.previewSplitHelp) {
+            width: 100%;
+          }
+
+          .heroActions > button,
           .subButton,
           .saveButton,
           .photoOptions button {
@@ -1523,6 +2099,11 @@ export default function SimulatorContractorSettings() {
           .uploadButton {
             width: 100%;
             min-height: 48px;
+          }
+
+          :global(.uploadSplitHelpAction),
+          :global(.splitHelpAction) .uploadButton.splitHelpUploadLabel {
+            width: 100%;
           }
 
           .uploadRow small {

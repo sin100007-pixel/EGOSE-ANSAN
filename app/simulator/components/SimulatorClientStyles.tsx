@@ -3014,7 +3014,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .applyDecisionRowWithFavorite {
           display: grid;
-          grid-template-columns: minmax(108px, 0.42fr) minmax(0, 1fr);
+          grid-template-columns: minmax(140px, 0.48fr) minmax(150px, 0.52fr);
           gap: 9px;
           align-items: stretch;
         }
@@ -3038,6 +3038,161 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           opacity: 0.45;
           cursor: not-allowed;
           box-shadow: none;
+        }
+
+        .applySplitHelpAction {
+          position: relative;
+          display: flex;
+          align-items: stretch;
+          width: 100%;
+          min-width: 0;
+          min-height: 48px;
+          border: 1px solid rgba(238, 224, 197, 0.46);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.055);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
+            0 12px 26px rgba(0, 0, 0, 0.18);
+          overflow: visible;
+          isolation: isolate;
+        }
+
+        .applySplitHelpAction.isMainDisabled .applySplitMainButton {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+
+        .applySplitMainButton,
+        .applySplitHelpButton {
+          appearance: none;
+          -webkit-appearance: none;
+          border: 0;
+          font-weight: 1000;
+        }
+
+        .applySplitMainButton {
+          flex: 1 1 auto;
+          min-width: 0;
+          min-height: 48px;
+          border-radius: 15px 0 0 15px;
+          padding: 14px 10px;
+          background: transparent;
+          color: ${COLORS.cream};
+          font-size: 15px;
+          letter-spacing: -0.02em;
+          text-align: center;
+          white-space: nowrap;
+          cursor: pointer;
+        }
+
+        .applySplitMainButton:hover,
+        .applySplitMainButton:focus-visible {
+          background: rgba(238, 224, 197, 0.08);
+          outline: none;
+        }
+
+        .applySplitHelpAction.isMainDisabled .applySplitMainButton:hover,
+        .applySplitHelpAction.isMainDisabled .applySplitMainButton:focus-visible {
+          background: transparent;
+        }
+
+        .applySplitHelpButton {
+          flex: 0 0 46px;
+          width: 46px;
+          min-width: 46px;
+          min-height: 48px;
+          border-left: 1px solid rgba(238, 224, 197, 0.24);
+          border-radius: 0 15px 15px 0;
+          background: rgba(238, 224, 197, 0.15);
+          color: ${COLORS.cream};
+          box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.1);
+          font-size: 15px;
+          line-height: 1;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+        }
+
+        .applySplitHelpButton:hover,
+        .applySplitHelpButton:focus-visible {
+          background: ${COLORS.cream};
+          color: ${COLORS.bg};
+          outline: none;
+        }
+
+        .applyDecisionSplitAction {
+          border-color: transparent;
+          background: ${COLORS.cream};
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+        }
+
+        .applyDecisionSplitAction .applySplitMainButton,
+        .applyDecisionSplitAction .applySplitHelpButton {
+          color: ${COLORS.bg};
+        }
+
+        .applyDecisionSplitAction .applySplitHelpButton {
+          border-left-color: rgba(5, 2, 59, 0.18);
+          background: rgba(5, 2, 59, 0.08);
+        }
+
+        .applyDecisionSplitAction .applySplitMainButton:hover,
+        .applyDecisionSplitAction .applySplitMainButton:focus-visible,
+        .applyDecisionSplitAction .applySplitHelpButton:hover,
+        .applyDecisionSplitAction .applySplitHelpButton:focus-visible {
+          background: rgba(5, 2, 59, 0.12);
+        }
+
+        .applySplitHelpBubble {
+          position: absolute;
+          bottom: calc(100% + 10px);
+          box-sizing: border-box;
+          width: min(286px, calc(100vw - 44px));
+          max-width: 286px;
+          border-radius: 16px;
+          border: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+          color: ${COLORS.white};
+          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+          padding: 12px 13px;
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.55;
+          letter-spacing: -0.02em;
+          word-break: keep-all;
+          white-space: normal;
+          text-align: left;
+          z-index: 130;
+        }
+
+        .applySplitHelpBubble::before {
+          content: "";
+          position: absolute;
+          bottom: -6px;
+          width: 10px;
+          height: 10px;
+          transform: rotate(45deg);
+          border-right: 1px solid rgba(238, 224, 197, 0.34);
+          border-bottom: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+        }
+
+        .applySplitHelpAction-favorite .applySplitHelpBubble {
+          left: 0;
+        }
+
+        .applySplitHelpAction-favorite .applySplitHelpBubble::before {
+          left: 74px;
+        }
+
+        .applySplitHelpAction-decision .applySplitHelpBubble {
+          right: 0;
+        }
+
+        .applySplitHelpAction-decision .applySplitHelpBubble::before {
+          right: 18px;
         }
 
         .favoriteCandidateSection {
@@ -3283,21 +3438,38 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           word-break: keep-all;
         }
 
-        .favoriteShareButton {
+        .favoriteShareSplitAction {
           width: 100%;
           min-height: 44px;
-          border: none;
           border-radius: 15px;
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
-          font-size: 14px;
-          font-weight: 1000;
-          cursor: pointer;
+          box-shadow: none;
         }
 
-        .favoriteShareButton:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
+        .favoriteShareMainButton {
+          min-height: 44px;
+          border-radius: 14px 0 0 14px;
+          padding: 12px 10px;
+          font-size: 14px;
+          color: ${COLORS.creamText};
+        }
+
+        .favoriteShareHelpButton {
+          flex-basis: 44px;
+          width: 44px;
+          min-width: 44px;
+          min-height: 44px;
+          border-radius: 0 14px 14px 0;
+          color: ${COLORS.creamText};
+        }
+
+        .favoriteShareSplitAction .favoriteShareHelpBubble {
+          right: 0;
+          width: min(286px, calc(100vw - 54px));
+          max-width: 286px;
+        }
+
+        .favoriteShareSplitAction .favoriteShareHelpBubble::before {
+          right: 17px;
         }
 
         .favoriteShareMessage {
@@ -3325,7 +3497,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .applyDecisionRowWithFavorite {
-            grid-template-columns: 104px minmax(0, 1fr);
+            grid-template-columns: 132px minmax(0, 1fr);
             gap: 7px;
           }
 
@@ -3333,6 +3505,42 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             border-radius: 14px;
             padding: 13px 8px;
             font-size: 13px;
+          }
+
+          .applySplitHelpAction {
+            min-height: 44px;
+            border-radius: 14px;
+          }
+
+          .applySplitMainButton {
+            min-height: 44px;
+            border-radius: 13px 0 0 13px;
+            padding: 12px 7px;
+            font-size: 13px;
+          }
+
+          .applySplitHelpButton {
+            flex-basis: 38px;
+            width: 38px;
+            min-width: 38px;
+            min-height: 44px;
+            border-radius: 0 13px 13px 0;
+            font-size: 13px;
+          }
+
+          .applySplitHelpBubble {
+            width: min(268px, calc(100vw - 34px));
+            max-width: 268px;
+            padding: 11px 12px;
+            font-size: 11px;
+          }
+
+          .applySplitHelpAction-favorite .applySplitHelpBubble::before {
+            left: 60px;
+          }
+
+          .applySplitHelpAction-decision .applySplitHelpBubble::before {
+            right: 14px;
           }
 
           .favoriteCandidateSection {
@@ -3381,10 +3589,34 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             padding: 9px;
           }
 
-          .favoriteShareButton {
+          .favoriteShareSplitAction {
             min-height: 40px;
             border-radius: 14px;
+          }
+
+          .favoriteShareMainButton {
+            min-height: 40px;
+            border-radius: 13px 0 0 13px;
+            padding: 11px 8px;
             font-size: 13px;
+          }
+
+          .favoriteShareHelpButton {
+            flex-basis: 40px;
+            width: 40px;
+            min-width: 40px;
+            min-height: 40px;
+            border-radius: 0 13px 13px 0;
+            font-size: 13px;
+          }
+
+          .favoriteShareSplitAction .favoriteShareHelpBubble {
+            width: min(268px, calc(100vw - 44px));
+            max-width: 268px;
+          }
+
+          .favoriteShareSplitAction .favoriteShareHelpBubble::before {
+            right: 14px;
           }
 
           .favoriteCandidateApplyButton,

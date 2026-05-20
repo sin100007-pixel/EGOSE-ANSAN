@@ -71,6 +71,180 @@ const COLORS = {
   white: "#FFFFFF",
 };
 
+
+type LinkManagerHelpKey = "list" | "refresh" | "copy" | "open" | "delete";
+
+const LINK_MANAGER_HELP_MESSAGES: Record<LinkManagerHelpKey, string> = {
+  list:
+    "현재 사용가능하고 배포중인 링크목록을 표시합니다. 삭제 및 비활성화 하면 목록에서도 지워지고 비활성화됩니다.",
+  refresh:
+    "링크 목록을 다시 불러옵니다. 방금 만든 링크나 삭제한 링크가 화면에 바로 반영되지 않을 때 눌러주세요.",
+  copy:
+    "링크를 복사합니다. 고객과의 카카오톡 채팅방이나 문자메시지에 붙여넣기하세요.",
+  open:
+    "고객이 볼 화면을 열어 볼 수 있습니다. 공간제한이나 필름제한이 제대로 들어갔는지 확인할때 사용할 수 있습니다.",
+  delete:
+    "해당 링크를 즉시 비활성화해서 사용할 수 없게 하고 링크 목록에서도 지워버립니다.",
+};
+
+type InlineHelpButtonProps = {
+  helpKey: LinkManagerHelpKey;
+  label: string;
+  activeHelp: LinkManagerHelpKey | null;
+  onToggle: (helpKey: LinkManagerHelpKey) => void;
+};
+
+function InlineHelpButton({
+  helpKey,
+  label,
+  activeHelp,
+  onToggle,
+}: InlineHelpButtonProps) {
+  const opened = activeHelp === helpKey;
+
+  return (
+    <span className="managerInlineHelpWrap managerHelpUi" data-manager-help-ui="true">
+      <button
+        type="button"
+        className="managerInlineHelpButton"
+        aria-label={`${label} 설명 보기`}
+        aria-expanded={opened}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(helpKey);
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
+        ?
+      </button>
+      {opened ? (
+        <span
+          className="managerHelpBubble"
+          role="tooltip"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggle(helpKey);
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          {LINK_MANAGER_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+type SplitHelpActionProps = {
+  helpKey: LinkManagerHelpKey;
+  label: string;
+  activeHelp: LinkManagerHelpKey | null;
+  onToggle: (helpKey: LinkManagerHelpKey) => void;
+  onClick?: () => void;
+  href?: string;
+  target?: string;
+  rel?: string;
+  disabled?: boolean;
+  deleteTone?: boolean;
+  guideTarget?: string;
+  className?: string;
+};
+
+function SplitHelpAction({
+  helpKey,
+  label,
+  activeHelp,
+  onToggle,
+  onClick,
+  href,
+  target,
+  rel,
+  disabled = false,
+  deleteTone = false,
+  guideTarget,
+  className = "",
+}: SplitHelpActionProps) {
+  const opened = activeHelp === helpKey;
+  const wrapClassName = [
+    "managerSplitAction",
+    deleteTone ? "managerSplitDelete" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <span
+      className={`${wrapClassName} managerHelpUi`}
+      data-manager-help-ui="true"
+      data-sim-admin-guide={guideTarget}
+    >
+      {href ? (
+        <a
+          className="managerSplitMain"
+          href={href}
+          target={target}
+          rel={rel}
+        >
+          {label}
+        </a>
+      ) : (
+        <button
+          type="button"
+          className="managerSplitMain"
+          onClick={onClick}
+          disabled={disabled}
+        >
+          {label}
+        </button>
+      )}
+
+      <button
+        type="button"
+        className="managerSplitHelp"
+        aria-label={`${label} 설명 보기`}
+        aria-expanded={opened}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(helpKey);
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
+        ?
+      </button>
+
+      {opened ? (
+        <span
+          className="managerHelpBubble managerSplitBubble"
+          role="tooltip"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggle(helpKey);
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          {LINK_MANAGER_HELP_MESSAGES[helpKey]}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 const LINK_MANAGER_TUTORIAL_STEPS = [
   {
     id: "manage-start",
@@ -166,6 +340,39 @@ export default function SimulatorLinkManager() {
   const [deactivatingId, setDeactivatingId] = useState("");
   const [error, setError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const [activeHelp, setActiveHelp] = useState<LinkManagerHelpKey | null>(null);
+
+  const toggleHelp = (helpKey: LinkManagerHelpKey) => {
+    setActiveHelp((prev) => (prev === helpKey ? null : helpKey));
+  };
+
+  useEffect(() => {
+    if (!activeHelp) return;
+
+    const closeHelp = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (target instanceof Element && target.closest('[data-manager-help-ui="true"]')) {
+        return;
+      }
+
+      setActiveHelp(null);
+    };
+
+    const closeHelpByEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveHelp(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeHelp);
+    document.addEventListener("keydown", closeHelpByEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeHelp);
+      document.removeEventListener("keydown", closeHelpByEscape);
+    };
+  }, [activeHelp]);
 
   useEffect(() => {
     router.prefetch("/dashboard");
@@ -324,18 +531,27 @@ export default function SimulatorLinkManager() {
         <section className="panel" data-sim-admin-guide="manage-list">
           <div className="listHeader">
             <div>
-              <h2>링크 목록</h2>
+              <h2 className="titleWithHelp">
+                링크 목록
+                <InlineHelpButton
+                  helpKey="list"
+                  label="링크 목록"
+                  activeHelp={activeHelp}
+                  onToggle={toggleHelp}
+                />
+              </h2>
               <p>사용 가능한 링크만 최근 생성순으로 표시됩니다.</p>
             </div>
 
-            <button
-              type="button"
+            <SplitHelpAction
+              helpKey="refresh"
+              label="새로고침"
+              activeHelp={activeHelp}
+              onToggle={toggleHelp}
               onClick={() => void loadLinks()}
+              guideTarget="manage-refresh"
               className="refreshButton"
-              data-sim-admin-guide="manage-refresh"
-            >
-              새로고침
-            </button>
+            />
           </div>
 
           {error ? <div className="errorBox">{error}</div> : null}
@@ -444,65 +660,74 @@ export default function SimulatorLinkManager() {
                       >
                         {isTutorialDemo ? (
                           <>
-                            <button
-                              type="button"
+                            <SplitHelpAction
+                              helpKey="copy"
+                              label="링크 복사"
+                              activeHelp={activeHelp}
+                              onToggle={toggleHelp}
                               onClick={showTutorialDemoMessage}
-                              data-sim-admin-guide="manage-copy"
-                            >
-                              링크 복사
-                            </button>
+                              guideTarget="manage-copy"
+                            />
 
-                            <button
-                              type="button"
+                            <SplitHelpAction
+                              helpKey="open"
+                              label="열어보기"
+                              activeHelp={activeHelp}
+                              onToggle={toggleHelp}
                               onClick={showTutorialDemoMessage}
-                              data-sim-admin-guide="manage-open"
-                            >
-                              열어보기
-                            </button>
+                              guideTarget="manage-open"
+                            />
 
-                            <button
-                              type="button"
+                            <SplitHelpAction
+                              helpKey="delete"
+                              label="삭제 및 비활성화"
+                              activeHelp={activeHelp}
+                              onToggle={toggleHelp}
                               onClick={showTutorialDemoMessage}
-                              className="deleteButton"
-                              data-sim-admin-guide="manage-delete"
-                            >
-                              삭제 및 비활성화
-                            </button>
+                              deleteTone
+                              guideTarget="manage-delete"
+                            />
                           </>
                         ) : (
                           <>
-                            <button
-                              type="button"
+                            <SplitHelpAction
+                              helpKey="copy"
+                              label="링크 복사"
+                              activeHelp={activeHelp}
+                              onToggle={toggleHelp}
                               onClick={() => copyLink(link.url)}
-                              data-sim-admin-guide="manage-copy"
-                            >
-                              링크 복사
-                            </button>
+                              guideTarget="manage-copy"
+                            />
 
-                            <a
+                            <SplitHelpAction
+                              helpKey="open"
+                              label="열어보기"
+                              activeHelp={activeHelp}
+                              onToggle={toggleHelp}
                               href={link.url}
                               target="_blank"
                               rel="noreferrer"
-                              data-sim-admin-guide="manage-open"
-                            >
-                              열어보기
-                            </a>
+                              guideTarget="manage-open"
+                            />
 
-                            <button
-                              type="button"
+                            <SplitHelpAction
+                              helpKey="delete"
+                              label={
+                                !link.is_active
+                                  ? "비활성됨"
+                                  : deactivatingId === link.id
+                                    ? "처리 중"
+                                    : "삭제 및 비활성화"
+                              }
+                              activeHelp={activeHelp}
+                              onToggle={toggleHelp}
                               onClick={() => deactivateLink(link)}
                               disabled={
                                 deactivatingId === link.id || !link.is_active
                               }
-                              className="deleteButton"
-                              data-sim-admin-guide="manage-delete"
-                            >
-                              {!link.is_active
-                                ? "비활성됨"
-                                : deactivatingId === link.id
-                                  ? "처리 중"
-                                  : "삭제 및 비활성화"}
-                            </button>
+                              deleteTone
+                              guideTarget="manage-delete"
+                            />
                           </>
                         )}
                       </div>
@@ -649,28 +874,21 @@ export default function SimulatorLinkManager() {
           letter-spacing: -0.03em;
         }
 
+        .titleWithHelp {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+
         .listHeader p {
           margin: 6px 0 0;
           color: ${COLORS.soft};
           font-size: 13px;
         }
 
-        .refreshButton,
-        .actionRow button,
-        .actionRow a {
-          border: none;
-          border-radius: 14px;
-          min-height: 40px;
-          padding: 0 13px;
-          background: ${COLORS.cream};
-          color: ${COLORS.creamText};
-          font-size: 13px;
-          font-weight: 900;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
+        .refreshButton {
+          width: 160px;
         }
 
         .linkSkeletonList {
@@ -894,12 +1112,6 @@ export default function SimulatorLinkManager() {
           gap: 8px;
         }
 
-        .actionRow .deleteButton {
-          background: rgba(255, 255, 255, 0.06);
-          color: #ffd6d6;
-          border: 1px solid rgba(255, 96, 96, 0.24);
-        }
-
         .actionRow button:disabled {
           opacity: 0.6;
           cursor: not-allowed;
@@ -966,6 +1178,179 @@ export default function SimulatorLinkManager() {
 
           .customerName {
             font-size: 16px;
+          }
+        }
+      `}</style>
+
+      <style jsx global>{`
+        .managerInlineHelpWrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          line-height: 1;
+          vertical-align: middle;
+          z-index: 30;
+        }
+
+        .managerInlineHelpButton {
+          width: 20px;
+          height: 20px;
+          min-width: 20px;
+          min-height: 20px;
+          border: 1px solid rgba(238, 224, 197, 0.68);
+          border-radius: 999px;
+          padding: 0;
+          background: rgba(238, 224, 197, 0.13);
+          color: #EEE0C5;
+          box-shadow: 0 5px 14px rgba(0, 0, 0, 0.18);
+          font-size: 12px;
+          font-weight: 1000;
+          line-height: 1;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          appearance: none;
+        }
+
+        .managerInlineHelpButton:hover,
+        .managerInlineHelpButton:focus-visible {
+          background: #EEE0C5;
+          color: #05023B;
+          outline: none;
+        }
+
+        .managerSplitAction {
+          position: relative;
+          display: flex;
+          align-items: stretch;
+          width: 100%;
+          min-height: 40px;
+          border: 1px solid rgba(238, 224, 197, 0.16);
+          border-radius: 14px;
+          overflow: visible;
+          background: #EEE0C5;
+          color: #7A5A34;
+        }
+
+        .managerSplitAction.refreshButton {
+          width: 160px;
+        }
+
+        .managerSplitMain,
+        .managerSplitHelp {
+          appearance: none;
+          border: 0;
+          min-height: 40px;
+          color: inherit;
+          font-size: 13px;
+          font-weight: 900;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+
+        .managerSplitMain {
+          flex: 1 1 auto;
+          min-width: 0;
+          border-radius: 13px 0 0 13px;
+          padding: 0 12px;
+          background: transparent;
+          word-break: keep-all;
+        }
+
+        .managerSplitHelp {
+          flex: 0 0 42px;
+          width: 42px;
+          min-width: 42px;
+          border-left: 1px solid rgba(122, 90, 52, 0.22);
+          border-radius: 0 13px 13px 0;
+          padding: 0;
+          background: rgba(122, 90, 52, 0.12);
+          color: #7A5A34;
+        }
+
+        .managerSplitMain:hover,
+        .managerSplitMain:focus-visible,
+        .managerSplitHelp:hover,
+        .managerSplitHelp:focus-visible {
+          outline: none;
+        }
+
+        .managerSplitMain:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .managerSplitDelete {
+          background: rgba(255, 255, 255, 0.06);
+          color: #ffd6d6;
+          border-color: rgba(255, 96, 96, 0.24);
+        }
+
+        .managerSplitDelete .managerSplitHelp {
+          border-left-color: rgba(255, 96, 96, 0.24);
+          background: rgba(255, 96, 96, 0.12);
+          color: #ffd6d6;
+        }
+
+        .managerHelpBubble {
+          position: absolute;
+          top: calc(100% + 9px);
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(288px, calc(100vw - 32px));
+          box-sizing: border-box;
+          border-radius: 16px;
+          border: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+          color: #FFFFFF;
+          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+          padding: 12px 13px;
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.55;
+          letter-spacing: -0.02em;
+          word-break: keep-all;
+          white-space: normal;
+          text-align: left;
+          z-index: 120;
+          cursor: pointer;
+        }
+
+        .managerHelpBubble::before {
+          content: "";
+          position: absolute;
+          top: -6px;
+          left: 50%;
+          width: 10px;
+          height: 10px;
+          transform: translateX(-50%) rotate(45deg);
+          border-left: 1px solid rgba(238, 224, 197, 0.34);
+          border-top: 1px solid rgba(238, 224, 197, 0.34);
+          background: rgba(12, 10, 72, 0.98);
+        }
+
+        .managerSplitBubble {
+          top: calc(100% + 11px);
+          right: 0;
+          left: auto;
+          transform: none;
+        }
+
+        .managerSplitBubble::before {
+          right: 16px;
+          left: auto;
+          transform: rotate(45deg);
+        }
+
+        @media (max-width: 640px) {
+          .managerSplitAction.refreshButton {
+            width: 100%;
           }
         }
       `}</style>
