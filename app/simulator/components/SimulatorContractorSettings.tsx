@@ -237,7 +237,7 @@ function SplitHelpActionButton({
       </button>
       {opened ? (
         <span
-          className={`settingsHelpBubble splitHelpBubble settingsHelpBubble${placement === "top" ? "Top" : "Bottom"}`}
+          className="settingsHelpBubble splitHelpBubble settingsHelpBubbleBottom"
           role="tooltip"
           style={bubbleStyle}
         >
