@@ -257,7 +257,7 @@ export function readMaskZones(space: SimulatorSpace | null): MaskZoneDefinition[
       return {
         key: z.key,
         label: z.label,
-        mask_url: z.mask_url,
+        mask_url: normalizeImageSrc(z.mask_url),
         patternSize: typeof z.patternSize === "number" ? z.patternSize : 220,
       } as MaskZoneDefinition;
     })
@@ -277,7 +277,7 @@ export function readPreviewAspectRatio(space: SimulatorSpace | null) {
 }
 
 export function getSpaceThumbnail(space: SimulatorSpace) {
-  return space.thumbnail_url || space.overlay_image_url || space.base_image_url || "";
+  return normalizeImageSrc(space.thumbnail_url || space.overlay_image_url || space.base_image_url || "");
 }
 
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
@@ -334,12 +334,30 @@ export function addApiCacheBuster(path: string, params: URLSearchParams) {
   return `${path}?${nextParams.toString()}`;
 }
 
-export function normalizeImageSrc(src: string | null | undefined) {
-  const value = String(src || "")
+function normalizePublicSimulatorImagePath(src: string | null | undefined) {
+  const cleaned = String(src || "")
     .trim()
     .replace(/\\[nr]/g, "")
-    .replace(/[\r\n\t]+/g, "")
-    .replace(/^\/?public\/simulator\//i, "/simulator/");
+    .replace(/[\r\n\t]+/g, "");
+
+  if (!cleaned) return "";
+  if (/^(data:|blob:|tel:|mailto:|https?:\/\/|\/\/)/i.test(cleaned)) return cleaned;
+
+  const publicRemoved = cleaned.replace(/^\/?public\//i, "");
+
+  if (/^simulator\//i.test(publicRemoved)) {
+    return `/${publicRemoved}`;
+  }
+
+  if (/^\/simulator\//i.test(publicRemoved)) {
+    return publicRemoved;
+  }
+
+  return cleaned;
+}
+
+export function normalizeImageSrc(src: string | null | undefined) {
+  const value = normalizePublicSimulatorImagePath(src);
   if (!value) return "";
   if (/^(data:|blob:|tel:|mailto:)/i.test(value)) return value;
 

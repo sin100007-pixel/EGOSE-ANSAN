@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSimulatorInstaller } from "../../../simulator/auth";
 import { KAKAO_NO_STORE_HEADERS, isProblemImageBrowserRequest, jsonNoStore, jsonSimulatorCache } from "../_lib/response";
 import { getSupabase } from "../_lib/supabase";
-import { getCleanSupabaseUrl } from "../_lib/image-url";
+import { getCleanSupabaseUrl, normalizePublicSimulatorAssetPath } from "../_lib/image-url";
 import {
   PRODUCT_SELECT,
   PRODUCT_LEGACY_SELECT,
@@ -148,11 +148,7 @@ function getImageMimeType(filePath: string) {
 }
 
 async function toInlinePublicAsset(src: string | null | undefined) {
-  const value = String(src || "")
-    .trim()
-    .replace(/\\[nr]/g, "")
-    .replace(/[\r\n\t]+/g, "")
-    .replace(/^\/?public\/simulator\//i, "/simulator/");
+  const value = normalizePublicSimulatorAssetPath(src);
   if (!value) return value;
   if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return value;
 
@@ -195,11 +191,7 @@ async function toInlinePublicAsset(src: string | null | undefined) {
 }
 
 function getPublicAssetPathname(src: string | null | undefined) {
-  const value = String(src || "")
-    .trim()
-    .replace(/\\[nr]/g, "")
-    .replace(/[\r\n\t]+/g, "")
-    .replace(/^\/?public\/simulator\//i, "/simulator/");
+  const value = normalizePublicSimulatorAssetPath(src);
   if (!value || /^(data:|blob:|https?:\/\/|\/\/)/i.test(value)) return "";
 
   try {
@@ -280,7 +272,7 @@ async function inlineMaskConfigAssets(
   maskConfig: SimulatorSpaceRow["mask_config"],
   shouldInlineFullAssets: boolean
 ): Promise<SimulatorSpaceRow["mask_config"]> {
-  if (!shouldInlineFullAssets || !maskConfig || typeof maskConfig !== "object") {
+  if (!maskConfig || typeof maskConfig !== "object") {
     return maskConfig;
   }
 
@@ -296,12 +288,15 @@ async function inlineMaskConfigAssets(
 
       const zoneRecord = zone as Record<string, unknown>;
       const maskUrl = typeof zoneRecord.mask_url === "string" ? zoneRecord.mask_url : "";
+      const normalizedMaskUrl = normalizePublicSimulatorAssetPath(maskUrl);
 
-      if (!maskUrl) return zone;
+      if (!normalizedMaskUrl) return zone;
 
       return {
         ...zoneRecord,
-        mask_url: await toInlinePublicAsset(maskUrl),
+        mask_url: shouldInlineFullAssets
+          ? await toInlinePublicAsset(normalizedMaskUrl)
+          : normalizedMaskUrl,
       };
     })
   );
@@ -327,10 +322,10 @@ async function inlineSpaceAssets(
     // 일반 브라우저는 기존처럼 경로만 유지해서 bootstrap payload를 줄입니다.
     base_image_url: shouldInlineFullAssets
       ? await toInlinePublicAsset(space.base_image_url)
-      : space.base_image_url,
+      : normalizePublicSimulatorAssetPath(space.base_image_url),
     overlay_image_url: shouldInlineFullAssets
       ? await toInlinePublicAsset(space.overlay_image_url)
-      : space.overlay_image_url,
+      : normalizePublicSimulatorAssetPath(space.overlay_image_url),
     mask_config: await inlineMaskConfigAssets(space.mask_config, shouldInlineFullAssets),
   };
 }

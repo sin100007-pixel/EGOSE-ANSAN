@@ -1,7 +1,7 @@
 export function cleanRuntimeEnvValue(value: string | null | undefined) {
   return String(value || "")
     .trim()
-    .replace(/^['\"]|['\"]$/g, "")
+    .replace(/^[\'\"]|[\'\"]$/g, "")
     .replace(/\\[nr]/g, "")
     .replace(/[\r\n\t ]+/g, "");
 }
@@ -9,6 +9,30 @@ export function cleanRuntimeEnvValue(value: string | null | undefined) {
 export function getCleanSupabaseUrl() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   return cleanRuntimeEnvValue(rawUrl).replace(/\/+$/, "");
+}
+
+export function normalizePublicSimulatorAssetPath(value: string | null | undefined) {
+  const cleaned = String(value || "")
+    .trim()
+    .replace(/\\[nr]/g, "")
+    .replace(/[\r\n\t]+/g, "");
+
+  if (!cleaned) return "";
+  if (/^(data:|blob:|file:|javascript:|https?:\/\/|\/\/)/i.test(cleaned)) {
+    return cleaned;
+  }
+
+  const publicRemoved = cleaned.replace(/^\/?public\//i, "");
+
+  if (/^simulator\//i.test(publicRemoved)) {
+    return `/${publicRemoved}`;
+  }
+
+  if (/^\/simulator\//i.test(publicRemoved)) {
+    return publicRemoved;
+  }
+
+  return cleaned;
 }
 
 export function encodeStoragePath(pathValue: string) {
