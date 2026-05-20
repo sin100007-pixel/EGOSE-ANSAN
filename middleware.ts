@@ -65,7 +65,21 @@ function isPublicPath(req: NextRequest) {
 
   if (isPublicStaticAssetPath(pathname)) return true;
 
-  if (pathname === "/api/simulator/bootstrap" && searchParams.get("token")) {
+  if (
+    pathname === "/api/simulator/bootstrap" &&
+    (req.method === "GET") &&
+    (searchParams.get("token") || searchParams.get("__kakao_image_proxy") === "1")
+  ) {
+    return true;
+  }
+
+  // 고객 공유 링크에서는 로그인 쿠키가 없어도 필름 검색 API를 열어줘야 합니다.
+  // API 내부에서 token 유효성/만료/허용 필름 범위를 다시 검증합니다.
+  if (
+    pathname === "/api/simulator/films" &&
+    req.method === "GET" &&
+    searchParams.get("token")
+  ) {
     return true;
   }
 
