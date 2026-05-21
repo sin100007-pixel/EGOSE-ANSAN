@@ -1056,6 +1056,18 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           overflow: hidden;
         }
 
+        .sceneFullscreenViewportFrame {
+          width: 100%;
+          height: 100%;
+          min-width: 0;
+          min-height: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: center center;
+          transition: transform 180ms ease, width 180ms ease, height 180ms ease;
+        }
+
         .sceneFullscreenSwitchButton {
           position: absolute;
           right: max(4px, env(safe-area-inset-right, 0px));
@@ -1090,6 +1102,33 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .sceneFullscreenViewport .sceneStage {
           border-radius: 24px;
+        }
+
+        .sceneFullscreenModalLandscape .sceneFullscreenTop span {
+          display: none;
+        }
+
+        .sceneFullscreenModalLandscape .sceneFullscreenCanvas {
+          padding: 0;
+        }
+
+        .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
+          width: min(calc(100vh - 132px), calc(100dvh - 132px));
+          height: calc(100vw - 28px);
+          max-width: min(calc(100vh - 132px), calc(100dvh - 132px));
+          max-height: calc(100vw - 28px);
+          transform: rotate(90deg);
+        }
+
+        .sceneFullscreenModalLandscape .sceneFullscreenViewport {
+          width: min(100%, calc((100vw - 28px) * var(--scene-aspect-value, 1.333)));
+          max-width: 100%;
+          max-height: 100%;
+          border-radius: 18px;
+        }
+
+        .sceneFullscreenModalLandscape .sceneFullscreenViewport .sceneStage {
+          border-radius: 18px;
         }
 
         .emptyPreviewWrap {
@@ -1920,6 +1959,19 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           .sceneFullscreenSwitchButton {
             padding: 9px 12px;
             font-size: 12px;
+          }
+
+          .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
+            width: min(calc(100vh - 64px), calc(100dvh - 64px));
+            height: calc(100vw - 20px);
+            max-width: min(calc(100vh - 64px), calc(100dvh - 64px));
+            max-height: calc(100vw - 20px);
+          }
+
+          .sceneFullscreenModalLandscape .sceneFullscreenViewport {
+            width: min(100%, calc((100vw - 20px) * var(--scene-aspect-value, 1.333)));
+            max-width: 100%;
+            max-height: 100%;
           }
 
           .sceneFullscreenViewport {

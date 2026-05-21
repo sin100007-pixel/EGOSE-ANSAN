@@ -6,11 +6,6 @@ import { useMaskZonePicker } from "../../hooks/useMaskZonePicker";
 
 type FullscreenViewMode = "portrait" | "landscape";
 
-type BrowserOrientationController = {
-  lock?: (mode: FullscreenViewMode) => Promise<void>;
-  unlock?: () => void;
-};
-
 type EgoseSceneFullscreenWindow = Window &
   typeof globalThis & {
     __egoseSceneFullscreenOpen?: boolean;
@@ -32,18 +27,6 @@ function markSceneFullscreenBackConsumed() {
   window.setTimeout(() => {
     egoseWindow.__egoseSceneFullscreenBackConsumed = false;
   }, 500);
-}
-
-function getViewportOrientationMode(): FullscreenViewMode {
-  if (typeof window === "undefined") return "portrait";
-
-  const orientationType = window.screen?.orientation?.type;
-  if (typeof orientationType === "string") {
-    if (orientationType.startsWith("landscape")) return "landscape";
-    if (orientationType.startsWith("portrait")) return "portrait";
-  }
-
-  return window.innerWidth > window.innerHeight ? "landscape" : "portrait";
 }
 
 type SimulatorScenePreviewProps = {
@@ -85,9 +68,6 @@ export default function SimulatorScenePreview({
   const { findZoneKeyAtPointer } = useMaskZonePicker(maskZones);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [fullscreenViewMode, setFullscreenViewMode] = useState<FullscreenViewMode>("portrait");
-  const fullscreenModalRef = useRef<HTMLDivElement | null>(null);
-  const hadFullscreenSessionRef = useRef(false);
-  const originalFullscreenViewModeRef = useRef<FullscreenViewMode>("portrait");
   const fullscreenHistoryPushedRef = useRef(false);
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
@@ -113,7 +93,6 @@ export default function SimulatorScenePreview({
     return Number.isFinite(singleValue) && singleValue > 0 ? singleValue : 4 / 3;
   }, [previewAspectRatio]);
 
-
   const closeFullscreen = useCallback(() => {
     if (typeof window !== "undefined" && fullscreenHistoryPushedRef.current) {
       try {
@@ -130,26 +109,6 @@ export default function SimulatorScenePreview({
     setFullscreenOpen(false);
   }, []);
 
-  const applyBrowserOrientation = useCallback(async (mode: FullscreenViewMode) => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
-      await orientationController?.lock?.(mode);
-    } catch {}
-  }, []);
-
-  const releaseBrowserOrientation = useCallback(async (restoreMode?: FullscreenViewMode) => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
-      if (restoreMode) {
-        await orientationController?.lock?.(restoreMode);
-      }
-      orientationController?.unlock?.();
-    } catch {}
-  }, []);
 
   useEffect(() => {
     const egoseWindow = getEgoseSceneFullscreenWindow();
@@ -202,19 +161,6 @@ export default function SimulatorScenePreview({
     };
   }, [fullscreenOpen]);
 
-
-  useEffect(() => {
-    if (!fullscreenOpen) {
-      if (hadFullscreenSessionRef.current) {
-        hadFullscreenSessionRef.current = false;
-        void releaseBrowserOrientation(originalFullscreenViewModeRef.current);
-      }
-      return;
-    }
-
-    hadFullscreenSessionRef.current = true;
-    void applyBrowserOrientation(fullscreenViewMode);
-  }, [applyBrowserOrientation, fullscreenOpen, fullscreenViewMode, releaseBrowserOrientation]);
 
   const toggleFullscreenViewMode = useCallback(() => {
     setFullscreenViewMode((prev) => (prev === "portrait" ? "landscape" : "portrait"));
@@ -316,9 +262,7 @@ export default function SimulatorScenePreview({
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              const currentViewportMode = getViewportOrientationMode();
-              originalFullscreenViewModeRef.current = currentViewportMode;
-              setFullscreenViewMode(currentViewportMode);
+              setFullscreenViewMode("portrait");
 
               const egoseWindow = getEgoseSceneFullscreenWindow();
               if (egoseWindow) {
@@ -352,7 +296,6 @@ export default function SimulatorScenePreview({
 
       {canOpenFullscreen && fullscreenOpen ? (
         <div
-          ref={fullscreenModalRef}
           className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"}`}
           role="dialog"
           aria-modal="true"
@@ -370,8 +313,10 @@ export default function SimulatorScenePreview({
           </div>
 
           <div className="sceneFullscreenCanvas" onClick={(event) => event.stopPropagation()}>
-            <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
-              {renderSceneStage(true)}
+            <div className="sceneFullscreenViewportFrame">
+              <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
+                {renderSceneStage(true)}
+              </div>
             </div>
 
             <button
