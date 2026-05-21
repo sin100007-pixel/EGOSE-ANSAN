@@ -74,20 +74,31 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getTouchDistance(touches: TouchList) {
+type TouchPointList = {
+  length: number;
+  [index: number]: { clientX: number; clientY: number } | undefined;
+};
+
+function getTouchDistance(touches: TouchPointList) {
   if (touches.length < 2) return 0;
 
   const first = touches[0];
   const second = touches[1];
+  if (!first || !second) return 0;
+
   const deltaX = second.clientX - first.clientX;
   const deltaY = second.clientY - first.clientY;
 
   return Math.hypot(deltaX, deltaY);
 }
 
-function getTouchMidpoint(touches: TouchList) {
+function getTouchMidpoint(touches: TouchPointList) {
   const first = touches[0];
   const second = touches[1];
+
+  if (!first || !second) {
+    return { x: 0, y: 0 };
+  }
 
   return {
     x: (first.clientX + second.clientX) / 2,
