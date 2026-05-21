@@ -11,6 +11,12 @@ type FullscreenViewportSize = {
   height: number;
 };
 
+type NativeFullscreenAttempt = {
+  fullscreen: boolean;
+  orientation: boolean;
+  kakaoInApp: boolean;
+};
+
 type EgoseSceneFullscreenWindow = Window &
   typeof globalThis & {
     __egoseSceneFullscreenOpen?: boolean;
@@ -31,6 +37,11 @@ type EgoseScreenOrientation = {
   unlock?: () => void;
 };
 
+function isKakaoInAppBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return /KAKAOTALK/i.test(navigator.userAgent || "");
+}
+
 function getEgoseSceneFullscreenWindow() {
   if (typeof window === "undefined") return null;
   return window as EgoseSceneFullscreenWindow;
@@ -49,16 +60,26 @@ async function requestNativeFullscreen() {
   if (getNativeFullscreenElement()) return true;
 
   const fullscreenElement = document.documentElement as EgoseFullscreenElement;
-  const requestFullscreen = fullscreenElement.requestFullscreen || fullscreenElement.webkitRequestFullscreen;
 
-  if (!requestFullscreen) return false;
-
-  try {
-    await requestFullscreen.call(fullscreenElement);
-    return true;
-  } catch {
-    return false;
+  if (fullscreenElement.requestFullscreen) {
+    try {
+      await fullscreenElement.requestFullscreen({ navigationUI: "hide" });
+      return true;
+    } catch {
+      return false;
+    }
   }
+
+  if (fullscreenElement.webkitRequestFullscreen) {
+    try {
+      await fullscreenElement.webkitRequestFullscreen();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 async function exitNativeFullscreen() {
@@ -96,7 +117,12 @@ async function lockScreenOrientation(mode: FullscreenViewMode) {
   if (!orientation?.lock) return false;
 
   try {
-    await orientation.lock(mode === "landscape" ? "landscape" : "portrait");
+    await Promise.race([
+      orientation.lock(mode === "landscape" ? "landscape" : "portrait"),
+      new Promise((_, reject) => {
+        window.setTimeout(() => reject(new Error("orientation-lock-timeout")), 700);
+      }),
+    ]);
     return true;
   } catch {
     return false;
@@ -158,6 +184,7 @@ export default function SimulatorScenePreview({
     width: 0,
     height: 0,
   });
+  const [fullscreenFallbackMessage, setFullscreenFallbackMessage] = useState("");
   const fullscreenHistoryPushedRef = useRef(false);
   const nativeFullscreenRequestedRef = useRef(false);
   const nativeFullscreenClosingRef = useRef(false);
@@ -185,13 +212,20 @@ export default function SimulatorScenePreview({
     return Number.isFinite(singleValue) && singleValue > 0 ? singleValue : 4 / 3;
   }, [previewAspectRatio]);
 
-  const enterNativeFullscreen = useCallback(async (targetMode: FullscreenViewMode) => {
+  const enterNativeFullscreen = useCallback(async (targetMode: FullscreenViewMode): Promise<NativeFullscreenAttempt> => {
+    const kakaoInApp = isKakaoInAppBrowser();
     const didEnterFullscreen = await requestNativeFullscreen();
     nativeFullscreenRequestedRef.current = didEnterFullscreen;
 
-    if (didEnterFullscreen) {
-      await lockScreenOrientation(targetMode);
-    }
+    const didLockOrientation = didEnterFullscreen
+      ? await lockScreenOrientation(targetMode)
+      : false;
+
+    return {
+      fullscreen: didEnterFullscreen,
+      orientation: didLockOrientation,
+      kakaoInApp,
+    };
   }, []);
 
   const leaveNativeFullscreen = useCallback(() => {
@@ -211,6 +245,34 @@ export default function SimulatorScenePreview({
     });
   }, []);
 
+  const updateFullscreenFallbackMessage = useCallback((attempt: NativeFullscreenAttempt, targetMode: FullscreenViewMode) => {
+    if (attempt.fullscreen && (targetMode !== "landscape" || attempt.orientation)) {
+      setFullscreenFallbackMessage("");
+      return;
+    }
+
+    if (attempt.kakaoInApp) {
+      setFullscreenFallbackMessage(
+        targetMode === "landscape"
+          ? "카카오톡에서는 가로 방향 고정이 제한될 수 있어 앱 안에서 가로 확대 모드로 보여드립니다."
+          : "카카오톡에서는 브라우저 전체화면이 제한될 수 있어 앱 안에서 크게 보여드립니다."
+      );
+      return;
+    }
+
+    if (!attempt.fullscreen) {
+      setFullscreenFallbackMessage("브라우저 전체화면이 제한되어 앱 안에서 크게 보여드립니다.");
+      return;
+    }
+
+    if (targetMode === "landscape" && !attempt.orientation) {
+      setFullscreenFallbackMessage("가로 방향 고정이 제한되어 앱 안에서 가로 확대 모드로 보여드립니다.");
+      return;
+    }
+
+    setFullscreenFallbackMessage("");
+  }, []);
+
   const closeFullscreen = useCallback(() => {
     leaveNativeFullscreen();
 
@@ -226,6 +288,7 @@ export default function SimulatorScenePreview({
     if (egoseWindow) {
       egoseWindow.__egoseSceneFullscreenOpen = false;
     }
+    setFullscreenFallbackMessage("");
     setFullscreenOpen(false);
   }, [leaveNativeFullscreen]);
 
@@ -272,6 +335,7 @@ export default function SimulatorScenePreview({
       fullscreenHistoryPushedRef.current = false;
       markSceneFullscreenBackConsumed();
       leaveNativeFullscreen();
+      setFullscreenFallbackMessage("");
       setFullscreenOpen(false);
     };
 
@@ -302,6 +366,7 @@ export default function SimulatorScenePreview({
 
       fullscreenHistoryPushedRef.current = false;
       markSceneFullscreenBackConsumed();
+      setFullscreenFallbackMessage("");
       setFullscreenOpen(false);
     };
 
@@ -348,12 +413,15 @@ export default function SimulatorScenePreview({
     setFullscreenViewMode(nextMode);
 
     if (nextMode === "landscape") {
-      void enterNativeFullscreen("landscape");
+      void enterNativeFullscreen("landscape").then((attempt) => {
+        updateFullscreenFallbackMessage(attempt, "landscape");
+      });
       return;
     }
 
+    setFullscreenFallbackMessage("");
     void lockScreenOrientation("portrait");
-  }, [enterNativeFullscreen, fullscreenViewMode]);
+  }, [enterNativeFullscreen, fullscreenViewMode, updateFullscreenFallbackMessage]);
 
   const renderSceneStage = (fullscreen: boolean) => {
     const clickable = !fullscreen && Boolean(onZoneClick);
@@ -461,7 +529,10 @@ export default function SimulatorScenePreview({
               event.preventDefault();
               event.stopPropagation();
               setFullscreenViewMode("portrait");
-              void enterNativeFullscreen("portrait");
+              setFullscreenFallbackMessage("");
+              void enterNativeFullscreen("portrait").then((attempt) => {
+                updateFullscreenFallbackMessage(attempt, "portrait");
+              });
 
               const egoseWindow = getEgoseSceneFullscreenWindow();
               if (egoseWindow) {
@@ -518,6 +589,12 @@ export default function SimulatorScenePreview({
                 {renderSceneStage(true)}
               </div>
             </div>
+
+            {fullscreenFallbackMessage ? (
+              <div className="sceneFullscreenFallbackToast" role="status">
+                {fullscreenFallbackMessage}
+              </div>
+            ) : null}
 
             <button
               type="button"
