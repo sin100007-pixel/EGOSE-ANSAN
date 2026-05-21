@@ -1,6 +1,6 @@
 import { toPublicImageUrl } from "./image-url";
 
-export const DEFAULT_RECOMMENDED_FILM_LIMIT = 24;
+export const DEFAULT_RECOMMENDED_FILM_LIMIT = 70;
 export const SIMULATOR_FILM_SEARCH_RESULT_LIMIT = 200;
 
 // 썸네일 파일을 다시 업로드했을 때 브라우저/CDN 캐시를 깨기 위한 버전값
