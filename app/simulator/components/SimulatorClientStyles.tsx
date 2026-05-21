@@ -1046,12 +1046,33 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenCanvas {
+          position: relative;
           flex: 1 1 auto;
           min-height: 0;
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 0 0 58px;
           overflow: hidden;
+        }
+
+        .sceneFullscreenSwitchButton {
+          position: absolute;
+          right: max(4px, env(safe-area-inset-right, 0px));
+          bottom: max(0px, env(safe-area-inset-bottom, 0px));
+          z-index: 50;
+          border: 1px solid rgba(238, 224, 197, 0.55);
+          border-radius: 999px;
+          padding: 11px 14px;
+          background: rgba(5, 2, 59, 0.9);
+          color: ${COLORS.cream};
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
+          backdrop-filter: blur(8px);
+          font-size: 13px;
+          font-weight: 1000;
+          line-height: 1;
+          cursor: pointer;
+          white-space: nowrap;
         }
 
         .sceneFullscreenViewport {
@@ -1889,6 +1910,15 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
           .sceneFullscreenCloseButton {
             padding: 8px 12px;
+            font-size: 12px;
+          }
+
+          .sceneFullscreenCanvas {
+            padding-bottom: 48px;
+          }
+
+          .sceneFullscreenSwitchButton {
+            padding: 9px 12px;
             font-size: 12px;
           }
 

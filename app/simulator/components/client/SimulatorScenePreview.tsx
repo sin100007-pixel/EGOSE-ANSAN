@@ -1,8 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
 import { useMaskZonePicker } from "../../hooks/useMaskZonePicker";
+
+type FullscreenViewMode = "portrait" | "landscape";
+
+type BrowserOrientationController = {
+  lock?: (mode: FullscreenViewMode) => Promise<void>;
+  unlock?: () => void;
+};
+
+function getViewportOrientationMode(): FullscreenViewMode {
+  if (typeof window === "undefined") return "portrait";
+
+  const orientationType = window.screen?.orientation?.type;
+  if (typeof orientationType === "string") {
+    if (orientationType.startsWith("landscape")) return "landscape";
+    if (orientationType.startsWith("portrait")) return "portrait";
+  }
+
+  return window.innerWidth > window.innerHeight ? "landscape" : "portrait";
+}
 
 type SimulatorScenePreviewProps = {
   selectedSpace: SimulatorSpace | null;
@@ -42,6 +61,10 @@ export default function SimulatorScenePreview({
 }: SimulatorScenePreviewProps) {
   const { findZoneKeyAtPointer } = useMaskZonePicker(maskZones);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenViewMode, setFullscreenViewMode] = useState<FullscreenViewMode>("portrait");
+  const fullscreenModalRef = useRef<HTMLDivElement | null>(null);
+  const hadFullscreenSessionRef = useRef(false);
+  const originalFullscreenViewModeRef = useRef<FullscreenViewMode>("portrait");
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     if (!onZoneClick) return;
@@ -66,6 +89,51 @@ export default function SimulatorScenePreview({
     return Number.isFinite(singleValue) && singleValue > 0 ? singleValue : 4 / 3;
   }, [previewAspectRatio]);
 
+
+  const closeFullscreen = useCallback(() => {
+    setFullscreenOpen(false);
+  }, []);
+
+  const applyBrowserOrientation = useCallback(async (mode: FullscreenViewMode) => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const modal = fullscreenModalRef.current;
+      if (modal && modal.requestFullscreen && document.fullscreenElement !== modal) {
+        await modal.requestFullscreen();
+      }
+    } catch {}
+
+    try {
+      const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
+      if (orientationController?.lock) {
+        await orientationController.lock(mode);
+      }
+    } catch {}
+  }, []);
+
+  const releaseBrowserOrientation = useCallback(async (restoreMode?: FullscreenViewMode) => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
+      if (restoreMode && document.fullscreenElement && orientationController?.lock) {
+        await orientationController.lock(restoreMode);
+      }
+    } catch {}
+
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch {}
+
+    try {
+      const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
+      orientationController?.unlock?.();
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (!fullscreenOpen) return;
 
@@ -74,7 +142,7 @@ export default function SimulatorScenePreview({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setFullscreenOpen(false);
+        closeFullscreen();
       }
     };
 
@@ -84,7 +152,25 @@ export default function SimulatorScenePreview({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [fullscreenOpen]);
+  }, [closeFullscreen, fullscreenOpen]);
+
+
+  useEffect(() => {
+    if (!fullscreenOpen) {
+      if (hadFullscreenSessionRef.current) {
+        hadFullscreenSessionRef.current = false;
+        void releaseBrowserOrientation(originalFullscreenViewModeRef.current);
+      }
+      return;
+    }
+
+    hadFullscreenSessionRef.current = true;
+    void applyBrowserOrientation(fullscreenViewMode);
+  }, [applyBrowserOrientation, fullscreenOpen, fullscreenViewMode, releaseBrowserOrientation]);
+
+  const toggleFullscreenViewMode = useCallback(() => {
+    setFullscreenViewMode((prev) => (prev === "portrait" ? "landscape" : "portrait"));
+  }, []);
 
   const renderSceneStage = (fullscreen: boolean) => {
     const clickable = !fullscreen && Boolean(onZoneClick);
@@ -182,6 +268,9 @@ export default function SimulatorScenePreview({
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              const currentViewportMode = getViewportOrientationMode();
+              originalFullscreenViewModeRef.current = currentViewportMode;
+              setFullscreenViewMode(currentViewportMode);
               setFullscreenOpen(true);
             }}
           >
@@ -192,18 +281,19 @@ export default function SimulatorScenePreview({
 
       {canOpenFullscreen && fullscreenOpen ? (
         <div
-          className="sceneFullscreenModal"
+          ref={fullscreenModalRef}
+          className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"}`}
           role="dialog"
           aria-modal="true"
           aria-label={fullscreenTitle}
-          onClick={() => setFullscreenOpen(false)}
+          onClick={closeFullscreen}
         >
           <div className="sceneFullscreenTop" onClick={(event) => event.stopPropagation()}>
             <div>
               <strong>{fullscreenTitle}</strong>
-              <span>세로/가로 화면에 맞춰 크게 보여줍니다.</span>
+              <span>오른쪽 아래 버튼으로 가로/세로 모드를 바꿀 수 있어요.</span>
             </div>
-            <button type="button" className="sceneFullscreenCloseButton" onClick={() => setFullscreenOpen(false)}>
+            <button type="button" className="sceneFullscreenCloseButton" onClick={closeFullscreen}>
               닫기
             </button>
           </div>
@@ -212,6 +302,14 @@ export default function SimulatorScenePreview({
             <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
               {renderSceneStage(true)}
             </div>
+
+            <button
+              type="button"
+              className="sceneFullscreenSwitchButton"
+              onClick={toggleFullscreenViewMode}
+            >
+              {fullscreenViewMode === "portrait" ? "가로모드로 보기" : "세로모드로 보기"}
+            </button>
           </div>
         </div>
       ) : null}
