@@ -11,6 +11,29 @@ type BrowserOrientationController = {
   unlock?: () => void;
 };
 
+type EgoseSceneFullscreenWindow = Window &
+  typeof globalThis & {
+    __egoseSceneFullscreenOpen?: boolean;
+    __egoseSceneFullscreenBackConsumed?: boolean;
+  };
+
+function getEgoseSceneFullscreenWindow() {
+  if (typeof window === "undefined") return null;
+  return window as EgoseSceneFullscreenWindow;
+}
+
+function markSceneFullscreenBackConsumed() {
+  const egoseWindow = getEgoseSceneFullscreenWindow();
+  if (!egoseWindow) return;
+
+  egoseWindow.__egoseSceneFullscreenOpen = false;
+  egoseWindow.__egoseSceneFullscreenBackConsumed = true;
+
+  window.setTimeout(() => {
+    egoseWindow.__egoseSceneFullscreenBackConsumed = false;
+  }, 500);
+}
+
 function getViewportOrientationMode(): FullscreenViewMode {
   if (typeof window === "undefined") return "portrait";
 
@@ -100,6 +123,10 @@ export default function SimulatorScenePreview({
     }
 
     fullscreenHistoryPushedRef.current = false;
+    const egoseWindow = getEgoseSceneFullscreenWindow();
+    if (egoseWindow) {
+      egoseWindow.__egoseSceneFullscreenOpen = false;
+    }
     setFullscreenOpen(false);
   }, []);
 
@@ -123,6 +150,19 @@ export default function SimulatorScenePreview({
       orientationController?.unlock?.();
     } catch {}
   }, []);
+
+  useEffect(() => {
+    const egoseWindow = getEgoseSceneFullscreenWindow();
+    if (!egoseWindow) return;
+
+    egoseWindow.__egoseSceneFullscreenOpen = fullscreenOpen;
+
+    return () => {
+      if (egoseWindow.__egoseSceneFullscreenOpen) {
+        egoseWindow.__egoseSceneFullscreenOpen = false;
+      }
+    };
+  }, [fullscreenOpen]);
 
   useEffect(() => {
     if (!fullscreenOpen) return;
@@ -151,6 +191,7 @@ export default function SimulatorScenePreview({
       event.preventDefault();
       event.stopImmediatePropagation();
       fullscreenHistoryPushedRef.current = false;
+      markSceneFullscreenBackConsumed();
       setFullscreenOpen(false);
     };
 
@@ -278,6 +319,12 @@ export default function SimulatorScenePreview({
               const currentViewportMode = getViewportOrientationMode();
               originalFullscreenViewModeRef.current = currentViewportMode;
               setFullscreenViewMode(currentViewportMode);
+
+              const egoseWindow = getEgoseSceneFullscreenWindow();
+              if (egoseWindow) {
+                egoseWindow.__egoseSceneFullscreenOpen = true;
+                egoseWindow.__egoseSceneFullscreenBackConsumed = false;
+              }
 
               try {
                 const currentState = window.history.state;

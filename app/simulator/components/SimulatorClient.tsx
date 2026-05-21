@@ -1082,7 +1082,21 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
 
     const guardKey = "__egoseSimulatorBackGuardLevel";
     const baseKey = "__egoseSimulatorBackBase";
+    const sceneFullscreenStateKey = "__egoseSceneFullscreen";
     const baseHref = getUrlWithoutSimulatorBackGuard(window.location.href);
+
+    const getSceneFullscreenFlags = () => {
+      const egoseWindow = window as Window &
+        typeof globalThis & {
+          __egoseSceneFullscreenOpen?: boolean;
+          __egoseSceneFullscreenBackConsumed?: boolean;
+        };
+
+      return {
+        open: Boolean(egoseWindow.__egoseSceneFullscreenOpen),
+        consumed: Boolean(egoseWindow.__egoseSceneFullscreenBackConsumed),
+      };
+    };
 
     const getSafeHistoryState = () => {
       const currentState = window.history.state;
@@ -1165,6 +1179,19 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     pushPermanentGuardStates();
 
     const handlePopState = (event: PopStateEvent) => {
+      const sceneFullscreenFlags = getSceneFullscreenFlags();
+      const eventState = event.state;
+      const isSceneFullscreenHistoryState = Boolean(
+        eventState &&
+          typeof eventState === "object" &&
+          (eventState as Record<string, unknown>)[sceneFullscreenStateKey]
+      );
+
+      if (sceneFullscreenFlags.open || sceneFullscreenFlags.consumed || isSceneFullscreenHistoryState) {
+        resetRapidBackExitPresses();
+        return;
+      }
+
       if (allowNativeBackRef.current) {
         return;
       }
