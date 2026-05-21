@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, MouseEvent } from "react";
+import type { CSSProperties, MouseEvent, TouchEvent } from "react";
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
 import { useMaskZonePicker } from "../../hooks/useMaskZonePicker";
@@ -9,6 +9,27 @@ type FullscreenViewMode = "portrait" | "landscape";
 type FullscreenViewportSize = {
   width: number;
   height: number;
+};
+
+type FullscreenPan = {
+  x: number;
+  y: number;
+};
+
+type FullscreenPinchStart = {
+  distance: number;
+  midX: number;
+  midY: number;
+  zoom: number;
+  panX: number;
+  panY: number;
+};
+
+type FullscreenPanStart = {
+  x: number;
+  y: number;
+  panX: number;
+  panY: number;
 };
 
 type EgoseSceneFullscreenWindow = Window &
@@ -47,6 +68,31 @@ function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
 
   return /KAKAOTALK/i.test(navigator.userAgent);
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getTouchDistance(touches: TouchList) {
+  if (touches.length < 2) return 0;
+
+  const first = touches[0];
+  const second = touches[1];
+  const deltaX = second.clientX - first.clientX;
+  const deltaY = second.clientY - first.clientY;
+
+  return Math.hypot(deltaX, deltaY);
+}
+
+function getTouchMidpoint(touches: TouchList) {
+  const first = touches[0];
+  const second = touches[1];
+
+  return {
+    x: (first.clientX + second.clientX) / 2,
+    y: (first.clientY + second.clientY) / 2,
+  };
 }
 
 async function requestNativeFullscreen() {
@@ -164,9 +210,13 @@ export default function SimulatorScenePreview({
     width: 0,
     height: 0,
   });
+  const [fullscreenZoom, setFullscreenZoom] = useState(1);
+  const [fullscreenPan, setFullscreenPan] = useState<FullscreenPan>({ x: 0, y: 0 });
   const fullscreenHistoryPushedRef = useRef(false);
   const nativeFullscreenRequestedRef = useRef(false);
   const nativeFullscreenClosingRef = useRef(false);
+  const fullscreenPinchStartRef = useRef<FullscreenPinchStart | null>(null);
+  const fullscreenPanStartRef = useRef<FullscreenPanStart | null>(null);
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     if (!onZoneClick) return;
@@ -229,7 +279,15 @@ export default function SimulatorScenePreview({
     });
   }, []);
 
+  const resetFullscreenZoom = useCallback(() => {
+    fullscreenPinchStartRef.current = null;
+    fullscreenPanStartRef.current = null;
+    setFullscreenZoom(1);
+    setFullscreenPan({ x: 0, y: 0 });
+  }, []);
+
   const closeFullscreen = useCallback(() => {
+    resetFullscreenZoom();
     leaveNativeFullscreen();
 
     if (typeof window !== "undefined" && fullscreenHistoryPushedRef.current) {
@@ -245,7 +303,7 @@ export default function SimulatorScenePreview({
       egoseWindow.__egoseSceneFullscreenOpen = false;
     }
     setFullscreenOpen(false);
-  }, [leaveNativeFullscreen]);
+  }, [leaveNativeFullscreen, resetFullscreenZoom]);
 
 
   useEffect(() => {
@@ -289,6 +347,7 @@ export default function SimulatorScenePreview({
       event.stopImmediatePropagation();
       fullscreenHistoryPushedRef.current = false;
       markSceneFullscreenBackConsumed();
+      resetFullscreenZoom();
       leaveNativeFullscreen();
       setFullscreenOpen(false);
     };
@@ -298,7 +357,7 @@ export default function SimulatorScenePreview({
     return () => {
       window.removeEventListener("popstate", handleFullscreenPopState, true);
     };
-  }, [fullscreenOpen, leaveNativeFullscreen]);
+  }, [fullscreenOpen, leaveNativeFullscreen, resetFullscreenZoom]);
 
   useEffect(() => {
     if (!fullscreenOpen) return;
@@ -320,6 +379,7 @@ export default function SimulatorScenePreview({
 
       fullscreenHistoryPushedRef.current = false;
       markSceneFullscreenBackConsumed();
+      resetFullscreenZoom();
       setFullscreenOpen(false);
     };
 
@@ -330,7 +390,7 @@ export default function SimulatorScenePreview({
       document.removeEventListener("fullscreenchange", handleNativeFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleNativeFullscreenChange);
     };
-  }, [fullscreenOpen]);
+  }, [fullscreenOpen, resetFullscreenZoom]);
 
   useEffect(() => {
     if (!fullscreenOpen) return;
@@ -363,6 +423,7 @@ export default function SimulatorScenePreview({
 
   const toggleFullscreenViewMode = useCallback(() => {
     const nextMode = fullscreenViewMode === "portrait" ? "landscape" : "portrait";
+    resetFullscreenZoom();
     setFullscreenViewMode(nextMode);
 
     if (nextMode === "landscape") {
@@ -373,7 +434,97 @@ export default function SimulatorScenePreview({
     if (!isKakaoInAppBrowser()) {
       void lockScreenOrientation("portrait");
     }
-  }, [enterNativeFullscreen, fullscreenViewMode]);
+  }, [enterNativeFullscreen, fullscreenViewMode, resetFullscreenZoom]);
+
+  const handleFullscreenTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (!fullscreenOpen) return;
+
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const midpoint = getTouchMidpoint(event.touches);
+      fullscreenPinchStartRef.current = {
+        distance: Math.max(getTouchDistance(event.touches), 1),
+        midX: midpoint.x,
+        midY: midpoint.y,
+        zoom: fullscreenZoom,
+        panX: fullscreenPan.x,
+        panY: fullscreenPan.y,
+      };
+      fullscreenPanStartRef.current = null;
+      return;
+    }
+
+    if (event.touches.length === 1 && fullscreenZoom > 1.02) {
+      event.stopPropagation();
+      const touch = event.touches[0];
+      fullscreenPanStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        panX: fullscreenPan.x,
+        panY: fullscreenPan.y,
+      };
+    }
+  }, [fullscreenOpen, fullscreenPan.x, fullscreenPan.y, fullscreenZoom]);
+
+  const handleFullscreenTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (!fullscreenOpen) return;
+
+    const pinchStart = fullscreenPinchStartRef.current;
+    if (event.touches.length >= 2 && pinchStart) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const distance = Math.max(getTouchDistance(event.touches), 1);
+      const midpoint = getTouchMidpoint(event.touches);
+      const nextZoom = clampNumber(pinchStart.zoom * (distance / pinchStart.distance), 1, 4);
+
+      if (nextZoom <= 1.01) {
+        setFullscreenZoom(1);
+        setFullscreenPan({ x: 0, y: 0 });
+        return;
+      }
+
+      setFullscreenZoom(nextZoom);
+      setFullscreenPan({
+        x: pinchStart.panX + midpoint.x - pinchStart.midX,
+        y: pinchStart.panY + midpoint.y - pinchStart.midY,
+      });
+      return;
+    }
+
+    const panStart = fullscreenPanStartRef.current;
+    if (event.touches.length === 1 && panStart && fullscreenZoom > 1.02) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const touch = event.touches[0];
+      setFullscreenPan({
+        x: panStart.panX + touch.clientX - panStart.x,
+        y: panStart.panY + touch.clientY - panStart.y,
+      });
+    }
+  }, [fullscreenOpen, fullscreenZoom]);
+
+  const handleFullscreenTouchEnd = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length >= 2) return;
+
+    fullscreenPinchStartRef.current = null;
+
+    if (event.touches.length === 1 && fullscreenZoom > 1.02) {
+      const touch = event.touches[0];
+      fullscreenPanStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        panX: fullscreenPan.x,
+        panY: fullscreenPan.y,
+      };
+      return;
+    }
+
+    fullscreenPanStartRef.current = null;
+  }, [fullscreenPan.x, fullscreenPan.y, fullscreenZoom]);
 
   const renderSceneStage = (fullscreen: boolean) => {
     const clickable = !fullscreen && Boolean(onZoneClick);
@@ -429,18 +580,35 @@ export default function SimulatorScenePreview({
     );
   };
 
-  const fullscreenModalStyle = {
-    "--scene-aspect-value": String(aspectRatioValue),
-    "--scene-fullscreen-vw": fullscreenViewportSize.width
-      ? `${fullscreenViewportSize.width}px`
-      : "100vw",
-    "--scene-fullscreen-vh": fullscreenViewportSize.height
-      ? `${fullscreenViewportSize.height}px`
-      : "100vh",
-  } as CSSProperties;
+  const fullscreenModalStyle = useMemo(() => {
+    const viewportWidth = fullscreenViewportSize.width || 0;
+    const viewportHeight = fullscreenViewportSize.height || 0;
+    const shorterSide = Math.max(Math.min(viewportWidth || 0, viewportHeight || 0) - 4, 0);
+    const longerSide = Math.max(Math.max(viewportWidth || 0, viewportHeight || 0) - 4, 0);
+    const fittedHeight = shorterSide && longerSide
+      ? Math.min(shorterSide, longerSide / aspectRatioValue)
+      : 0;
+    const fittedWidth = fittedHeight ? fittedHeight * aspectRatioValue : 0;
+
+    return {
+      "--scene-aspect-value": String(aspectRatioValue),
+      "--scene-fullscreen-vw": viewportWidth ? `${viewportWidth}px` : "100vw",
+      "--scene-fullscreen-vh": viewportHeight ? `${viewportHeight}px` : "100vh",
+      "--scene-landscape-frame-width": longerSide ? `${longerSide}px` : "calc(max(100vw, 100vh) - 4px)",
+      "--scene-landscape-frame-height": shorterSide ? `${shorterSide}px` : "calc(min(100vw, 100vh) - 4px)",
+      "--scene-landscape-fit-width": fittedWidth ? `${fittedWidth}px` : "100%",
+      "--scene-landscape-fit-height": fittedHeight ? `${fittedHeight}px` : "auto",
+    } as CSSProperties;
+  }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
 
   const fullscreenViewportStyle = {
     aspectRatio: previewAspectRatio,
+  } as CSSProperties;
+
+  const fullscreenZoomLayerStyle = {
+    transform: fullscreenZoom > 1.01
+      ? `translate3d(${fullscreenPan.x}px, ${fullscreenPan.y}px, 0) scale(${fullscreenZoom})`
+      : "translate3d(0, 0, 0) scale(1)",
   } as CSSProperties;
 
   const canOpenFullscreen = enableFullscreen && previewHasRealSpace;
@@ -481,6 +649,7 @@ export default function SimulatorScenePreview({
               event.preventDefault();
               event.stopPropagation();
               setFullscreenViewMode("portrait");
+              resetFullscreenZoom();
               // 처음 크게 보기는 세로 전체보기 상태로만 연다.
               // 가로 회전은 사용자가 "가로모드로 보기"를 눌렀을 때만 적용한다.
               void enterNativeFullscreen("portrait", { lockOrientation: false });
@@ -534,10 +703,22 @@ export default function SimulatorScenePreview({
             </button>
           </div>
 
-          <div className="sceneFullscreenCanvas" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="sceneFullscreenCanvas"
+            onClick={(event) => event.stopPropagation()}
+            onTouchStart={handleFullscreenTouchStart}
+            onTouchMove={handleFullscreenTouchMove}
+            onTouchEnd={handleFullscreenTouchEnd}
+            onTouchCancel={handleFullscreenTouchEnd}
+          >
             <div className="sceneFullscreenViewportFrame">
-              <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
-                {renderSceneStage(true)}
+              <div
+                className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
+                style={fullscreenZoomLayerStyle}
+              >
+                <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
+                  {renderSceneStage(true)}
+                </div>
               </div>
             </div>
 

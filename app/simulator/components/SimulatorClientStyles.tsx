@@ -1054,6 +1054,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           justify-content: center;
           padding: 0 0 58px;
           overflow: hidden;
+          touch-action: none;
         }
 
         .sceneFullscreenViewportFrame {
@@ -1066,6 +1067,25 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           justify-content: center;
           transform-origin: center center;
           transition: transform 180ms ease, width 180ms ease, height 180ms ease;
+        }
+
+        .sceneFullscreenZoomLayer {
+          width: 100%;
+          height: 100%;
+          min-width: 0;
+          min-height: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: center center;
+          will-change: transform;
+          touch-action: none;
+          transition: transform 120ms ease;
+        }
+
+        .sceneFullscreenZoomLayerZoomed {
+          transition: none;
+          cursor: grab;
         }
 
         .sceneFullscreenSwitchButton {
@@ -1153,20 +1173,18 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-          width: calc(var(--scene-fullscreen-vh, 100vh) - 4px);
-          height: calc(var(--scene-fullscreen-vw, 100vw) - 4px);
-          max-width: calc(var(--scene-fullscreen-vh, 100vh) - 4px);
-          max-height: calc(var(--scene-fullscreen-vw, 100vw) - 4px);
+          width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
+          height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
+          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
+          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
           transform: rotate(90deg) !important;
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
-          width: min(
-            100%,
-            calc((var(--scene-fullscreen-vw, 100vw) - 4px) * var(--scene-aspect-value, 1.333))
-          );
-          max-width: 100%;
-          max-height: calc(var(--scene-fullscreen-vw, 100vw) - 4px);
+          width: var(--scene-landscape-fit-width, 100%);
+          height: var(--scene-landscape-fit-height, auto);
+          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
+          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
           border-radius: 18px;
         }
 
@@ -2011,20 +2029,18 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-            width: calc(var(--scene-fullscreen-vw, 100vw) - 8px);
-            height: calc(var(--scene-fullscreen-vh, 100vh) - 8px);
-            max-width: calc(var(--scene-fullscreen-vw, 100vw) - 8px);
-            max-height: calc(var(--scene-fullscreen-vh, 100vh) - 8px);
+            width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
+            height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
+            max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
+            max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
             transform: none !important;
           }
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewport {
-            width: min(
-              100%,
-              calc((var(--scene-fullscreen-vh, 100vh) - 8px) * var(--scene-aspect-value, 1.333))
-            );
-            max-width: 100%;
-            max-height: calc(var(--scene-fullscreen-vh, 100vh) - 8px);
+            width: var(--scene-landscape-fit-width, 100%);
+            height: var(--scene-landscape-fit-height, auto);
+            max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
+            max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
           }
 
           .sceneFullscreenViewport {
