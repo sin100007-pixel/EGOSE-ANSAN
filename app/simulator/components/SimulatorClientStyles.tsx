@@ -1173,18 +1173,18 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-          width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
-          height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
-          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
-          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
+          width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
+          height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
+          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
+          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
           transform: rotate(90deg) !important;
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
           width: var(--scene-landscape-fit-width, 100%);
-          height: auto !important;
-          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
-          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
+          height: var(--scene-landscape-fit-height, auto) !important;
+          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
+          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
           min-height: 0 !important;
           border-radius: 18px;
         }
@@ -2039,9 +2039,9 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewport {
             width: var(--scene-landscape-fit-width, 100%);
-            height: auto !important;
-            max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
-            max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
+            height: var(--scene-landscape-fit-height, auto) !important;
+            max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
+            max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
             min-height: 0 !important;
           }
 

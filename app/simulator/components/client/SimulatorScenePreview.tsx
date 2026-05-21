@@ -479,6 +479,23 @@ export default function SimulatorScenePreview({
     }
   }, [fullscreenOpen, fullscreenPan.x, fullscreenPan.y, fullscreenZoom]);
 
+  const mapFullscreenGestureDelta = useCallback((deltaX: number, deltaY: number) => {
+    // CSS 가로모드는 프레임 자체가 rotate(90deg) 된 상태라서,
+    // 손가락 이동량을 그대로 x/y에 넣으면 오른쪽 드래그가 아래 이동으로 보인다.
+    // 세로폰에서 CSS 회전 중일 때만 화면 좌표를 회전된 로컬 좌표로 바꿔준다.
+    const cssRotatedLandscape =
+      fullscreenViewMode === "landscape" &&
+      fullscreenViewportSize.width > 0 &&
+      fullscreenViewportSize.height > 0 &&
+      fullscreenViewportSize.width < fullscreenViewportSize.height;
+
+    if (!cssRotatedLandscape) {
+      return { x: deltaX, y: deltaY };
+    }
+
+    return { x: deltaY, y: -deltaX };
+  }, [fullscreenViewMode, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+
   const handleFullscreenTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
     if (!fullscreenOpen) return;
 
@@ -490,6 +507,7 @@ export default function SimulatorScenePreview({
       const distance = Math.max(getTouchDistance(event.touches), 1);
       const midpoint = getTouchMidpoint(event.touches);
       const nextZoom = clampNumber(pinchStart.zoom * (distance / pinchStart.distance), 1, 4);
+      const delta = mapFullscreenGestureDelta(midpoint.x - pinchStart.midX, midpoint.y - pinchStart.midY);
 
       if (nextZoom <= 1.01) {
         setFullscreenZoom(1);
@@ -499,8 +517,8 @@ export default function SimulatorScenePreview({
 
       setFullscreenZoom(nextZoom);
       setFullscreenPan({
-        x: pinchStart.panX + midpoint.x - pinchStart.midX,
-        y: pinchStart.panY + midpoint.y - pinchStart.midY,
+        x: pinchStart.panX + delta.x,
+        y: pinchStart.panY + delta.y,
       });
       return;
     }
@@ -511,12 +529,13 @@ export default function SimulatorScenePreview({
       event.stopPropagation();
 
       const touch = event.touches[0];
+      const delta = mapFullscreenGestureDelta(touch.clientX - panStart.x, touch.clientY - panStart.y);
       setFullscreenPan({
-        x: panStart.panX + touch.clientX - panStart.x,
-        y: panStart.panY + touch.clientY - panStart.y,
+        x: panStart.panX + delta.x,
+        y: panStart.panY + delta.y,
       });
     }
-  }, [fullscreenOpen, fullscreenZoom]);
+  }, [fullscreenOpen, fullscreenZoom, mapFullscreenGestureDelta]);
 
   const handleFullscreenTouchEnd = useCallback((event: TouchEvent<HTMLDivElement>) => {
     if (event.touches.length >= 2) return;
@@ -591,29 +610,65 @@ export default function SimulatorScenePreview({
     );
   };
 
+  const fullscreenLandscapeLayout = useMemo(() => {
+    const viewportWidth = fullscreenViewportSize.width || 0;
+    const viewportHeight = fullscreenViewportSize.height || 0;
+    const shorterSide = Math.max(Math.min(viewportWidth, viewportHeight) - 2, 0);
+    const longerSide = Math.max(Math.max(viewportWidth, viewportHeight) - 2, 0);
+
+    if (!shorterSide || !longerSide || !aspectRatioValue) {
+      return { frameWidth: 0, frameHeight: 0, fitWidth: 0, fitHeight: 0 };
+    }
+
+    // 세로폰에서 가로모드를 CSS로 만들면 실제로는 긴 쪽(휴대폰 세로 길이)이
+    // 회전 후 가로 화면의 폭이 되고, 짧은 쪽(휴대폰 가로 길이)이 높이가 된다.
+    // 이 가상 가로 화면 안에서 원본 비율을 유지한 채 가장 크게 들어가도록 계산한다.
+    const fitWidth = Math.min(longerSide, shorterSide * aspectRatioValue);
+    const fitHeight = fitWidth / aspectRatioValue;
+
+    return {
+      frameWidth: longerSide,
+      frameHeight: shorterSide,
+      fitWidth,
+      fitHeight,
+    };
+  }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+
   const fullscreenModalStyle = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
     const viewportHeight = fullscreenViewportSize.height || 0;
-    const shorterSide = Math.max(Math.min(viewportWidth || 0, viewportHeight || 0) - 4, 0);
-    const longerSide = Math.max(Math.max(viewportWidth || 0, viewportHeight || 0) - 4, 0);
-    const fittedHeight = shorterSide && longerSide
-      ? Math.min(shorterSide, longerSide / aspectRatioValue)
-      : 0;
-    const fittedWidth = fittedHeight ? fittedHeight * aspectRatioValue : 0;
+    const { frameWidth, frameHeight, fitWidth, fitHeight } = fullscreenLandscapeLayout;
 
     return {
       "--scene-aspect-value": String(aspectRatioValue),
       "--scene-fullscreen-vw": viewportWidth ? `${viewportWidth}px` : "100vw",
       "--scene-fullscreen-vh": viewportHeight ? `${viewportHeight}px` : "100vh",
-      "--scene-landscape-frame-width": longerSide ? `${longerSide}px` : "calc(max(100vw, 100vh) - 4px)",
-      "--scene-landscape-frame-height": shorterSide ? `${shorterSide}px` : "calc(min(100vw, 100vh) - 4px)",
-      "--scene-landscape-fit-width": fittedWidth ? `${fittedWidth}px` : "100%",
-      "--scene-landscape-fit-height": fittedHeight ? `${fittedHeight}px` : "auto",
+      "--scene-landscape-frame-width": frameWidth ? `${frameWidth}px` : "calc(max(100vw, 100vh) - 2px)",
+      "--scene-landscape-frame-height": frameHeight ? `${frameHeight}px` : "calc(min(100vw, 100vh) - 2px)",
+      "--scene-landscape-fit-width": fitWidth ? `${fitWidth}px` : "100%",
+      "--scene-landscape-fit-height": fitHeight ? `${fitHeight}px` : "auto",
     } as CSSProperties;
-  }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+  }, [aspectRatioValue, fullscreenLandscapeLayout, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+
+  const fullscreenViewportFrameStyle = (fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.frameWidth && fullscreenLandscapeLayout.frameHeight
+    ? {
+        width: `${fullscreenLandscapeLayout.frameWidth}px`,
+        height: `${fullscreenLandscapeLayout.frameHeight}px`,
+        maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
+        maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
+      }
+    : undefined) as CSSProperties | undefined;
 
   const fullscreenViewportStyle = {
     aspectRatio: previewAspectRatio,
+    ...(fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.fitWidth && fullscreenLandscapeLayout.fitHeight
+      ? {
+          width: `${fullscreenLandscapeLayout.fitWidth}px`,
+          height: `${fullscreenLandscapeLayout.fitHeight}px`,
+          maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
+          maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
+        }
+      : {}),
   } as CSSProperties;
 
   const fullscreenZoomLayerStyle = {
@@ -722,7 +777,7 @@ export default function SimulatorScenePreview({
             onTouchEnd={handleFullscreenTouchEnd}
             onTouchCancel={handleFullscreenTouchEnd}
           >
-            <div className="sceneFullscreenViewportFrame">
+            <div className="sceneFullscreenViewportFrame" style={fullscreenViewportFrameStyle}>
               <div
                 className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
                 style={fullscreenZoomLayerStyle}
