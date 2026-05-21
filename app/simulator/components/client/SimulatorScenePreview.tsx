@@ -305,7 +305,7 @@ export default function SimulatorScenePreview({
           <div className="sceneFullscreenTop" onClick={(event) => event.stopPropagation()}>
             <div>
               <strong>{fullscreenTitle}</strong>
-              <span>오른쪽 아래 버튼으로 가로/세로 모드를 바꿀 수 있어요.</span>
+              <span>가로모드는 이미지를 눕히지 않고 화면 폭에 맞춰 더 크게 보여줍니다.</span>
             </div>
             <button type="button" className="sceneFullscreenCloseButton" onClick={closeFullscreen}>
               닫기
