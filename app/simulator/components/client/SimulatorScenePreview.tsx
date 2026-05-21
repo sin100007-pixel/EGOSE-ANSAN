@@ -43,6 +43,12 @@ function getNativeFullscreenElement() {
   return document.fullscreenElement || fullscreenDocument.webkitFullscreenElement || null;
 }
 
+function isKakaoInAppBrowser() {
+  if (typeof navigator === "undefined") return false;
+
+  return /KAKAOTALK/i.test(navigator.userAgent);
+}
+
 async function requestNativeFullscreen() {
   if (typeof document === "undefined") return false;
 
@@ -185,13 +191,25 @@ export default function SimulatorScenePreview({
     return Number.isFinite(singleValue) && singleValue > 0 ? singleValue : 4 / 3;
   }, [previewAspectRatio]);
 
-  const enterNativeFullscreen = useCallback(async (targetMode: FullscreenViewMode) => {
+  const enterNativeFullscreen = useCallback(async (
+    targetMode: FullscreenViewMode,
+    options: { lockOrientation?: boolean } = {}
+  ) => {
+    // 카카오 인앱브라우저는 native fullscreen / orientation lock 동작이 기기별로 불안정해서
+    // CSS 전체화면만 사용한다. 이렇게 해야 처음 크게 보기에서 불필요하게 90도 돌지 않는다.
+    if (isKakaoInAppBrowser()) {
+      nativeFullscreenRequestedRef.current = false;
+      return false;
+    }
+
     const didEnterFullscreen = await requestNativeFullscreen();
     nativeFullscreenRequestedRef.current = didEnterFullscreen;
 
-    if (didEnterFullscreen) {
+    if (didEnterFullscreen && options.lockOrientation) {
       await lockScreenOrientation(targetMode);
     }
+
+    return didEnterFullscreen;
   }, []);
 
   const leaveNativeFullscreen = useCallback(() => {
@@ -348,11 +366,13 @@ export default function SimulatorScenePreview({
     setFullscreenViewMode(nextMode);
 
     if (nextMode === "landscape") {
-      void enterNativeFullscreen("landscape");
+      void enterNativeFullscreen("landscape", { lockOrientation: true });
       return;
     }
 
-    void lockScreenOrientation("portrait");
+    if (!isKakaoInAppBrowser()) {
+      void lockScreenOrientation("portrait");
+    }
   }, [enterNativeFullscreen, fullscreenViewMode]);
 
   const renderSceneStage = (fullscreen: boolean) => {
@@ -461,7 +481,9 @@ export default function SimulatorScenePreview({
               event.preventDefault();
               event.stopPropagation();
               setFullscreenViewMode("portrait");
-              void enterNativeFullscreen("portrait");
+              // 처음 크게 보기는 세로 전체보기 상태로만 연다.
+              // 가로 회전은 사용자가 "가로모드로 보기"를 눌렀을 때만 적용한다.
+              void enterNativeFullscreen("portrait", { lockOrientation: false });
 
               const egoseWindow = getEgoseSceneFullscreenWindow();
               if (egoseWindow) {

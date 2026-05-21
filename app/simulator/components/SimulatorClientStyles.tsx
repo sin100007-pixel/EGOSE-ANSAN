@@ -1105,6 +1105,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           border-radius: 24px;
         }
 
+        .sceneFullscreenModalPortrait .sceneFullscreenViewportFrame {
+          transform: none !important;
+        }
+
         .sceneFullscreenModalLandscape {
           padding: 0;
           gap: 0;
