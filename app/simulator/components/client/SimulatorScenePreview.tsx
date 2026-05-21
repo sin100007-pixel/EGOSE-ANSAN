@@ -65,6 +65,7 @@ export default function SimulatorScenePreview({
   const fullscreenModalRef = useRef<HTMLDivElement | null>(null);
   const hadFullscreenSessionRef = useRef(false);
   const originalFullscreenViewModeRef = useRef<FullscreenViewMode>("portrait");
+  const fullscreenHistoryPushedRef = useRef(false);
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     if (!onZoneClick) return;
@@ -91,6 +92,14 @@ export default function SimulatorScenePreview({
 
 
   const closeFullscreen = useCallback(() => {
+    if (typeof window !== "undefined" && fullscreenHistoryPushedRef.current) {
+      try {
+        window.history.back();
+        return;
+      } catch {}
+    }
+
+    fullscreenHistoryPushedRef.current = false;
     setFullscreenOpen(false);
   }, []);
 
@@ -98,17 +107,8 @@ export default function SimulatorScenePreview({
     if (typeof window === "undefined") return;
 
     try {
-      const modal = fullscreenModalRef.current;
-      if (modal && modal.requestFullscreen && document.fullscreenElement !== modal) {
-        await modal.requestFullscreen();
-      }
-    } catch {}
-
-    try {
       const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
-      if (orientationController?.lock) {
-        await orientationController.lock(mode);
-      }
+      await orientationController?.lock?.(mode);
     } catch {}
   }, []);
 
@@ -117,19 +117,9 @@ export default function SimulatorScenePreview({
 
     try {
       const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
-      if (restoreMode && document.fullscreenElement && orientationController?.lock) {
-        await orientationController.lock(restoreMode);
+      if (restoreMode) {
+        await orientationController?.lock?.(restoreMode);
       }
-    } catch {}
-
-    try {
-      if (document.fullscreenElement && document.exitFullscreen) {
-        await document.exitFullscreen();
-      }
-    } catch {}
-
-    try {
-      const orientationController = window.screen?.orientation as BrowserOrientationController | undefined;
       orientationController?.unlock?.();
     } catch {}
   }, []);
@@ -153,6 +143,23 @@ export default function SimulatorScenePreview({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [closeFullscreen, fullscreenOpen]);
+
+  useEffect(() => {
+    if (!fullscreenOpen) return;
+
+    const handleFullscreenPopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      fullscreenHistoryPushedRef.current = false;
+      setFullscreenOpen(false);
+    };
+
+    window.addEventListener("popstate", handleFullscreenPopState, true);
+
+    return () => {
+      window.removeEventListener("popstate", handleFullscreenPopState, true);
+    };
+  }, [fullscreenOpen]);
 
 
   useEffect(() => {
@@ -271,6 +278,23 @@ export default function SimulatorScenePreview({
               const currentViewportMode = getViewportOrientationMode();
               originalFullscreenViewModeRef.current = currentViewportMode;
               setFullscreenViewMode(currentViewportMode);
+
+              try {
+                const currentState = window.history.state;
+                const safeState = currentState && typeof currentState === "object" ? currentState : {};
+                window.history.pushState(
+                  {
+                    ...safeState,
+                    __egoseSceneFullscreen: true,
+                  },
+                  "",
+                  window.location.href
+                );
+                fullscreenHistoryPushedRef.current = true;
+              } catch {
+                fullscreenHistoryPushedRef.current = false;
+              }
+
               setFullscreenOpen(true);
             }}
           >
