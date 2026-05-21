@@ -85,6 +85,7 @@ export default function SimulatorAdminFilmPickerSheet({
     selectedPaletteColors.length > 0 ||
     filmQuery.trim(),
   );
+  const isShowingRecommendedFilms = !hasActiveFilter;
 
   useEffect(() => {
     const selectedChips = selectedChipsRef.current;
@@ -302,6 +303,10 @@ export default function SimulatorAdminFilmPickerSheet({
         ) : null}
 
         <div className="adminFilmSheetGrid" aria-busy={filmLoading}>
+          {isShowingRecommendedFilms ? (
+            <div className="adminFilmSheetRecommendedTitle">⭐ 추천 컬러 ⭐</div>
+          ) : null}
+
           {filmLoading ? (
             Array.from({ length: 8 }).map((_, index) => (
               <div
@@ -717,6 +722,21 @@ export default function SimulatorAdminFilmPickerSheet({
           -webkit-overflow-scrolling: touch;
           scrollbar-width: thin;
           scrollbar-color: rgba(238, 224, 197, 0.55) rgba(255, 255, 255, 0.06);
+        }
+
+        .adminFilmSheetRecommendedTitle {
+          grid-column: 1 / -1;
+          width: fit-content;
+          max-width: 100%;
+          border-radius: 999px;
+          border: 1px solid rgba(238, 224, 197, 0.38);
+          background: rgba(238, 224, 197, 0.13);
+          color: #eee0c5;
+          padding: 8px 13px;
+          font-size: 14px;
+          font-weight: 1000;
+          letter-spacing: -0.01em;
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
         }
 
         .adminFilmSheetGrid::-webkit-scrollbar {

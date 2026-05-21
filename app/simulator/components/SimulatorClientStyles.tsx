@@ -2130,6 +2130,21 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           padding: 2px 2px 8px;
         }
 
+        .sheetRecommendedTitle {
+          grid-column: 1 / -1;
+          width: fit-content;
+          max-width: 100%;
+          border-radius: 999px;
+          border: 1px solid rgba(238, 224, 197, 0.38);
+          background: rgba(238, 224, 197, 0.13);
+          color: #eee0c5;
+          padding: 8px 13px;
+          font-size: 14px;
+          font-weight: 1000;
+          letter-spacing: -0.01em;
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+        }
+
         .sheetFilmItem {
           position: relative;
           display: flex;

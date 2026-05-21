@@ -59,6 +59,12 @@ export default function SimulatorFilmSheet({
   onToggleSamplePreview,
   onCloseSamplePreview,
 }: SimulatorFilmSheetProps) {
+  const isShowingRecommendedFilms =
+    !filmQuery.trim() &&
+    !selectedPaletteMain &&
+    !selectedPaletteSub &&
+    selectedPaletteColors.length === 0;
+
   return (
     <div className="sheetOverlay" role="presentation" onClick={onClose}>
       <section
@@ -202,6 +208,10 @@ export default function SimulatorFilmSheet({
         ) : null}
 
         <div className="sheetFilmGrid" aria-busy={filmLoading}>
+          {isShowingRecommendedFilms ? (
+            <div className="sheetRecommendedTitle">⭐ 추천 컬러 ⭐</div>
+          ) : null}
+
           {filmLoading ? (
             Array.from({ length: 8 }).map((_, index) => (
               <div key={`sheet-film-skeleton-${index}`} className="sheetFilmSkeletonItem" aria-hidden="true">
