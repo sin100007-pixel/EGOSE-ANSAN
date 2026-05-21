@@ -1182,9 +1182,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
           width: var(--scene-landscape-fit-width, 100%);
-          height: var(--scene-landscape-fit-height, auto);
+          height: auto !important;
           max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 4px));
           max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 4px));
+          min-height: 0 !important;
           border-radius: 18px;
         }
 
@@ -2038,9 +2039,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewport {
             width: var(--scene-landscape-fit-width, 100%);
-            height: var(--scene-landscape-fit-height, auto);
+            height: auto !important;
             max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
             max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
+            min-height: 0 !important;
           }
 
           .sceneFullscreenViewport {
