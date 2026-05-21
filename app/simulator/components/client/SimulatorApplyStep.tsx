@@ -177,6 +177,8 @@ export default function SimulatorApplyStep({
         colors={colors}
         activeZoneKey={activeZoneKey}
         onZoneClick={onOpenFilmSheet}
+        enableFullscreen
+        fullscreenTitle={`${selectedSpace?.name || "공간"} 적용 이미지`}
       />
 
       <div className="zoneApplyGrid" data-sim-admin-guide="customer-apply-zone-buttons">

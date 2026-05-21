@@ -974,6 +974,103 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           z-index: 10;
         }
 
+        .sceneExpandButton {
+          position: absolute;
+          right: 12px;
+          bottom: 12px;
+          z-index: 40;
+          border: 1px solid rgba(238, 224, 197, 0.55);
+          border-radius: 999px;
+          padding: 9px 12px;
+          background: rgba(5, 2, 59, 0.82);
+          color: ${COLORS.cream};
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+          backdrop-filter: blur(8px);
+          font-size: 13px;
+          font-weight: 1000;
+          line-height: 1;
+          cursor: pointer;
+        }
+
+        .sceneFullscreenModal {
+          position: fixed;
+          inset: 0;
+          z-index: 30000;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: calc(env(safe-area-inset-top, 0px) + 14px) 14px calc(env(safe-area-inset-bottom, 0px) + 14px);
+          background:
+            radial-gradient(circle at 50% 0%, rgba(49, 41, 130, 0.38), transparent 42%),
+            rgba(5, 2, 35, 0.96);
+          backdrop-filter: blur(10px);
+        }
+
+        .sceneFullscreenTop {
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          color: ${COLORS.white};
+        }
+
+        .sceneFullscreenTop strong {
+          display: block;
+          color: ${COLORS.cream};
+          font-size: 17px;
+          font-weight: 1000;
+          line-height: 1.25;
+        }
+
+        .sceneFullscreenTop span {
+          display: block;
+          margin-top: 4px;
+          color: ${COLORS.soft};
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.35;
+          word-break: keep-all;
+        }
+
+        .sceneFullscreenCloseButton {
+          flex: 0 0 auto;
+          border: 1px solid rgba(238, 224, 197, 0.5);
+          border-radius: 999px;
+          padding: 10px 14px;
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          font-size: 13px;
+          font-weight: 1000;
+          cursor: pointer;
+        }
+
+        .sceneFullscreenCanvas {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .sceneFullscreenViewport {
+          width: min(96vw, calc((100vh - 116px) * var(--scene-aspect-value, 1.333)));
+          width: min(96vw, calc((100dvh - 116px) * var(--scene-aspect-value, 1.333)));
+          max-width: 96vw;
+          max-height: calc(100vh - 116px);
+          max-height: calc(100dvh - 116px);
+          min-height: 0;
+          border-radius: 24px;
+          border-color: rgba(238, 224, 197, 0.42);
+          background: rgba(0, 0, 0, 0.28);
+          box-shadow: 0 26px 70px rgba(0, 0, 0, 0.54);
+        }
+
+        .sceneFullscreenViewport .sceneStage {
+          border-radius: 24px;
+        }
+
         .emptyPreviewWrap {
           position: absolute;
           inset: 0;
@@ -1774,6 +1871,39 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
         .customerGuideNoticeText {
           text-align: center;
+        }
+
+        @media (orientation: landscape) and (max-height: 520px) {
+          .sceneFullscreenModal {
+            gap: 8px;
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px calc(env(safe-area-inset-bottom, 0px) + 8px);
+          }
+
+          .sceneFullscreenTop strong {
+            font-size: 15px;
+          }
+
+          .sceneFullscreenTop span {
+            display: none;
+          }
+
+          .sceneFullscreenCloseButton {
+            padding: 8px 12px;
+            font-size: 12px;
+          }
+
+          .sceneFullscreenViewport {
+            width: min(calc(100vw - 20px), calc((100vh - 64px) * var(--scene-aspect-value, 1.333)));
+            width: min(calc(100vw - 20px), calc((100dvh - 64px) * var(--scene-aspect-value, 1.333)));
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 64px);
+            max-height: calc(100dvh - 64px);
+            border-radius: 18px;
+          }
+
+          .sceneFullscreenViewport .sceneStage {
+            border-radius: 18px;
+          }
         }
 
         @media (max-width: 520px) {
