@@ -17,9 +17,90 @@ type EgoseSceneFullscreenWindow = Window &
     __egoseSceneFullscreenBackConsumed?: boolean;
   };
 
+type EgoseFullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+type EgoseFullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+type EgoseScreenOrientation = {
+  lock?: (orientation: string) => Promise<void>;
+  unlock?: () => void;
+};
+
 function getEgoseSceneFullscreenWindow() {
   if (typeof window === "undefined") return null;
   return window as EgoseSceneFullscreenWindow;
+}
+
+function getNativeFullscreenElement() {
+  if (typeof document === "undefined") return null;
+
+  const fullscreenDocument = document as EgoseFullscreenDocument;
+  return document.fullscreenElement || fullscreenDocument.webkitFullscreenElement || null;
+}
+
+async function requestNativeFullscreen() {
+  if (typeof document === "undefined") return false;
+
+  if (getNativeFullscreenElement()) return true;
+
+  const fullscreenElement = document.documentElement as EgoseFullscreenElement;
+  const requestFullscreen = fullscreenElement.requestFullscreen || fullscreenElement.webkitRequestFullscreen;
+
+  if (!requestFullscreen) return false;
+
+  try {
+    await requestFullscreen.call(fullscreenElement);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function exitNativeFullscreen() {
+  if (typeof document === "undefined") return false;
+
+  if (!getNativeFullscreenElement()) return false;
+
+  const fullscreenDocument = document as EgoseFullscreenDocument;
+  const exitFullscreen = document.exitFullscreen || fullscreenDocument.webkitExitFullscreen;
+
+  if (!exitFullscreen) return false;
+
+  try {
+    await exitFullscreen.call(document);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function unlockScreenOrientation() {
+  if (typeof window === "undefined") return;
+
+  const orientation = window.screen?.orientation as EgoseScreenOrientation | undefined;
+
+  try {
+    orientation?.unlock?.();
+  } catch {}
+}
+
+async function lockScreenOrientation(mode: FullscreenViewMode) {
+  if (typeof window === "undefined") return false;
+
+  const orientation = window.screen?.orientation as EgoseScreenOrientation | undefined;
+  if (!orientation?.lock) return false;
+
+  try {
+    await orientation.lock(mode === "landscape" ? "landscape" : "portrait");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function markSceneFullscreenBackConsumed() {
@@ -78,6 +159,8 @@ export default function SimulatorScenePreview({
     height: 0,
   });
   const fullscreenHistoryPushedRef = useRef(false);
+  const nativeFullscreenRequestedRef = useRef(false);
+  const nativeFullscreenClosingRef = useRef(false);
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     if (!onZoneClick) return;
@@ -102,7 +185,35 @@ export default function SimulatorScenePreview({
     return Number.isFinite(singleValue) && singleValue > 0 ? singleValue : 4 / 3;
   }, [previewAspectRatio]);
 
+  const enterNativeFullscreen = useCallback(async (targetMode: FullscreenViewMode) => {
+    const didEnterFullscreen = await requestNativeFullscreen();
+    nativeFullscreenRequestedRef.current = didEnterFullscreen;
+
+    if (didEnterFullscreen) {
+      await lockScreenOrientation(targetMode);
+    }
+  }, []);
+
+  const leaveNativeFullscreen = useCallback(() => {
+    nativeFullscreenClosingRef.current = true;
+    nativeFullscreenRequestedRef.current = false;
+    unlockScreenOrientation();
+
+    void exitNativeFullscreen().finally(() => {
+      if (typeof window === "undefined") {
+        nativeFullscreenClosingRef.current = false;
+        return;
+      }
+
+      window.setTimeout(() => {
+        nativeFullscreenClosingRef.current = false;
+      }, 220);
+    });
+  }, []);
+
   const closeFullscreen = useCallback(() => {
+    leaveNativeFullscreen();
+
     if (typeof window !== "undefined" && fullscreenHistoryPushedRef.current) {
       try {
         window.history.back();
@@ -116,7 +227,7 @@ export default function SimulatorScenePreview({
       egoseWindow.__egoseSceneFullscreenOpen = false;
     }
     setFullscreenOpen(false);
-  }, []);
+  }, [leaveNativeFullscreen]);
 
 
   useEffect(() => {
@@ -160,6 +271,7 @@ export default function SimulatorScenePreview({
       event.stopImmediatePropagation();
       fullscreenHistoryPushedRef.current = false;
       markSceneFullscreenBackConsumed();
+      leaveNativeFullscreen();
       setFullscreenOpen(false);
     };
 
@@ -167,6 +279,38 @@ export default function SimulatorScenePreview({
 
     return () => {
       window.removeEventListener("popstate", handleFullscreenPopState, true);
+    };
+  }, [fullscreenOpen, leaveNativeFullscreen]);
+
+  useEffect(() => {
+    if (!fullscreenOpen) return;
+
+    const handleNativeFullscreenChange = () => {
+      if (nativeFullscreenClosingRef.current) return;
+      if (!nativeFullscreenRequestedRef.current) return;
+      if (getNativeFullscreenElement()) return;
+
+      nativeFullscreenRequestedRef.current = false;
+      unlockScreenOrientation();
+
+      if (fullscreenHistoryPushedRef.current) {
+        try {
+          window.history.back();
+          return;
+        } catch {}
+      }
+
+      fullscreenHistoryPushedRef.current = false;
+      markSceneFullscreenBackConsumed();
+      setFullscreenOpen(false);
+    };
+
+    document.addEventListener("fullscreenchange", handleNativeFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleNativeFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleNativeFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleNativeFullscreenChange);
     };
   }, [fullscreenOpen]);
 
@@ -200,8 +344,16 @@ export default function SimulatorScenePreview({
   }, [fullscreenOpen]);
 
   const toggleFullscreenViewMode = useCallback(() => {
-    setFullscreenViewMode((prev) => (prev === "portrait" ? "landscape" : "portrait"));
-  }, []);
+    const nextMode = fullscreenViewMode === "portrait" ? "landscape" : "portrait";
+    setFullscreenViewMode(nextMode);
+
+    if (nextMode === "landscape") {
+      void enterNativeFullscreen("landscape");
+      return;
+    }
+
+    void lockScreenOrientation("portrait");
+  }, [enterNativeFullscreen, fullscreenViewMode]);
 
   const renderSceneStage = (fullscreen: boolean) => {
     const clickable = !fullscreen && Boolean(onZoneClick);
@@ -309,6 +461,7 @@ export default function SimulatorScenePreview({
               event.preventDefault();
               event.stopPropagation();
               setFullscreenViewMode("portrait");
+              void enterNativeFullscreen("portrait");
 
               const egoseWindow = getEgoseSceneFullscreenWindow();
               if (egoseWindow) {
