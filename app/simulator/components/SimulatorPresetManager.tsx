@@ -265,7 +265,14 @@ export default function SimulatorPresetManager() {
     const requestPaletteColors = isKeywordSearch ? [] : paletteColors;
     const updateFacets = options.updateFacets === true;
     const silent = options.silent === true;
-    const useRecommended = options.recommended === true;
+    const isInitialSheetRequest =
+      q.length === 0 &&
+      !requestPaletteMain &&
+      !requestPaletteSub &&
+      requestPaletteColors.length === 0;
+    // 필터를 모두 해제한 상태는 추천 컬러 목록이어야 합니다.
+    // recommended 파라미터가 없으면 /api/simulator/films가 전체 필름을 넓게 반환합니다.
+    const useRecommended = options.recommended === true || isInitialSheetRequest;
 
     if (!silent) {
       setFilmLoading(true);

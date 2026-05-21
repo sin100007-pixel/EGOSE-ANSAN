@@ -348,7 +348,6 @@ export function useSimulatorFilmSearch({
       overrides.paletteColors !== undefined ? overrides.paletteColors : selectedPaletteColorsRef.current
     ).slice(0, 1);
     const includeFacets = overrides.includeFacets !== false;
-    const useRecommended = overrides.recommended === true;
     const isKeywordSearch = q.length > 0;
     const requestPaletteMain = isKeywordSearch ? "" : nextPaletteMain;
     const requestPaletteSub = isKeywordSearch ? "" : nextPaletteSub;
@@ -358,6 +357,10 @@ export function useSimulatorFilmSearch({
       !requestPaletteMain &&
       !requestPaletteSub &&
       requestPaletteColors.length === 0;
+    // 검색어/1차/2차/색상 조건이 모두 풀린 상태는 항상 기본 추천 컬러 목록으로 복구합니다.
+    // 이 값을 빼먹으면 API가 전체 시뮬레이션 필름을 최대 200개까지 내려줘서,
+    // 사용자가 필터를 해제했을 때 추천 컬러가 아닌 필름이 섞여 보입니다.
+    const useRecommended = overrides.recommended === true || isInitialSheetRequest;
     const requestSeq = filmSearchSeqRef.current + 1;
 
     filmSearchSeqRef.current = requestSeq;
