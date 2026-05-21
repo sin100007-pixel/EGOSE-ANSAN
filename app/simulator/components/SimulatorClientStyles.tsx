@@ -1068,28 +1068,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           transition: transform 180ms ease, width 180ms ease, height 180ms ease;
         }
 
-        .sceneFullscreenFallbackToast {
-          position: absolute;
-          left: 50%;
-          bottom: max(50px, calc(env(safe-area-inset-bottom, 0px) + 50px));
-          z-index: 52;
-          max-width: min(92vw, 420px);
-          transform: translateX(-50%);
-          border: 1px solid rgba(238, 224, 197, 0.48);
-          border-radius: 999px;
-          padding: 9px 13px;
-          background: rgba(5, 2, 59, 0.86);
-          color: ${COLORS.cream};
-          box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
-          backdrop-filter: blur(8px);
-          font-size: 12px;
-          font-weight: 900;
-          line-height: 1.35;
-          text-align: center;
-          word-break: keep-all;
-          pointer-events: none;
-        }
-
         .sceneFullscreenSwitchButton {
           position: absolute;
           right: max(4px, env(safe-area-inset-right, 0px));
@@ -2021,13 +1999,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
 
           .sceneFullscreenCanvas {
             padding-bottom: 48px;
-          }
-
-          .sceneFullscreenFallbackToast {
-            bottom: max(44px, calc(env(safe-area-inset-bottom, 0px) + 44px));
-            max-width: min(72vw, 440px);
-            padding: 8px 12px;
-            font-size: 11px;
           }
 
           .sceneFullscreenSwitchButton {
