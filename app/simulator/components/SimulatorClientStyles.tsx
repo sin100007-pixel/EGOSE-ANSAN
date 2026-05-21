@@ -1088,11 +1088,12 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenViewport {
-          width: min(96vw, calc((100vh - 116px) * var(--scene-aspect-value, 1.333)));
-          width: min(96vw, calc((100dvh - 116px) * var(--scene-aspect-value, 1.333)));
-          max-width: 96vw;
-          max-height: calc(100vh - 116px);
-          max-height: calc(100dvh - 116px);
+          width: min(
+            calc(var(--scene-fullscreen-vw, 100vw) - 28px),
+            calc((var(--scene-fullscreen-vh, 100vh) - 116px) * var(--scene-aspect-value, 1.333))
+          );
+          max-width: calc(var(--scene-fullscreen-vw, 100vw) - 28px);
+          max-height: calc(var(--scene-fullscreen-vh, 100vh) - 116px);
           min-height: 0;
           border-radius: 24px;
           border-color: rgba(238, 224, 197, 0.42);
@@ -1148,19 +1149,20 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-          width: calc(100vh - 24px);
-          width: calc(100dvh - 24px);
-          height: calc(100vw - 24px);
-          max-width: calc(100vh - 24px);
-          max-width: calc(100dvh - 24px);
-          max-height: calc(100vw - 24px);
+          width: calc(var(--scene-fullscreen-vh, 100vh) - 8px);
+          height: calc(var(--scene-fullscreen-vw, 100vw) - 8px);
+          max-width: calc(var(--scene-fullscreen-vh, 100vh) - 8px);
+          max-height: calc(var(--scene-fullscreen-vw, 100vw) - 8px);
           transform: rotate(90deg) !important;
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
-          width: min(100%, calc((100vw - 24px) * var(--scene-aspect-value, 1.333)));
+          width: min(
+            100%,
+            calc((var(--scene-fullscreen-vw, 100vw) - 8px) * var(--scene-aspect-value, 1.333))
+          );
           max-width: 100%;
-          max-height: calc(100vw - 24px);
+          max-height: calc(var(--scene-fullscreen-vw, 100vw) - 8px);
           border-radius: 18px;
         }
 
@@ -2005,28 +2007,29 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-            width: calc(100vw - 20px);
-            height: calc(100vh - 64px);
-            height: calc(100dvh - 64px);
-            max-width: calc(100vw - 20px);
-            max-height: calc(100vh - 64px);
-            max-height: calc(100dvh - 64px);
+            width: calc(var(--scene-fullscreen-vw, 100vw) - 20px);
+            height: calc(var(--scene-fullscreen-vh, 100vh) - 64px);
+            max-width: calc(var(--scene-fullscreen-vw, 100vw) - 20px);
+            max-height: calc(var(--scene-fullscreen-vh, 100vh) - 64px);
             transform: none !important;
           }
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewport {
-            width: min(100%, calc((100vh - 64px) * var(--scene-aspect-value, 1.333)));
-            width: min(100%, calc((100dvh - 64px) * var(--scene-aspect-value, 1.333)));
+            width: min(
+              100%,
+              calc((var(--scene-fullscreen-vh, 100vh) - 64px) * var(--scene-aspect-value, 1.333))
+            );
             max-width: 100%;
             max-height: 100%;
           }
 
           .sceneFullscreenViewport {
-            width: min(calc(100vw - 20px), calc((100vh - 64px) * var(--scene-aspect-value, 1.333)));
-            width: min(calc(100vw - 20px), calc((100dvh - 64px) * var(--scene-aspect-value, 1.333)));
-            max-width: calc(100vw - 20px);
-            max-height: calc(100vh - 64px);
-            max-height: calc(100dvh - 64px);
+            width: min(
+              calc(var(--scene-fullscreen-vw, 100vw) - 20px),
+              calc((var(--scene-fullscreen-vh, 100vh) - 64px) * var(--scene-aspect-value, 1.333))
+            );
+            max-width: calc(var(--scene-fullscreen-vw, 100vw) - 20px);
+            max-height: calc(var(--scene-fullscreen-vh, 100vh) - 64px);
             border-radius: 18px;
           }
 

@@ -6,6 +6,11 @@ import { useMaskZonePicker } from "../../hooks/useMaskZonePicker";
 
 type FullscreenViewMode = "portrait" | "landscape";
 
+type FullscreenViewportSize = {
+  width: number;
+  height: number;
+};
+
 type EgoseSceneFullscreenWindow = Window &
   typeof globalThis & {
     __egoseSceneFullscreenOpen?: boolean;
@@ -68,6 +73,10 @@ export default function SimulatorScenePreview({
   const { findZoneKeyAtPointer } = useMaskZonePicker(maskZones);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [fullscreenViewMode, setFullscreenViewMode] = useState<FullscreenViewMode>("portrait");
+  const [fullscreenViewportSize, setFullscreenViewportSize] = useState<FullscreenViewportSize>({
+    width: 0,
+    height: 0,
+  });
   const fullscreenHistoryPushedRef = useRef(false);
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
@@ -161,6 +170,34 @@ export default function SimulatorScenePreview({
     };
   }, [fullscreenOpen]);
 
+  useEffect(() => {
+    if (!fullscreenOpen) return;
+
+    const updateFullscreenViewportSize = () => {
+      const visualViewport = window.visualViewport;
+      const width = Math.round(visualViewport?.width || window.innerWidth || 0);
+      const height = Math.round(visualViewport?.height || window.innerHeight || 0);
+
+      setFullscreenViewportSize((prev) => {
+        if (prev.width === width && prev.height === height) return prev;
+        return { width, height };
+      });
+    };
+
+    updateFullscreenViewportSize();
+
+    window.addEventListener("resize", updateFullscreenViewportSize);
+    window.addEventListener("orientationchange", updateFullscreenViewportSize);
+    window.visualViewport?.addEventListener("resize", updateFullscreenViewportSize);
+    window.visualViewport?.addEventListener("scroll", updateFullscreenViewportSize);
+
+    return () => {
+      window.removeEventListener("resize", updateFullscreenViewportSize);
+      window.removeEventListener("orientationchange", updateFullscreenViewportSize);
+      window.visualViewport?.removeEventListener("resize", updateFullscreenViewportSize);
+      window.visualViewport?.removeEventListener("scroll", updateFullscreenViewportSize);
+    };
+  }, [fullscreenOpen]);
 
   const toggleFullscreenViewMode = useCallback(() => {
     setFullscreenViewMode((prev) => (prev === "portrait" ? "landscape" : "portrait"));
@@ -220,9 +257,18 @@ export default function SimulatorScenePreview({
     );
   };
 
+  const fullscreenModalStyle = {
+    "--scene-aspect-value": String(aspectRatioValue),
+    "--scene-fullscreen-vw": fullscreenViewportSize.width
+      ? `${fullscreenViewportSize.width}px`
+      : "100vw",
+    "--scene-fullscreen-vh": fullscreenViewportSize.height
+      ? `${fullscreenViewportSize.height}px`
+      : "100vh",
+  } as CSSProperties;
+
   const fullscreenViewportStyle = {
     aspectRatio: previewAspectRatio,
-    "--scene-aspect-value": String(aspectRatioValue),
   } as CSSProperties;
 
   const canOpenFullscreen = enableFullscreen && previewHasRealSpace;
@@ -297,6 +343,7 @@ export default function SimulatorScenePreview({
       {canOpenFullscreen && fullscreenOpen ? (
         <div
           className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"}`}
+          style={fullscreenModalStyle}
           role="dialog"
           aria-modal="true"
           aria-label={fullscreenTitle}
