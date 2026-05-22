@@ -283,7 +283,7 @@ export function getSpaceThumbnail(space: SimulatorSpace) {
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
 const KAKAO_CACHE_BUST_VALUE = "20260522_direct1";
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
-export const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v6";
+export const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v7";
 
 export function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
@@ -298,12 +298,41 @@ export function isKakaoInAppBrowser() {
 
 let problemBrowserResetPromise: Promise<void> | null = null;
 
+function readKakaoCacheResetDone() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.sessionStorage.getItem(KAKAO_SW_RESET_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markKakaoCacheResetStarted() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
+  } catch {
+    // 일부 인앱브라우저에서 sessionStorage 접근이 막히면 캐시 정리만 시도합니다.
+  }
+}
+
 export function clearProblemBrowserCachesOnce() {
   if (!isKakaoInAppBrowser() || typeof window === "undefined") {
     return Promise.resolve();
   }
 
   if (problemBrowserResetPromise) return problemBrowserResetPromise;
+
+  // 예전에는 bootstrap/search 때마다 service worker/cache 정리를 다시 시도했습니다.
+  // 현재는 middleware 공개 경로 문제가 해결됐으므로, 같은 탭에서는 버전별 1회만 실행해
+  // 카카오톡 인앱 첫 진입의 불필요한 작업을 줄입니다.
+  if (readKakaoCacheResetDone()) {
+    return Promise.resolve();
+  }
+
+  markKakaoCacheResetStarted();
 
   problemBrowserResetPromise = Promise.all([
     "serviceWorker" in navigator

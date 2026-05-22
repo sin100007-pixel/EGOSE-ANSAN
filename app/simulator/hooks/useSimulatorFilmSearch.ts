@@ -11,7 +11,6 @@ import {
 } from "../lib/client-state";
 import {
   PALETTE_COLOR_OPTIONS,
-  KAKAO_SW_RESET_KEY,
   orderPaletteColors,
   mergeFilmsById,
   filterFilmsLocally,
@@ -185,29 +184,9 @@ export function useSimulatorFilmSearch({
   useEffect(() => {
     if (!isKakaoInAppBrowser()) return;
 
-    try {
-      const resetDone = window.sessionStorage.getItem(KAKAO_SW_RESET_KEY);
-      if (resetDone === "1") return;
-
-      window.sessionStorage.setItem(KAKAO_SW_RESET_KEY, "1");
-
-      void clearProblemBrowserCachesOnce();
-
-      void Promise.all([
-        "serviceWorker" in navigator
-          ? navigator.serviceWorker
-              .getRegistrations()
-              .then((registrations) =>
-                Promise.all(registrations.map((registration) => registration.unregister()))
-              )
-          : Promise.resolve(),
-        "caches" in window
-          ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-          : Promise.resolve(),
-      ]);
-    } catch {
-      // 카카오톡 인앱브라우저에서 CacheStorage 접근이 막히는 경우는 무시합니다.
-    }
+    // 카카오톡/일부 인앱브라우저 캐시 정리는 client-utils에서 버전별 1회만 처리합니다.
+    // 첫 화면 bootstrap과 중복으로 service worker/cache 삭제를 돌리지 않아 초기 진입 부담을 줄입니다.
+    void clearProblemBrowserCachesOnce();
   }, []);
 
   useEffect(() => {

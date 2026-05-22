@@ -251,10 +251,12 @@ function makeWebpSiblingCandidate(src: string | null | undefined) {
 async function resolveSpaceThumbnailUrl(space: SimulatorSpaceRow) {
   const candidates = [
     makeWebpSiblingCandidate(space.thumbnail_url),
-    space.thumbnail_url || "",
+    // DB의 thumbnail_url이 예전 overlay PNG를 가리키는 경우가 있어서,
+    // 원본 thumbnail_url보다 폴더 내 작은 thumbnail.webp를 먼저 찾습니다.
     makeFolderThumbnailCandidate(space.thumbnail_url),
     makeFolderThumbnailCandidate(space.overlay_image_url),
     makeFolderThumbnailCandidate(space.base_image_url),
+    space.thumbnail_url || "",
   ].filter(Boolean);
 
   const uniqueCandidates = Array.from(new Set(candidates));
@@ -309,17 +311,22 @@ async function inlineMaskConfigAssets(
 
 async function inlineSpaceAssets(
   space: SimulatorSpaceRow,
-  shouldInlineFullAssets: boolean
+  shouldInlineFullAssets: boolean,
+  shouldInlineThumbnails: boolean
 ): Promise<SimulatorSpaceRow> {
   const thumbnailUrl = await resolveSpaceThumbnailUrl(space);
 
   return {
     ...space,
-    // 1단계 공간 선택 카드에서는 이 가벼운 썸네일 1장만 사용합니다.
-    thumbnail_url: await toInlinePublicAsset(thumbnailUrl),
-    // 카카오톡 인앱브라우저 계열은 일반 이미지 경로/마스크 경로가 깨지는 경우가 있어
-    // 실제 적용 화면에 쓰는 원본/오버레이/마스크만 다시 data URL로 인라인합니다.
-    // 일반 브라우저는 기존처럼 경로만 유지해서 bootstrap payload를 줄입니다.
+    // fast bootstrap에서는 썸네일도 data URL로 싣지 않습니다.
+    // JSON payload를 작게 내려 첫 화면을 먼저 그리고, 이미지는 브라우저가 병렬로 받게 합니다.
+    // legacy 문제 브라우저 요청에서만 기존처럼 인라인할 수 있게 옵션을 남겨둡니다.
+    thumbnail_url: shouldInlineThumbnails
+      ? await toInlinePublicAsset(thumbnailUrl)
+      : normalizePublicSimulatorAssetPath(thumbnailUrl),
+    // 카카오톡 인앱브라우저 계열은 예전에는 일반 이미지 경로/마스크 경로가 깨지는 경우가 있어
+    // 실제 적용 화면에 쓰는 원본/오버레이/마스크를 data URL로 인라인했습니다.
+    // 지금은 middleware에서 고객 링크용 정적 이미지와 API를 공개하므로 fast 모드에서는 경로만 유지합니다.
     base_image_url: shouldInlineFullAssets
       ? await toInlinePublicAsset(space.base_image_url)
       : normalizePublicSimulatorAssetPath(space.base_image_url),
@@ -333,16 +340,17 @@ async function inlineSpaceAssets(
 async function maybeInlineSpaceAssets(
   req: NextRequest,
   spaces: SimulatorSpaceRow[],
-  options: { inlineFullAssets?: boolean } = {}
+  options: { inlineFullAssets?: boolean; inlineThumbnails?: boolean } = {}
 ): Promise<SimulatorSpaceRow[]> {
   // 예전에는 카카오톡 인앱브라우저에서 /simulator 정적 이미지가 미들웨어에 막혀
-  // 원본/오버레이/마스크를 bootstrap JSON 안에 data URL로 모두 실었습니다.
+  // 원본/오버레이/마스크/썸네일까지 bootstrap JSON 안에 data URL로 실었습니다.
   // 이제 middleware에서 고객 링크용 정적 이미지와 API를 공개하므로, fast bootstrap에서는
   // 앱 내부 실행과 동일하게 경로만 내려 payload를 가볍게 유지합니다.
   const shouldInlineFullAssets = Boolean(options.inlineFullAssets);
+  const shouldInlineThumbnails = Boolean(options.inlineThumbnails);
 
   return Promise.all(
-    spaces.map((space) => inlineSpaceAssets(space, shouldInlineFullAssets))
+    spaces.map((space) => inlineSpaceAssets(space, shouldInlineFullAssets, shouldInlineThumbnails))
   );
 }
 
@@ -676,6 +684,7 @@ export async function GET(req: NextRequest) {
         contractor: null,
         spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES, {
           inlineFullAssets: isProblemImageBrowser(req) && !isFastBootstrap,
+          inlineThumbnails: isProblemImageBrowser(req) && !isFastBootstrap,
         }),
         films: [],
       },
@@ -871,6 +880,7 @@ export async function GET(req: NextRequest) {
 
     const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces, {
       inlineFullAssets: shouldKeepLegacyFilmBootstrap,
+      inlineThumbnails: shouldKeepLegacyFilmBootstrap,
     });
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
@@ -984,6 +994,7 @@ export async function GET(req: NextRequest) {
         contractor: null,
         spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES, {
           inlineFullAssets: isProblemImageBrowser(req) && !isFastBootstrap,
+          inlineThumbnails: isProblemImageBrowser(req) && !isFastBootstrap,
         }),
         films: [],
       },
