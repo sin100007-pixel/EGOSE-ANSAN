@@ -1173,19 +1173,11 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-          width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
-          height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
-          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
-          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
-          transform: none !important;
-        }
-
-        .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame.sceneFullscreenViewportFrameFakeLandscape {
+          width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
+          height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
+          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
+          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
           transform: rotate(90deg) !important;
-        }
-
-        .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame.sceneFullscreenViewportFrameNativeLandscape {
-          transform: none !important;
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
@@ -2042,13 +2034,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
             max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
             max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
-          }
-
-          .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame.sceneFullscreenViewportFrameFakeLandscape {
-            transform: rotate(90deg) !important;
-          }
-
-          .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame.sceneFullscreenViewportFrameNativeLandscape {
             transform: none !important;
           }
 

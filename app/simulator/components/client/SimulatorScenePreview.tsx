@@ -407,12 +407,9 @@ export default function SimulatorScenePreview({
     if (!fullscreenOpen) return;
 
     const updateFullscreenViewportSize = () => {
-      const root = document.documentElement;
-      // fixed 전체화면 레이아웃은 visualViewport보다 실제 CSS viewport 기준이 안정적이다.
-      // 카카오 인앱/폴드 화면에서는 visualViewport 값이 주소창·툴바 상태에 따라 흔들려
-      // 가로모드가 돌았다/안 돌았다 하는 원인이 될 수 있다.
-      const width = Math.round(window.innerWidth || root.clientWidth || window.visualViewport?.width || 0);
-      const height = Math.round(window.innerHeight || root.clientHeight || window.visualViewport?.height || 0);
+      const visualViewport = window.visualViewport;
+      const width = Math.round(visualViewport?.width || window.innerWidth || 0);
+      const height = Math.round(visualViewport?.height || window.innerHeight || 0);
 
       setFullscreenViewportSize((prev) => {
         if (prev.width === width && prev.height === height) return prev;
@@ -616,41 +613,26 @@ export default function SimulatorScenePreview({
   const fullscreenLandscapeLayout = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
     const viewportHeight = fullscreenViewportSize.height || 0;
-    const availableWidth = Math.max(viewportWidth - 2, 0);
-    const availableHeight = Math.max(viewportHeight - 2, 0);
-    const isCssRotatedLandscape =
-      fullscreenViewMode === "landscape" &&
-      availableWidth > 0 &&
-      availableHeight > 0 &&
-      availableWidth < availableHeight;
+    const shorterSide = Math.max(Math.min(viewportWidth, viewportHeight) - 2, 0);
+    const longerSide = Math.max(Math.max(viewportWidth, viewportHeight) - 2, 0);
 
-    if (!availableWidth || !availableHeight || !aspectRatioValue) {
-      return {
-        frameWidth: 0,
-        frameHeight: 0,
-        fitWidth: 0,
-        fitHeight: 0,
-        isCssRotatedLandscape,
-      };
+    if (!shorterSide || !longerSide || !aspectRatioValue) {
+      return { frameWidth: 0, frameHeight: 0, fitWidth: 0, fitHeight: 0 };
     }
 
-    // 비율 유지가 최우선이다.
-    // 카카오 인앱처럼 실제 화면은 세로인데 가로모드를 눌렀을 때는
-    // 세로 화면을 90도 돌린 "가상 가로 화면"으로 보고 contain 계산을 한다.
-    // cover로 키우면 화면은 꽉 차지만 일부가 잘리거나 찌그러져 보이기 때문에 쓰지 않는다.
-    const virtualWidth = isCssRotatedLandscape ? availableHeight : availableWidth;
-    const virtualHeight = isCssRotatedLandscape ? availableWidth : availableHeight;
-    const fitWidth = Math.min(virtualWidth, virtualHeight * aspectRatioValue);
+    // 세로폰에서 가로모드를 CSS로 만들면 실제로는 긴 쪽(휴대폰 세로 길이)이
+    // 회전 후 가로 화면의 폭이 되고, 짧은 쪽(휴대폰 가로 길이)이 높이가 된다.
+    // 이 가상 가로 화면 안에서 원본 비율을 유지한 채 가장 크게 들어가도록 계산한다.
+    const fitWidth = Math.min(longerSide, shorterSide * aspectRatioValue);
     const fitHeight = fitWidth / aspectRatioValue;
 
     return {
-      frameWidth: fitWidth,
-      frameHeight: fitHeight,
+      frameWidth: longerSide,
+      frameHeight: shorterSide,
       fitWidth,
       fitHeight,
-      isCssRotatedLandscape,
     };
-  }, [aspectRatioValue, fullscreenViewMode, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+  }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
 
   const fullscreenModalStyle = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
@@ -683,8 +665,8 @@ export default function SimulatorScenePreview({
       ? {
           width: `${fullscreenLandscapeLayout.fitWidth}px`,
           height: `${fullscreenLandscapeLayout.fitHeight}px`,
-          maxWidth: `${fullscreenLandscapeLayout.fitWidth}px`,
-          maxHeight: `${fullscreenLandscapeLayout.fitHeight}px`,
+          maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
+          maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
         }
       : {}),
   } as CSSProperties;
@@ -795,10 +777,7 @@ export default function SimulatorScenePreview({
             onTouchEnd={handleFullscreenTouchEnd}
             onTouchCancel={handleFullscreenTouchEnd}
           >
-            <div
-              className={`sceneFullscreenViewportFrame ${fullscreenLandscapeLayout.isCssRotatedLandscape ? "sceneFullscreenViewportFrameFakeLandscape" : "sceneFullscreenViewportFrameNativeLandscape"}`.trim()}
-              style={fullscreenViewportFrameStyle}
-            >
+            <div className="sceneFullscreenViewportFrame" style={fullscreenViewportFrameStyle}>
               <div
                 className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
                 style={fullscreenZoomLayerStyle}
