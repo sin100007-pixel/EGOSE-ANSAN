@@ -222,7 +222,9 @@ export function useSimulatorFilmSearch({
         void clearProblemBrowserCachesOnce();
 
         const params = new URLSearchParams();
-        if (!isKakaoInAppBrowser()) params.set("fast", "1");
+        // 고객 공유 링크의 /simulator 이미지와 /api/simulator/films가 middleware에서 공개되었으므로
+        // 카카오톡 인앱브라우저도 앱 내부 실행처럼 가벼운 bootstrap을 사용합니다.
+        params.set("fast", "1");
         if (token) params.set("token", token);
         const res = await fetch(
           buildSimulatorApiUrl("/api/simulator/bootstrap", params),

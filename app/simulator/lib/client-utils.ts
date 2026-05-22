@@ -281,10 +281,9 @@ export function getSpaceThumbnail(space: SimulatorSpace) {
 }
 
 const KAKAO_CACHE_BUST_KEY = "__kakao_img";
-const KAKAO_CACHE_BUST_VALUE = "20260507_proxy5";
+const KAKAO_CACHE_BUST_VALUE = "20260522_direct1";
 const KAKAO_IMAGE_PROXY_PARAM = "__kakao_image_proxy";
-const KAKAO_IMAGE_PROXY_SRC_PARAM = "src";
-export const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v5";
+export const KAKAO_SW_RESET_KEY = "egose-simulator-kakao-sw-reset-v6";
 
 export function isKakaoInAppBrowser() {
   if (typeof navigator === "undefined") return false;
@@ -393,14 +392,16 @@ export function withKakaoCacheBuster(src: string | null | undefined) {
       ? new URL(normalized)
       : new URL(normalized, window.location.origin);
 
+    // middleware에서 /simulator 정적 이미지와 고객 링크 API가 공개되었으므로
+    // 카카오톡 인앱브라우저도 서버 프록시를 거치지 않고 앱 내부 실행처럼 직접 이미지를 읽습니다.
+    // 쿼리만 붙여 오래된 깨진 이미지 캐시를 우회합니다.
     imageUrl.searchParams.set(KAKAO_CACHE_BUST_KEY, KAKAO_CACHE_BUST_VALUE);
 
-    const proxyParams = new URLSearchParams();
-    proxyParams.set(KAKAO_IMAGE_PROXY_PARAM, "1");
-    proxyParams.set(KAKAO_IMAGE_PROXY_SRC_PARAM, imageUrl.toString());
-    proxyParams.set("v", KAKAO_CACHE_BUST_VALUE);
+    if (imageUrl.origin === window.location.origin) {
+      return `${imageUrl.pathname}${imageUrl.search}${imageUrl.hash}`;
+    }
 
-    return `/api/simulator/bootstrap?${proxyParams.toString()}`;
+    return imageUrl.toString();
   } catch {
     if (normalized.includes(`${KAKAO_CACHE_BUST_KEY}=`)) return normalized;
     return `${normalized}${normalized.includes("?") ? "&" : "?"}${KAKAO_CACHE_BUST_KEY}=${KAKAO_CACHE_BUST_VALUE}`;

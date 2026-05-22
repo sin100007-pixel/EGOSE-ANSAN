@@ -332,9 +332,14 @@ async function inlineSpaceAssets(
 
 async function maybeInlineSpaceAssets(
   req: NextRequest,
-  spaces: SimulatorSpaceRow[]
+  spaces: SimulatorSpaceRow[],
+  options: { inlineFullAssets?: boolean } = {}
 ): Promise<SimulatorSpaceRow[]> {
-  const shouldInlineFullAssets = isProblemImageBrowser(req);
+  // 예전에는 카카오톡 인앱브라우저에서 /simulator 정적 이미지가 미들웨어에 막혀
+  // 원본/오버레이/마스크를 bootstrap JSON 안에 data URL로 모두 실었습니다.
+  // 이제 middleware에서 고객 링크용 정적 이미지와 API를 공개하므로, fast bootstrap에서는
+  // 앱 내부 실행과 동일하게 경로만 내려 payload를 가볍게 유지합니다.
+  const shouldInlineFullAssets = Boolean(options.inlineFullAssets);
 
   return Promise.all(
     spaces.map((space) => inlineSpaceAssets(space, shouldInlineFullAssets))
@@ -658,8 +663,7 @@ export async function GET(req: NextRequest) {
     return proxyKakaoImage(req);
   }
 
-  const isFastBootstrap =
-    req.nextUrl.searchParams.get(FAST_BOOTSTRAP_PARAM) === "1" && !isProblemImageBrowser(req);
+  const isFastBootstrap = req.nextUrl.searchParams.get(FAST_BOOTSTRAP_PARAM) === "1";
 
   const supabase = getSupabase();
 
@@ -670,7 +674,9 @@ export async function GET(req: NextRequest) {
         message:
           "Supabase 환경변수 NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 없습니다.",
         contractor: null,
-        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES),
+        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES, {
+          inlineFullAssets: isProblemImageBrowser(req) && !isFastBootstrap,
+        }),
         films: [],
       },
       {
@@ -861,7 +867,11 @@ export async function GET(req: NextRequest) {
     );
     // 첫 진입에서는 공간 카드용 썸네일만 가볍게 준비합니다.
     // base/overlay/mask는 2단계 실제 시뮬레이션에서 필요할 때 이미지 경로로 불러옵니다.
-    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces);
+    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req) && !isFastBootstrap;
+
+    const responseSpaces = await maybeInlineSpaceAssets(req, resolvedSpaces, {
+      inlineFullAssets: shouldKeepLegacyFilmBootstrap,
+    });
 
     if (hasToken && filmScope !== "all" && allowedProductIds.length === 0) {
       return jsonNoStore(
@@ -881,11 +891,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const shouldKeepLegacyFilmBootstrap = isProblemImageBrowser(req) && !isFastBootstrap;
-
-    // 일반 Chrome/Edge에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
-    // 추천 필름과 검색용 3000개 말뭉치는 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
-    // 카카오/삼성/웨일/네이버 인앱브라우저는 기존 안정화 방식이 local search_films에 의존하므로 유지합니다.
+    // 일반 Chrome/Edge/카카오톡 인앱브라우저 fast 모드에서는 첫 화면에 필요한 공간/소개 정보만 먼저 내려줍니다.
+    // 추천 필름은 클라이언트가 첫 화면 렌더링 뒤 /films로 따로 prefetch합니다.
+    // fast가 없는 예전 요청만 문제 브라우저 안정화용 legacy payload를 유지합니다.
     if (!shouldKeepLegacyFilmBootstrap) {
       return jsonSimulatorCache(req, {
         setupNeeded: false,
@@ -974,7 +982,9 @@ export async function GET(req: NextRequest) {
           : message || "시뮬레이터 정보를 불러오지 못했습니다.",
         link: null,
         contractor: null,
-        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES),
+        spaces: await maybeInlineSpaceAssets(req, LOCAL_FALLBACK_SPACES, {
+          inlineFullAssets: isProblemImageBrowser(req) && !isFastBootstrap,
+        }),
         films: [],
       },
       {
