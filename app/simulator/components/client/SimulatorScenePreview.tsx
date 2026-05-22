@@ -406,10 +406,15 @@ export default function SimulatorScenePreview({
   useEffect(() => {
     if (!fullscreenOpen) return;
 
+    const kakaoInApp = isKakaoInAppBrowser();
+
     const updateFullscreenViewportSize = () => {
       const visualViewport = window.visualViewport;
-      const width = Math.round(visualViewport?.width || window.innerWidth || 0);
-      const height = Math.round(visualViewport?.height || window.innerHeight || 0);
+      // 카카오 인앱은 주소창이 나타나거나 사라질 때 visualViewport 값이 흔들리면서
+      // 가로모드 드래그 기준과 회전 박스 크기가 바뀐다.
+      // 그래서 카카오 인앱에서는 주소창 영향을 덜 받는 layout viewport 값을 기준으로 고정한다.
+      const width = Math.round(kakaoInApp ? window.innerWidth || 0 : visualViewport?.width || window.innerWidth || 0);
+      const height = Math.round(kakaoInApp ? window.innerHeight || 0 : visualViewport?.height || window.innerHeight || 0);
 
       setFullscreenViewportSize((prev) => {
         if (prev.width === width && prev.height === height) return prev;
@@ -421,14 +426,20 @@ export default function SimulatorScenePreview({
 
     window.addEventListener("resize", updateFullscreenViewportSize);
     window.addEventListener("orientationchange", updateFullscreenViewportSize);
-    window.visualViewport?.addEventListener("resize", updateFullscreenViewportSize);
-    window.visualViewport?.addEventListener("scroll", updateFullscreenViewportSize);
+
+    if (!kakaoInApp) {
+      window.visualViewport?.addEventListener("resize", updateFullscreenViewportSize);
+      window.visualViewport?.addEventListener("scroll", updateFullscreenViewportSize);
+    }
 
     return () => {
       window.removeEventListener("resize", updateFullscreenViewportSize);
       window.removeEventListener("orientationchange", updateFullscreenViewportSize);
-      window.visualViewport?.removeEventListener("resize", updateFullscreenViewportSize);
-      window.visualViewport?.removeEventListener("scroll", updateFullscreenViewportSize);
+
+      if (!kakaoInApp) {
+        window.visualViewport?.removeEventListener("resize", updateFullscreenViewportSize);
+        window.visualViewport?.removeEventListener("scroll", updateFullscreenViewportSize);
+      }
     };
   }, [fullscreenOpen]);
 
@@ -482,12 +493,14 @@ export default function SimulatorScenePreview({
   const mapFullscreenGestureDelta = useCallback((deltaX: number, deltaY: number) => {
     // CSS 가로모드는 프레임 자체가 rotate(90deg) 된 상태라서,
     // 손가락 이동량을 그대로 x/y에 넣으면 오른쪽 드래그가 아래 이동으로 보인다.
-    // 세로폰에서 CSS 회전 중일 때만 화면 좌표를 회전된 로컬 좌표로 바꿔준다.
+    // 카카오 인앱은 주소창 상태에 따라 width/height 판정이 흔들리므로
+    // 뷰포트 비율이 아니라 "실제로 CSS 회전을 쓰는 상태인지"로만 판단한다.
     const cssRotatedLandscape =
       fullscreenViewMode === "landscape" &&
-      fullscreenViewportSize.width > 0 &&
-      fullscreenViewportSize.height > 0 &&
-      fullscreenViewportSize.width < fullscreenViewportSize.height;
+      (isKakaoInAppBrowser() ||
+        (fullscreenViewportSize.width > 0 &&
+          fullscreenViewportSize.height > 0 &&
+          fullscreenViewportSize.width < fullscreenViewportSize.height));
 
     if (!cssRotatedLandscape) {
       return { x: deltaX, y: deltaY };
@@ -613,26 +626,30 @@ export default function SimulatorScenePreview({
   const fullscreenLandscapeLayout = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
     const viewportHeight = fullscreenViewportSize.height || 0;
-    const shorterSide = Math.max(Math.min(viewportWidth, viewportHeight) - 2, 0);
-    const longerSide = Math.max(Math.max(viewportWidth, viewportHeight) - 2, 0);
+    const availableWidth = Math.max(viewportWidth - 2, 0);
+    const availableHeight = Math.max(viewportHeight - 2, 0);
 
-    if (!shorterSide || !longerSide || !aspectRatioValue) {
+    if (!availableWidth || !availableHeight || !aspectRatioValue) {
       return { frameWidth: 0, frameHeight: 0, fitWidth: 0, fitHeight: 0 };
     }
 
-    // 세로폰에서 가로모드를 CSS로 만들면 실제로는 긴 쪽(휴대폰 세로 길이)이
-    // 회전 후 가로 화면의 폭이 되고, 짧은 쪽(휴대폰 가로 길이)이 높이가 된다.
-    // 이 가상 가로 화면 안에서 원본 비율을 유지한 채 가장 크게 들어가도록 계산한다.
-    const fitWidth = Math.min(longerSide, shorterSide * aspectRatioValue);
+    // 카카오 인앱용 가로모드는 실제 화면을 돌리는 것이 아니라
+    // 이미지 박스 전체를 rotate(90deg) 하는 방식이다.
+    // 그래서 회전 전 width는 회전 후 화면의 height 안에 들어가야 하고,
+    // 회전 전 height는 회전 후 화면의 width 안에 들어가야 한다.
+    // 이 계산만 사용하면 비율은 유지되고, 확대는 사용자가 핀치줌으로만 한다.
+    const fitWidth = Math.min(availableHeight, availableWidth * aspectRatioValue);
     const fitHeight = fitWidth / aspectRatioValue;
 
     return {
-      frameWidth: longerSide,
-      frameHeight: shorterSide,
+      frameWidth: fitWidth,
+      frameHeight: fitHeight,
       fitWidth,
       fitHeight,
     };
   }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+
+  const kakaoFullscreen = isKakaoInAppBrowser();
 
   const fullscreenModalStyle = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
@@ -752,7 +769,7 @@ export default function SimulatorScenePreview({
 
       {canOpenFullscreen && fullscreenOpen ? (
         <div
-          className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"}`}
+          className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"} ${kakaoFullscreen ? "sceneFullscreenModalKakao" : ""}`.trim()}
           style={fullscreenModalStyle}
           role="dialog"
           aria-modal="true"

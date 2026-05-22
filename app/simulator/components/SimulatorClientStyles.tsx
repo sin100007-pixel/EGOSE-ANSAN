@@ -1173,19 +1173,20 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-          width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
-          height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
-          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
-          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
+          width: var(--scene-landscape-frame-width, auto);
+          height: var(--scene-landscape-frame-height, auto);
+          max-width: var(--scene-landscape-frame-width, none);
+          max-height: var(--scene-landscape-frame-height, none);
           transform: rotate(90deg) !important;
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
           width: var(--scene-landscape-fit-width, 100%);
           height: var(--scene-landscape-fit-height, auto) !important;
-          max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
-          max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
+          max-width: var(--scene-landscape-fit-width, 100%);
+          max-height: var(--scene-landscape-fit-height, auto);
           min-height: 0 !important;
+          flex: 0 0 auto;
           border-radius: 18px;
         }
 
@@ -2030,19 +2031,24 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           }
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
-            width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
-            height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
-            max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 8px));
-            max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 8px));
+            width: var(--scene-landscape-frame-width, auto);
+            height: var(--scene-landscape-frame-height, auto);
+            max-width: var(--scene-landscape-frame-width, none);
+            max-height: var(--scene-landscape-frame-height, none);
             transform: none !important;
+          }
+
+          .sceneFullscreenModalKakao.sceneFullscreenModalLandscape .sceneFullscreenViewportFrame {
+            transform: rotate(90deg) !important;
           }
 
           .sceneFullscreenModalLandscape .sceneFullscreenViewport {
             width: var(--scene-landscape-fit-width, 100%);
             height: var(--scene-landscape-fit-height, auto) !important;
-            max-width: var(--scene-landscape-frame-width, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
-            max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vh, 100vh) - 2px));
+            max-width: var(--scene-landscape-fit-width, 100%);
+            max-height: var(--scene-landscape-fit-height, auto);
             min-height: 0 !important;
+            flex: 0 0 auto;
           }
 
           .sceneFullscreenViewport {
