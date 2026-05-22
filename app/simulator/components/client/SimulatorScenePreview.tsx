@@ -615,7 +615,11 @@ export default function SimulatorScenePreview({
     const viewportHeight = fullscreenViewportSize.height || 0;
     const shorterSide = Math.max(Math.min(viewportWidth, viewportHeight) - 2, 0);
     const longerSide = Math.max(Math.max(viewportWidth, viewportHeight) - 2, 0);
-    const cssRotatedLandscape = viewportWidth > 0 && viewportHeight > 0 && viewportWidth < viewportHeight;
+    const isCssRotatedLandscape =
+      fullscreenViewMode === "landscape" &&
+      viewportWidth > 0 &&
+      viewportHeight > 0 &&
+      viewportWidth < viewportHeight;
 
     if (!shorterSide || !longerSide || !aspectRatioValue) {
       return {
@@ -623,42 +627,33 @@ export default function SimulatorScenePreview({
         frameHeight: 0,
         fitWidth: 0,
         fitHeight: 0,
-        rotatedFrameWidth: 0,
-        rotatedFrameHeight: 0,
-        cssRotatedLandscape,
+        isCssRotatedLandscape,
       };
     }
 
-    // 세로폰에서 가로모드를 CSS로 만들면 실제로는 긴 쪽(휴대폰 세로 길이)이
-    // 회전 후 가로 화면의 폭이 되고, 짧은 쪽(휴대폰 가로 길이)이 높이가 된다.
-    // 이 가상 가로 화면 안에서 원본 비율을 유지한 채 가장 크게 들어가도록 계산한다.
-    const fitWidth = Math.min(longerSide, shorterSide * aspectRatioValue);
+    // 일반 브라우저에서 실제 가로 화면으로 잡힌 경우: 화면 안에 비율 유지로 가장 크게 맞춘다.
+    // 카카오 인앱처럼 실제 화면은 세로인데 CSS로 90도 돌리는 경우: contain으로 맞추면
+    // 세로 여백이 크게 남는다. 이때는 가상 가로 화면을 cover 하도록 키워서,
+    // 비율은 유지하면서 보이는 영역을 최대한 크게 채운다. 회전 대상은 기존처럼 frame 전체로 유지해
+    // 핀치줌/드래그 방향 보정 로직이 깨지지 않게 한다.
+    const fitWidth = isCssRotatedLandscape
+      ? Math.max(longerSide, shorterSide * aspectRatioValue)
+      : Math.min(longerSide, shorterSide * aspectRatioValue);
     const fitHeight = fitWidth / aspectRatioValue;
 
     return {
-      frameWidth: longerSide,
-      frameHeight: shorterSide,
+      frameWidth: fitWidth,
+      frameHeight: fitHeight,
       fitWidth,
       fitHeight,
-      // CSS 회전 모드에서는 회전 이후의 실제 보이는 bounding box 크기를 wrapper에 써야
-      // 카카오 인앱처럼 orientation lock 이 막힌 환경에서도 가로/세로 비율이 깨지지 않는다.
-      rotatedFrameWidth: fitHeight,
-      rotatedFrameHeight: fitWidth,
-      cssRotatedLandscape,
+      isCssRotatedLandscape,
     };
-  }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
+  }, [aspectRatioValue, fullscreenViewMode, fullscreenViewportSize.height, fullscreenViewportSize.width]);
 
   const fullscreenModalStyle = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
     const viewportHeight = fullscreenViewportSize.height || 0;
-    const {
-      frameWidth,
-      frameHeight,
-      fitWidth,
-      fitHeight,
-      rotatedFrameWidth,
-      rotatedFrameHeight,
-    } = fullscreenLandscapeLayout;
+    const { frameWidth, frameHeight, fitWidth, fitHeight } = fullscreenLandscapeLayout;
 
     return {
       "--scene-aspect-value": String(aspectRatioValue),
@@ -668,27 +663,16 @@ export default function SimulatorScenePreview({
       "--scene-landscape-frame-height": frameHeight ? `${frameHeight}px` : "calc(min(100vw, 100vh) - 2px)",
       "--scene-landscape-fit-width": fitWidth ? `${fitWidth}px` : "100%",
       "--scene-landscape-fit-height": fitHeight ? `${fitHeight}px` : "auto",
-      "--scene-landscape-rotated-frame-width": rotatedFrameWidth ? `${rotatedFrameWidth}px` : "100%",
-      "--scene-landscape-rotated-frame-height": rotatedFrameHeight ? `${rotatedFrameHeight}px` : "100%",
     } as CSSProperties;
   }, [aspectRatioValue, fullscreenLandscapeLayout, fullscreenViewportSize.height, fullscreenViewportSize.width]);
 
-  const cssRotatedLandscape = fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.cssRotatedLandscape;
-
-  const fullscreenViewportFrameStyle = (fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.fitWidth && fullscreenLandscapeLayout.fitHeight
-    ? (cssRotatedLandscape
-        ? {
-            width: `${fullscreenLandscapeLayout.rotatedFrameWidth}px`,
-            height: `${fullscreenLandscapeLayout.rotatedFrameHeight}px`,
-            maxWidth: `${fullscreenLandscapeLayout.rotatedFrameWidth}px`,
-            maxHeight: `${fullscreenLandscapeLayout.rotatedFrameHeight}px`,
-          }
-        : {
-            width: `${fullscreenLandscapeLayout.frameWidth}px`,
-            height: `${fullscreenLandscapeLayout.frameHeight}px`,
-            maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
-            maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
-          })
+  const fullscreenViewportFrameStyle = (fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.frameWidth && fullscreenLandscapeLayout.frameHeight
+    ? {
+        width: `${fullscreenLandscapeLayout.frameWidth}px`,
+        height: `${fullscreenLandscapeLayout.frameHeight}px`,
+        maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
+        maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
+      }
     : undefined) as CSSProperties | undefined;
 
   const fullscreenViewportStyle = {
@@ -810,17 +794,14 @@ export default function SimulatorScenePreview({
             onTouchCancel={handleFullscreenTouchEnd}
           >
             <div
-              className={`sceneFullscreenViewportFrame ${cssRotatedLandscape ? "sceneFullscreenViewportFrameCssLandscape" : ""}`.trim()}
+              className={`sceneFullscreenViewportFrame ${fullscreenLandscapeLayout.isCssRotatedLandscape ? "sceneFullscreenViewportFrameFakeLandscape" : "sceneFullscreenViewportFrameNativeLandscape"}`.trim()}
               style={fullscreenViewportFrameStyle}
             >
               <div
                 className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
                 style={fullscreenZoomLayerStyle}
               >
-                <div
-                  className={`previewViewport sceneFullscreenViewport ${cssRotatedLandscape ? "sceneFullscreenViewportCssLandscape" : ""}`.trim()}
-                  style={fullscreenViewportStyle}
-                >
+                <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
                   {renderSceneStage(true)}
                 </div>
               </div>
