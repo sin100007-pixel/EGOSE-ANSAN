@@ -407,9 +407,12 @@ export default function SimulatorScenePreview({
     if (!fullscreenOpen) return;
 
     const updateFullscreenViewportSize = () => {
-      const visualViewport = window.visualViewport;
-      const width = Math.round(visualViewport?.width || window.innerWidth || 0);
-      const height = Math.round(visualViewport?.height || window.innerHeight || 0);
+      const root = document.documentElement;
+      // fixed 전체화면 레이아웃은 visualViewport보다 실제 CSS viewport 기준이 안정적이다.
+      // 카카오 인앱/폴드 화면에서는 visualViewport 값이 주소창·툴바 상태에 따라 흔들려
+      // 가로모드가 돌았다/안 돌았다 하는 원인이 될 수 있다.
+      const width = Math.round(window.innerWidth || root.clientWidth || window.visualViewport?.width || 0);
+      const height = Math.round(window.innerHeight || root.clientHeight || window.visualViewport?.height || 0);
 
       setFullscreenViewportSize((prev) => {
         if (prev.width === width && prev.height === height) return prev;
@@ -613,15 +616,15 @@ export default function SimulatorScenePreview({
   const fullscreenLandscapeLayout = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
     const viewportHeight = fullscreenViewportSize.height || 0;
-    const shorterSide = Math.max(Math.min(viewportWidth, viewportHeight) - 2, 0);
-    const longerSide = Math.max(Math.max(viewportWidth, viewportHeight) - 2, 0);
+    const availableWidth = Math.max(viewportWidth - 2, 0);
+    const availableHeight = Math.max(viewportHeight - 2, 0);
     const isCssRotatedLandscape =
       fullscreenViewMode === "landscape" &&
-      viewportWidth > 0 &&
-      viewportHeight > 0 &&
-      viewportWidth < viewportHeight;
+      availableWidth > 0 &&
+      availableHeight > 0 &&
+      availableWidth < availableHeight;
 
-    if (!shorterSide || !longerSide || !aspectRatioValue) {
+    if (!availableWidth || !availableHeight || !aspectRatioValue) {
       return {
         frameWidth: 0,
         frameHeight: 0,
@@ -631,14 +634,13 @@ export default function SimulatorScenePreview({
       };
     }
 
-    // 일반 브라우저에서 실제 가로 화면으로 잡힌 경우: 화면 안에 비율 유지로 가장 크게 맞춘다.
-    // 카카오 인앱처럼 실제 화면은 세로인데 CSS로 90도 돌리는 경우: contain으로 맞추면
-    // 세로 여백이 크게 남는다. 이때는 가상 가로 화면을 cover 하도록 키워서,
-    // 비율은 유지하면서 보이는 영역을 최대한 크게 채운다. 회전 대상은 기존처럼 frame 전체로 유지해
-    // 핀치줌/드래그 방향 보정 로직이 깨지지 않게 한다.
-    const fitWidth = isCssRotatedLandscape
-      ? Math.max(longerSide, shorterSide * aspectRatioValue)
-      : Math.min(longerSide, shorterSide * aspectRatioValue);
+    // 비율 유지가 최우선이다.
+    // 카카오 인앱처럼 실제 화면은 세로인데 가로모드를 눌렀을 때는
+    // 세로 화면을 90도 돌린 "가상 가로 화면"으로 보고 contain 계산을 한다.
+    // cover로 키우면 화면은 꽉 차지만 일부가 잘리거나 찌그러져 보이기 때문에 쓰지 않는다.
+    const virtualWidth = isCssRotatedLandscape ? availableHeight : availableWidth;
+    const virtualHeight = isCssRotatedLandscape ? availableWidth : availableHeight;
+    const fitWidth = Math.min(virtualWidth, virtualHeight * aspectRatioValue);
     const fitHeight = fitWidth / aspectRatioValue;
 
     return {
