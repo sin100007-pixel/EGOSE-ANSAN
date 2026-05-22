@@ -615,9 +615,18 @@ export default function SimulatorScenePreview({
     const viewportHeight = fullscreenViewportSize.height || 0;
     const shorterSide = Math.max(Math.min(viewportWidth, viewportHeight) - 2, 0);
     const longerSide = Math.max(Math.max(viewportWidth, viewportHeight) - 2, 0);
+    const cssRotatedLandscape = viewportWidth > 0 && viewportHeight > 0 && viewportWidth < viewportHeight;
 
     if (!shorterSide || !longerSide || !aspectRatioValue) {
-      return { frameWidth: 0, frameHeight: 0, fitWidth: 0, fitHeight: 0 };
+      return {
+        frameWidth: 0,
+        frameHeight: 0,
+        fitWidth: 0,
+        fitHeight: 0,
+        rotatedFrameWidth: 0,
+        rotatedFrameHeight: 0,
+        cssRotatedLandscape,
+      };
     }
 
     // 세로폰에서 가로모드를 CSS로 만들면 실제로는 긴 쪽(휴대폰 세로 길이)이
@@ -631,13 +640,25 @@ export default function SimulatorScenePreview({
       frameHeight: shorterSide,
       fitWidth,
       fitHeight,
+      // CSS 회전 모드에서는 회전 이후의 실제 보이는 bounding box 크기를 wrapper에 써야
+      // 카카오 인앱처럼 orientation lock 이 막힌 환경에서도 가로/세로 비율이 깨지지 않는다.
+      rotatedFrameWidth: fitHeight,
+      rotatedFrameHeight: fitWidth,
+      cssRotatedLandscape,
     };
   }, [aspectRatioValue, fullscreenViewportSize.height, fullscreenViewportSize.width]);
 
   const fullscreenModalStyle = useMemo(() => {
     const viewportWidth = fullscreenViewportSize.width || 0;
     const viewportHeight = fullscreenViewportSize.height || 0;
-    const { frameWidth, frameHeight, fitWidth, fitHeight } = fullscreenLandscapeLayout;
+    const {
+      frameWidth,
+      frameHeight,
+      fitWidth,
+      fitHeight,
+      rotatedFrameWidth,
+      rotatedFrameHeight,
+    } = fullscreenLandscapeLayout;
 
     return {
       "--scene-aspect-value": String(aspectRatioValue),
@@ -647,16 +668,27 @@ export default function SimulatorScenePreview({
       "--scene-landscape-frame-height": frameHeight ? `${frameHeight}px` : "calc(min(100vw, 100vh) - 2px)",
       "--scene-landscape-fit-width": fitWidth ? `${fitWidth}px` : "100%",
       "--scene-landscape-fit-height": fitHeight ? `${fitHeight}px` : "auto",
+      "--scene-landscape-rotated-frame-width": rotatedFrameWidth ? `${rotatedFrameWidth}px` : "100%",
+      "--scene-landscape-rotated-frame-height": rotatedFrameHeight ? `${rotatedFrameHeight}px` : "100%",
     } as CSSProperties;
   }, [aspectRatioValue, fullscreenLandscapeLayout, fullscreenViewportSize.height, fullscreenViewportSize.width]);
 
-  const fullscreenViewportFrameStyle = (fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.frameWidth && fullscreenLandscapeLayout.frameHeight
-    ? {
-        width: `${fullscreenLandscapeLayout.frameWidth}px`,
-        height: `${fullscreenLandscapeLayout.frameHeight}px`,
-        maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
-        maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
-      }
+  const cssRotatedLandscape = fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.cssRotatedLandscape;
+
+  const fullscreenViewportFrameStyle = (fullscreenViewMode === "landscape" && fullscreenLandscapeLayout.fitWidth && fullscreenLandscapeLayout.fitHeight
+    ? (cssRotatedLandscape
+        ? {
+            width: `${fullscreenLandscapeLayout.rotatedFrameWidth}px`,
+            height: `${fullscreenLandscapeLayout.rotatedFrameHeight}px`,
+            maxWidth: `${fullscreenLandscapeLayout.rotatedFrameWidth}px`,
+            maxHeight: `${fullscreenLandscapeLayout.rotatedFrameHeight}px`,
+          }
+        : {
+            width: `${fullscreenLandscapeLayout.frameWidth}px`,
+            height: `${fullscreenLandscapeLayout.frameHeight}px`,
+            maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
+            maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
+          })
     : undefined) as CSSProperties | undefined;
 
   const fullscreenViewportStyle = {
@@ -665,8 +697,8 @@ export default function SimulatorScenePreview({
       ? {
           width: `${fullscreenLandscapeLayout.fitWidth}px`,
           height: `${fullscreenLandscapeLayout.fitHeight}px`,
-          maxWidth: `${fullscreenLandscapeLayout.frameWidth}px`,
-          maxHeight: `${fullscreenLandscapeLayout.frameHeight}px`,
+          maxWidth: `${fullscreenLandscapeLayout.fitWidth}px`,
+          maxHeight: `${fullscreenLandscapeLayout.fitHeight}px`,
         }
       : {}),
   } as CSSProperties;
@@ -777,12 +809,18 @@ export default function SimulatorScenePreview({
             onTouchEnd={handleFullscreenTouchEnd}
             onTouchCancel={handleFullscreenTouchEnd}
           >
-            <div className="sceneFullscreenViewportFrame" style={fullscreenViewportFrameStyle}>
+            <div
+              className={`sceneFullscreenViewportFrame ${cssRotatedLandscape ? "sceneFullscreenViewportFrameCssLandscape" : ""}`.trim()}
+              style={fullscreenViewportFrameStyle}
+            >
               <div
                 className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
                 style={fullscreenZoomLayerStyle}
               >
-                <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
+                <div
+                  className={`previewViewport sceneFullscreenViewport ${cssRotatedLandscape ? "sceneFullscreenViewportCssLandscape" : ""}`.trim()}
+                  style={fullscreenViewportStyle}
+                >
                   {renderSceneStage(true)}
                 </div>
               </div>

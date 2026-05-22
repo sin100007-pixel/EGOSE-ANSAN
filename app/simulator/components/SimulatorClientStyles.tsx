@@ -1180,6 +1180,14 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           transform: rotate(90deg) !important;
         }
 
+        .sceneFullscreenModalLandscape .sceneFullscreenViewportFrame.sceneFullscreenViewportFrameCssLandscape {
+          width: var(--scene-landscape-rotated-frame-width, var(--scene-landscape-fit-height, 100%));
+          height: var(--scene-landscape-rotated-frame-height, var(--scene-landscape-fit-width, 100%));
+          max-width: var(--scene-landscape-rotated-frame-width, var(--scene-landscape-fit-height, 100%));
+          max-height: var(--scene-landscape-rotated-frame-height, var(--scene-landscape-fit-width, 100%));
+          transform: none !important;
+        }
+
         .sceneFullscreenModalLandscape .sceneFullscreenViewport {
           width: var(--scene-landscape-fit-width, 100%);
           height: var(--scene-landscape-fit-height, auto) !important;
@@ -1187,6 +1195,11 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           max-height: var(--scene-landscape-frame-height, calc(var(--scene-fullscreen-vw, 100vw) - 2px));
           min-height: 0 !important;
           border-radius: 18px;
+        }
+
+        .sceneFullscreenModalLandscape .sceneFullscreenViewport.sceneFullscreenViewportCssLandscape {
+          transform: rotate(90deg);
+          transform-origin: center center;
         }
 
         .sceneFullscreenModalLandscape .sceneFullscreenViewport .sceneStage {
