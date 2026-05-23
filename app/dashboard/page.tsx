@@ -15,9 +15,23 @@ type IconOnlyShortcutProps = {
   href: string;
   imageSrc: string;
   label: string;
+  minHeight?: number;
+  radius?: number;
+  imageScale?: string;
+  imageMaxWidth?: number;
+  padding?: number;
 };
 
-function IconOnlyShortcut({ href, imageSrc, label }: IconOnlyShortcutProps) {
+function IconOnlyShortcut({
+  href,
+  imageSrc,
+  label,
+  minHeight = 132,
+  radius = 24,
+  imageScale = "160%",
+  imageMaxWidth = 210,
+  padding = 8,
+}: IconOnlyShortcutProps) {
   return (
     <Link
       href={href as any}
@@ -25,30 +39,36 @@ function IconOnlyShortcut({ href, imageSrc, label }: IconOnlyShortcutProps) {
       title={label}
       prefetch={true}
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 132,
-        borderRadius: 24,
+        minHeight,
+        borderRadius: radius,
         textDecoration: "none",
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
         border: "1px solid rgba(255,255,255,0.12)",
         boxShadow:
           "0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04)",
-        padding: 8,
+        padding,
+        overflow: "visible",
+        isolation: "isolate",
       }}
     >
       <img
         src={imageSrc}
         alt={label}
         style={{
+          position: "relative",
+          zIndex: 2,
           display: "block",
-          width: "160%",
-          maxWidth: 210,
+          width: imageScale,
+          maxWidth: imageMaxWidth,
           height: "auto",
           objectFit: "contain",
           filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.18))",
+          pointerEvents: "none",
         }}
       />
     </Link>
@@ -80,6 +100,33 @@ export default async function DashboardPage() {
     boxShadow:
       "0 18px 50px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.03)",
     backdropFilter: "blur(8px)",
+  };
+
+  const qrBubbleStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+    padding: 10,
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
+    border: `1px solid ${COLORS.lineStrong}`,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+  };
+
+  const simbotBubbleStyle: CSSProperties = {
+    position: "relative",
+    display: "grid",
+    gridTemplateRows: "1fr 1fr",
+    gap: 10,
+    borderRadius: 22,
+    padding: 8,
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.035) 100%)",
+    border: `1px solid ${COLORS.lineStrong}`,
+    boxShadow:
+      "0 10px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)",
+    overflow: "visible",
   };
 
   const footerTextStyle: CSSProperties = {
@@ -173,13 +220,13 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-
         <section
           id="user-qr-card"
           style={{
             ...panelStyle,
             padding: 12,
-            marginBottom: 10,
+            marginBottom: 14,
+            overflow: "visible",
           }}
         >
           <div style={{ marginBottom: 8 }}>
@@ -197,68 +244,88 @@ export default async function DashboardPage() {
             </h1>
           </div>
 
-          <div
-            style={{
-              borderRadius: 20,
-              padding: 8,
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
-              border: `1px solid ${COLORS.lineStrong}`,
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: 200,
-                margin: "0 auto",
-                borderRadius: 16,
-                overflow: "hidden",
-                background: "#FFFFFF",
-                boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
-              }}
-            >
-              <img
-                src={user.qrUrl}
-                alt="QR"
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "auto",
-                }}
-              />
-            </div>
-          </div>
-        </section>
-
-        {canUseSimulator ? (
-          <section
-            style={{
-              ...panelStyle,
-              padding: 10,
-              marginBottom: 18,
-            }}
-          >
+          {canUseSimulator ? (
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "minmax(0, 1fr) 112px",
                 gap: 10,
+                alignItems: "stretch",
+                overflow: "visible",
               }}
             >
-              <IconOnlyShortcut
-                href="/simulator"
-                imageSrc="/simulator-buttons/simubot.png"
-                label="시뮬레이션"
-              />
+              <div style={qrBubbleStyle}>
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: 214,
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    background: "#FFFFFF",
+                    boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
+                  }}
+                >
+                  <img
+                    src={user.qrUrl}
+                    alt="QR"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      height: "auto",
+                    }}
+                  />
+                </div>
+              </div>
 
-              <IconOnlyShortcut
-                href="/simulator/links/new"
-                imageSrc="/simulator-buttons/simubot-admin.png"
-                label="시뮬레이션 관리"
-              />
+              <div style={simbotBubbleStyle}>
+                <IconOnlyShortcut
+                  href="/simulator"
+                  imageSrc="/simulator-buttons/simubot.png"
+                  label="시뮬봇"
+                  minHeight={92}
+                  radius={18}
+                  imageScale="176%"
+                  imageMaxWidth={166}
+                  padding={4}
+                />
+
+                <IconOnlyShortcut
+                  href="/simulator/links/new"
+                  imageSrc="/simulator-buttons/simubot-admin.png"
+                  label="시뮬봇 관리페이지"
+                  minHeight={92}
+                  radius={18}
+                  imageScale="205%"
+                  imageMaxWidth={184}
+                  padding={2}
+                />
+              </div>
             </div>
-          </section>
-        ) : null}
+          ) : (
+            <div style={qrBubbleStyle}>
+              <div
+                style={{
+                  maxWidth: 200,
+                  margin: "0 auto",
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  background: "#FFFFFF",
+                  boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
+                }}
+              >
+                <img
+                  src={user.qrUrl}
+                  alt="QR"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "auto",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </section>
 
         <footer
           style={{
