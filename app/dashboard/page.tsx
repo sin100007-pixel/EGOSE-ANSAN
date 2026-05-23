@@ -107,7 +107,7 @@ export default async function DashboardPage() {
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 20,
-    padding: 10,
+    padding: 6,
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
     border: `1px solid ${COLORS.lineStrong}`,
@@ -118,9 +118,9 @@ export default async function DashboardPage() {
     position: "relative",
     display: "grid",
     gridTemplateRows: "1fr 1fr",
-    gap: 10,
+    gap: 8,
     borderRadius: 22,
-    padding: 8,
+    padding: 6,
     background:
       "linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.035) 100%)",
     border: `1px solid ${COLORS.lineStrong}`,
@@ -248,8 +248,8 @@ export default async function DashboardPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) 112px",
-                gap: 10,
+                gridTemplateColumns: "minmax(0, 1fr) 96px",
+                gap: 8,
                 alignItems: "stretch",
                 overflow: "visible",
               }}
@@ -258,7 +258,7 @@ export default async function DashboardPage() {
                 <div
                   style={{
                     width: "100%",
-                    maxWidth: 214,
+                    maxWidth: 260,
                     borderRadius: 16,
                     overflow: "hidden",
                     background: "#FFFFFF",
@@ -282,22 +282,22 @@ export default async function DashboardPage() {
                   href="/simulator"
                   imageSrc="/simulator-buttons/simubot.png"
                   label="시뮬봇"
-                  minHeight={92}
+                  minHeight={96}
                   radius={18}
-                  imageScale="176%"
-                  imageMaxWidth={166}
-                  padding={4}
+                  imageScale="184%"
+                  imageMaxWidth={170}
+                  padding={3}
                 />
 
                 <IconOnlyShortcut
                   href="/simulator/links/new"
                   imageSrc="/simulator-buttons/simubot-admin.png"
                   label="시뮬봇 관리페이지"
-                  minHeight={92}
+                  minHeight={96}
                   radius={18}
-                  imageScale="205%"
-                  imageMaxWidth={184}
-                  padding={2}
+                  imageScale="184%"
+                  imageMaxWidth={170}
+                  padding={3}
                 />
               </div>
             </div>
@@ -305,7 +305,7 @@ export default async function DashboardPage() {
             <div style={qrBubbleStyle}>
               <div
                 style={{
-                  maxWidth: 200,
+                  maxWidth: 240,
                   margin: "0 auto",
                   borderRadius: 16,
                   overflow: "hidden",
