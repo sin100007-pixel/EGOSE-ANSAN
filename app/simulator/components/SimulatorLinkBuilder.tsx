@@ -541,7 +541,7 @@ export default function SimulatorLinkBuilder() {
       try {
         const [whoamiRes, bootstrapRes, presetsRes] = await Promise.all([
           fetch("/api/whoami", { cache: "no-store" }),
-          fetch("/api/simulator/bootstrap", { cache: "no-store" }),
+          fetch("/api/simulator/bootstrap?fast=1", { cache: "no-store" }),
           fetch("/api/simulator/presets", { cache: "no-store" }),
         ]);
 
