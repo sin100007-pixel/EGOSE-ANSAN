@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "egose-dashboard-price-notice-2026-05-18";
+const STORAGE_KEY = "egose-dashboard-price-notice-2026-05-24";
 
 export default function DashboardPriceNotice() {
   const [isVisible, setIsVisible] = useState(false);
@@ -127,6 +127,7 @@ export default function DashboardPriceNotice() {
           <div>05.11 현대L&amp;C 갱신완료.</div>
           <div>05.11 삼성필름 갱신완료.</div>
           <div>05.18 영림필름 갱신완료.</div>
+          <div>05.24 KCC필름 갱신완료.</div>
         </div>
 
         <p
