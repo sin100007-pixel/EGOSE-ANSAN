@@ -126,6 +126,7 @@ type SimulatorFavoriteCandidate = {
 };
 
 const MAX_FAVORITE_CANDIDATES = 30;
+const MAX_FAVORITE_SHARE_COUNT = 3;
 
 const CUSTOMER_INTRO_TUTORIAL_STEPS = [
   {
@@ -1438,19 +1439,32 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     showFavoriteToast("즐겨찾기 후보를 불러왔습니다.");
   }, [rememberUndoSnapshot, setDecisionMessage, showFavoriteToast]);
 
-  const toggleFavoriteCandidateForShare = useCallback((candidateId: string) => {
-    setSelectedFavoriteCandidateIds((prev) => {
-      if (prev.includes(candidateId)) {
-        return prev.filter((id) => id !== candidateId);
-      }
+  const toggleFavoriteCandidateForShare = useCallback(
+    (candidateId: string) => {
+      setSelectedFavoriteCandidateIds((prev) => {
+        if (prev.includes(candidateId)) {
+          return prev.filter((id) => id !== candidateId);
+        }
 
-      return [...prev, candidateId];
-    });
-  }, []);
+        if (prev.length >= MAX_FAVORITE_SHARE_COUNT) {
+          showFavoriteToast(`후보 공유는 한 번에 최대 ${MAX_FAVORITE_SHARE_COUNT}개까지 선택할 수 있습니다.`);
+          return prev;
+        }
+
+        return [...prev, candidateId];
+      });
+    },
+    [showFavoriteToast]
+  );
 
   const shareFavoriteCandidates = useCallback(async () => {
     if (selectedFavoriteCandidates.length === 0) {
       showFavoriteToast("공유할 즐겨찾기 후보를 먼저 선택해주세요.");
+      return;
+    }
+
+    if (selectedFavoriteCandidates.length > MAX_FAVORITE_SHARE_COUNT) {
+      showFavoriteToast(`후보 공유는 한 번에 최대 ${MAX_FAVORITE_SHARE_COUNT}개까지만 가능합니다.`);
       return;
     }
 
