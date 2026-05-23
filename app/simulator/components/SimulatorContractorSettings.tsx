@@ -347,6 +347,7 @@ export default function SimulatorContractorSettings() {
   const router = useRouter();
   const [isDashboardMoving, setIsDashboardMoving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isIntroConfirmOpen, setIsIntroConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingTarget, setUploadingTarget] = useState<
@@ -362,7 +363,7 @@ export default function SimulatorContractorSettings() {
   const [phone, setPhone] = useState("");
   const [kakaoUrl, setKakaoUrl] = useState("");
   const [brandColor, setBrandColor] = useState("#11104a");
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   const [activeHelp, setActiveHelp] = useState<SettingsHelpKey | null>(null);
   const [photos, setPhotos] = useState<ContractorPhoto[]>([
     emptyPhoto(1),
@@ -462,7 +463,7 @@ export default function SimulatorContractorSettings() {
     setPhone(profile?.phone || "");
     setKakaoUrl(profile?.kakao_url || "");
     setBrandColor(profile?.brand_color || "#11104a");
-    setIsActive(profile?.is_active ?? true);
+    setIsActive(profile?.is_active === true);
 
     const rows = Array.isArray(json.photos) ? json.photos : [];
     const nextPhotos = rows.map((row, index) => toPhoto(row, index));
@@ -590,8 +591,16 @@ export default function SimulatorContractorSettings() {
     }
   };
 
-  const save = async () => {
+  const openSaveConfirm = () => {
+    setError("");
+    setMessage("");
+    setIsIntroConfirmOpen(true);
+  };
+
+  const save = async (nextIsActive: boolean) => {
     setSaving(true);
+    setIsIntroConfirmOpen(false);
+    setIsActive(nextIsActive);
     setError("");
     setMessage("");
 
@@ -603,7 +612,7 @@ export default function SimulatorContractorSettings() {
         phone,
         kakao_url: kakaoUrl,
         brand_color: brandColor,
-        is_active: isActive,
+        is_active: nextIsActive,
         photos: photos
           .map((photo, index) => ({
             ...photo,
@@ -994,7 +1003,7 @@ export default function SimulatorContractorSettings() {
               <button
                 type="button"
                 className="saveButton"
-                onClick={save}
+                onClick={openSaveConfirm}
                 disabled={saving || uploadingTarget !== null}
               >
                 {saving
@@ -1007,6 +1016,58 @@ export default function SimulatorContractorSettings() {
           </section>
         </>
       )}
+
+
+      {isIntroConfirmOpen ? (
+        <div
+          className="introConfirmBackdrop"
+          role="presentation"
+          onClick={() => {
+            if (!saving) setIsIntroConfirmOpen(false);
+          }}
+        >
+          <div
+            className="introConfirmDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="소개 화면 노출 확인"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="introConfirmIcon" aria-hidden="true">?</div>
+            <h2>소비자에게 소개화면을 노출 하시겠습니까?</h2>
+            <p>
+              예를 누르면 고객 링크 첫 화면에 시공자 소개 화면이 보입니다.
+              아니요를 누르면 고객 링크에서 소개 화면을 건너뛰고 바로 시뮬레이션으로 이동합니다.
+            </p>
+            <div className="introConfirmActions">
+              <button
+                type="button"
+                className="introConfirmSecondary"
+                onClick={() => save(false)}
+                disabled={saving}
+              >
+                아니요, 숨깁니다
+              </button>
+              <button
+                type="button"
+                className="introConfirmPrimary"
+                onClick={() => save(true)}
+                disabled={saving}
+              >
+                예, 노출합니다
+              </button>
+            </div>
+            <button
+              type="button"
+              className="introConfirmCancel"
+              onClick={() => setIsIntroConfirmOpen(false)}
+              disabled={saving}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {isPreviewOpen ? (
         <div
@@ -1073,6 +1134,108 @@ export default function SimulatorContractorSettings() {
             BlinkMacSystemFont,
             "Segoe UI",
             sans-serif;
+        }
+
+
+        .introConfirmBackdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 2400;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+          background: rgba(5, 2, 59, 0.78);
+          backdrop-filter: blur(12px);
+        }
+
+        .introConfirmDialog {
+          width: min(420px, 100%);
+          border: 1px solid rgba(238, 224, 197, 0.28);
+          border-radius: 26px;
+          padding: 24px;
+          background: linear-gradient(180deg, rgba(24, 20, 92, 0.98), rgba(8, 6, 61, 0.98));
+          color: ${COLORS.white};
+          box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+          text-align: center;
+        }
+
+        .introConfirmIcon {
+          width: 42px;
+          height: 42px;
+          margin: 0 auto 12px;
+          border: 1px solid rgba(238, 224, 197, 0.55);
+          border-radius: 999px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(238, 224, 197, 0.14);
+          color: ${COLORS.cream};
+          font-size: 22px;
+          font-weight: 1000;
+        }
+
+        .introConfirmDialog h2 {
+          margin: 0;
+          color: ${COLORS.cream};
+          font-size: 21px;
+          font-weight: 1000;
+          line-height: 1.35;
+          letter-spacing: -0.04em;
+          word-break: keep-all;
+        }
+
+        .introConfirmDialog p {
+          margin: 12px 0 20px;
+          color: rgba(255, 255, 255, 0.76);
+          font-size: 14px;
+          font-weight: 750;
+          line-height: 1.65;
+          word-break: keep-all;
+        }
+
+        .introConfirmActions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .introConfirmPrimary,
+        .introConfirmSecondary,
+        .introConfirmCancel {
+          border: 0;
+          border-radius: 999px;
+          min-height: 48px;
+          padding: 0 16px;
+          font-size: 14px;
+          font-weight: 1000;
+          cursor: pointer;
+          appearance: none;
+        }
+
+        .introConfirmPrimary {
+          background: ${COLORS.cream};
+          color: ${COLORS.creamText};
+        }
+
+        .introConfirmSecondary {
+          border: 1px solid rgba(238, 224, 197, 0.26);
+          background: rgba(238, 224, 197, 0.08);
+          color: ${COLORS.cream};
+        }
+
+        .introConfirmCancel {
+          margin-top: 10px;
+          min-height: 38px;
+          background: transparent;
+          color: rgba(255, 255, 255, 0.68);
+        }
+
+        .introConfirmPrimary:disabled,
+        .introConfirmSecondary:disabled,
+        .introConfirmCancel:disabled {
+          opacity: 0.56;
+          cursor: wait;
         }
 
         .routeOverlay {

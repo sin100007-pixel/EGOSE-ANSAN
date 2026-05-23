@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
     phone: cleanOptionalText(body.phone),
     kakao_url: cleanOptionalText(body.kakao_url),
     brand_color: cleanBrandColor(body.brand_color),
-    is_active: body.is_active === false ? false : true,
+    is_active: body.is_active === true,
     updated_at: new Date().toISOString(),
   };
 

@@ -415,7 +415,7 @@ function createFallbackContractorProfile(
     phone: null,
     kakao_url: null,
     brand_color: "#EEE0C5",
-    is_active: true,
+    is_active: false,
     portfolio_photos: [],
   };
 }
@@ -601,12 +601,12 @@ async function readContractorProfile(
   }
 
   if (!profile) {
-    return createFallbackContractorProfile(normalizedInstallerName);
+    return null;
   }
 
   const typedProfile = profile as ContractorProfileRow;
 
-  if (typedProfile.is_active === false) {
+  if (typedProfile.is_active !== true) {
     return null;
   }
 
