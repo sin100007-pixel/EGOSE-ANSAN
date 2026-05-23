@@ -15,26 +15,26 @@ export default function SimulatorAdminRouteLoading({
 }: SimulatorAdminRouteLoadingProps) {
   return (
     <main className="simAdminRouteLoading" aria-busy="true">
-      <section className="loadingCard">
-        <div className="loadingBadge">시뮬봇 관리</div>
-        <h1>{title}</h1>
-        <p>권한과 필요한 정보를 확인하는 중입니다.</p>
-        <div className="skeleton skeletonHero" />
-        <div className="skeletonGrid">
-          <div className="skeleton" />
-          <div className="skeleton" />
-          <div className="skeleton" />
+      <section className="simAdminRouteLoading__card">
+        <div className="simAdminRouteLoading__badge">시뮬봇 관리</div>
+        <h1 className="simAdminRouteLoading__title">{title}</h1>
+        <p className="simAdminRouteLoading__text">권한과 필요한 정보를 확인하는 중입니다.</p>
+        <div className="simAdminRouteLoading__skeleton simAdminRouteLoading__skeletonHero" />
+        <div className="simAdminRouteLoading__skeletonGrid">
+          <div className="simAdminRouteLoading__skeleton" />
+          <div className="simAdminRouteLoading__skeleton" />
+          <div className="simAdminRouteLoading__skeleton" />
         </div>
       </section>
 
-      <div className="loadingTabs" aria-hidden="true">
+      <div className="simAdminRouteLoading__tabs" aria-hidden="true">
         <span />
         <span />
         <span />
         <span />
       </div>
 
-      <style jsx>{`
+      <style>{`
         .simAdminRouteLoading {
           min-height: 100dvh;
           padding: 22px 16px 112px;
@@ -47,7 +47,7 @@ export default function SimulatorAdminRouteLoading({
           justify-content: center;
         }
 
-        .loadingCard {
+        .simAdminRouteLoading__card {
           width: min(720px, 100%);
           align-self: flex-start;
           margin-top: 8px;
@@ -58,7 +58,7 @@ export default function SimulatorAdminRouteLoading({
           box-shadow: 0 24px 58px rgba(0, 0, 0, 0.28);
         }
 
-        .loadingBadge {
+        .simAdminRouteLoading__badge {
           display: inline-flex;
           align-items: center;
           min-height: 30px;
@@ -71,28 +71,28 @@ export default function SimulatorAdminRouteLoading({
           font-weight: 900;
         }
 
-        h1 {
+        .simAdminRouteLoading__title {
           margin: 16px 0 8px;
           font-size: clamp(22px, 6vw, 34px);
           line-height: 1.14;
           letter-spacing: -0.04em;
         }
 
-        p {
+        .simAdminRouteLoading__text {
           margin: 0 0 18px;
           color: ${COLORS.soft};
           font-size: 14px;
           line-height: 1.6;
         }
 
-        .skeletonGrid {
+        .simAdminRouteLoading__skeletonGrid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
           margin-top: 12px;
         }
 
-        .skeleton {
+        .simAdminRouteLoading__skeleton {
           height: 82px;
           border-radius: 20px;
           background: linear-gradient(
@@ -102,14 +102,14 @@ export default function SimulatorAdminRouteLoading({
             rgba(255, 255, 255, 0.05)
           );
           background-size: 220% 100%;
-          animation: loadingShimmer 1.1s ease-in-out infinite;
+          animation: simAdminRouteLoadingShimmer 1.1s ease-in-out infinite;
         }
 
-        .skeletonHero {
+        .simAdminRouteLoading__skeletonHero {
           height: 132px;
         }
 
-        .loadingTabs {
+        .simAdminRouteLoading__tabs {
           position: fixed;
           left: 50%;
           bottom: calc(12px + env(safe-area-inset-bottom));
@@ -126,13 +126,13 @@ export default function SimulatorAdminRouteLoading({
           box-sizing: border-box;
         }
 
-        .loadingTabs span {
+        .simAdminRouteLoading__tabs span {
           min-height: 44px;
           border-radius: 16px;
           background: rgba(255, 255, 255, 0.08);
         }
 
-        @keyframes loadingShimmer {
+        @keyframes simAdminRouteLoadingShimmer {
           0% {
             background-position: 0% 0;
           }
@@ -146,12 +146,12 @@ export default function SimulatorAdminRouteLoading({
             padding: 14px 12px 106px;
           }
 
-          .loadingCard {
+          .simAdminRouteLoading__card {
             padding: 18px;
             border-radius: 24px;
           }
 
-          .skeletonGrid {
+          .simAdminRouteLoading__skeletonGrid {
             grid-template-columns: 1fr;
           }
         }
