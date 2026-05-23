@@ -248,7 +248,7 @@ export default async function DashboardPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) 96px",
+                gridTemplateColumns: "minmax(0, 1fr) 85px",
                 gap: 8,
                 alignItems: "stretch",
                 overflow: "visible",
@@ -282,7 +282,7 @@ export default async function DashboardPage() {
                   href="/simulator"
                   imageSrc="/simulator-buttons/simubot.png"
                   label="시뮬봇"
-                  minHeight={96}
+                  minHeight={85}
                   radius={18}
                   imageScale="184%"
                   imageMaxWidth={170}
@@ -293,7 +293,7 @@ export default async function DashboardPage() {
                   href="/simulator/links/new"
                   imageSrc="/simulator-buttons/simubot-admin.png"
                   label="시뮬봇 관리페이지"
-                  minHeight={96}
+                  minHeight={85}
                   radius={18}
                   imageScale="184%"
                   imageMaxWidth={170}
