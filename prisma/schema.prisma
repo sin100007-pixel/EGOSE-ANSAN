@@ -39,11 +39,15 @@ model AuthSession {
 }
 
 model PageView {
-  id         String   @id @default(uuid())
-  path       String
-  viewedAt   DateTime @default(now()) @db.Timestamptz(6)
-  deviceType String?
-  userAgent  String?
-  ip         String?
-  userName   String?
+  id                     String   @id @default(uuid())
+  path                   String
+  viewedAt               DateTime @default(now()) @db.Timestamptz(6)
+  deviceType             String?
+  userAgent              String?
+  ip                     String?
+  userName               String?
+  simulatorToken         String?
+  simulatorInstallerName String?
+  simulatorCustomerName  String?
+  simulatorMemo          String?
 }

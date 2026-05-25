@@ -2,6 +2,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
+import {
+  extractSimulatorLinkToken,
+  readSimulatorLinkInfoByToken,
+} from "@/lib/simulator-pageview-link";
 
 export const runtime = "nodejs";
 
@@ -63,7 +67,6 @@ function cleanLogPath(value: unknown): string {
   }
 }
 
-
 export async function POST(req: Request) {
   try {
     const { path } = await req.json();
@@ -88,16 +91,36 @@ export async function POST(req: Request) {
     const deviceType = detectDeviceType(userAgent);
 
     const userName = getUserNameFromCookie(); // ✅ 여기서 디코딩된 이름 가져오기
+    const simulatorToken = extractSimulatorLinkToken(path);
+    const simulatorLinkInfo = await readSimulatorLinkInfoByToken(simulatorToken);
 
-    await prisma.pageView.create({
-      data: {
-        path: cleanPath,
-        deviceType,
-        userAgent,
-        ip,
-        userName, // "원철 신" 이런 식으로 그대로 저장됨
-      },
-    });
+    const baseData = {
+      path: cleanPath,
+      deviceType,
+      userAgent,
+      ip,
+      userName, // "원철 신" 이런 식으로 그대로 저장됨
+    };
+
+    try {
+      await prisma.pageView.create({
+        data: {
+          ...baseData,
+          simulatorToken: simulatorLinkInfo?.token || simulatorToken,
+          simulatorInstallerName: simulatorLinkInfo?.installerName || null,
+          simulatorCustomerName: simulatorLinkInfo?.customerName || null,
+          simulatorMemo: simulatorLinkInfo?.memo || null,
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      // DB에 새 컬럼을 아직 추가하지 않은 상태에서도 방문 로그 저장 자체는 막히지 않게 합니다.
+      console.error("pageview insert with simulator link info failed", err);
+      await prisma.pageView.create({
+        data: baseData,
+        select: { id: true },
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -1,9 +1,66 @@
 // app/admin/dashboard/page.tsx
 import type React from "react";
 import { prisma } from "@/lib/prisma";
+import {
+  extractSimulatorLinkToken,
+  readSimulatorLinkInfoMap,
+} from "@/lib/simulator-pageview-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type PageViewLog = {
+  id: string;
+  path: string;
+  viewedAt: Date;
+  deviceType: string | null;
+  userAgent: string | null;
+  ip: string | null;
+  userName: string | null;
+  simulatorToken?: string | null;
+  simulatorInstallerName?: string | null;
+  simulatorCustomerName?: string | null;
+  simulatorMemo?: string | null;
+};
+
+async function readPageViewLogs(): Promise<PageViewLog[]> {
+  try {
+    return await prisma.pageView.findMany({
+      select: {
+        id: true,
+        path: true,
+        viewedAt: true,
+        deviceType: true,
+        userAgent: true,
+        ip: true,
+        userName: true,
+        simulatorToken: true,
+        simulatorInstallerName: true,
+        simulatorCustomerName: true,
+        simulatorMemo: true,
+      },
+      orderBy: { viewedAt: "desc" },
+      take: 400,
+    });
+  } catch (err) {
+    // 새 컬럼을 아직 DB에 추가하지 않은 경우에도 관리자 화면은 기존 로그 기준으로 열리게 합니다.
+    console.error("pageview read with simulator link columns failed", err);
+
+    return await prisma.pageView.findMany({
+      select: {
+        id: true,
+        path: true,
+        viewedAt: true,
+        deviceType: true,
+        userAgent: true,
+        ip: true,
+        userName: true,
+      },
+      orderBy: { viewedAt: "desc" },
+      take: 400,
+    });
+  }
+}
 
 // 한국 시간(Asia/Seoul) 기준으로 YYYY-MM-DD HH:MM:SS 문자열 만들기
 function formatKoreanDateTime(d: Date): string {
@@ -66,7 +123,6 @@ function cleanDisplayPath(value?: string | null): string {
     return withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
   }
 }
-
 
 // 공통 스타일들
 const wrapperStyle: React.CSSProperties = {
@@ -148,10 +204,11 @@ const monoStyle: React.CSSProperties = {
 };
 
 export default async function AdminDashboardPage() {
-  const logs = await prisma.pageView.findMany({
-    orderBy: { viewedAt: "desc" },
-    take: 400,
-  });
+  const logs = await readPageViewLogs();
+  const tokens = logs
+    .map((log) => log.simulatorToken || extractSimulatorLinkToken(log.path))
+    .filter((token): token is string => Boolean(token));
+  const simulatorLinkInfoMap = await readSimulatorLinkInfoMap(tokens);
 
   return (
     <div style={wrapperStyle}>
@@ -167,19 +224,20 @@ export default async function AdminDashboardPage() {
               <tr>
                 <th style={{ ...headerCellStyle, minWidth: 140 }}>방문 시각</th>
                 <th style={{ ...headerCellStyle, minWidth: 110 }}>이름</th>
-                <th style={{ ...headerCellStyle, minWidth: 130 }}>경로</th>
+                <th style={{ ...headerCellStyle, minWidth: 220 }}>경로</th>
                 <th style={{ ...headerCellStyle, minWidth: 110 }}>기기</th>
                 <th style={{ ...headerCellStyle, minWidth: 120 }}>IP</th>
-                <th style={{ ...headerCellStyle, minWidth: 260 }}>
-                  User-Agent (일부분)
-                </th>
+                <th style={{ ...headerCellStyle, minWidth: 110 }}>시공자</th>
+                <th style={{ ...headerCellStyle, minWidth: 130 }}>고객명</th>
+                <th style={{ ...headerCellStyle, minWidth: 180 }}>메모</th>
+                <th style={{ ...headerCellStyle, minWidth: 300 }}>User-Agent</th>
               </tr>
             </thead>
 
             <tbody>
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ ...cellStyle, textAlign: "center" }}>
+                  <td colSpan={9} style={{ ...cellStyle, textAlign: "center" }}>
                     아직 방문 기록이 없습니다.
                   </td>
                 </tr>
@@ -217,7 +275,15 @@ export default async function AdminDashboardPage() {
                 const displayPath = cleanDisplayPath(log.path);
                 const ua = log.userAgent || "";
                 const shortUA =
-                  ua.length > 90 ? ua.slice(0, 90).concat("…") : ua;
+                  ua.length > 120 ? ua.slice(0, 120).concat("…") : ua;
+
+                const token = log.simulatorToken || extractSimulatorLinkToken(log.path);
+                const liveLinkInfo = token ? simulatorLinkInfoMap[token] : null;
+                const installerName =
+                  log.simulatorInstallerName || liveLinkInfo?.installerName || "-";
+                const customerName =
+                  log.simulatorCustomerName || liveLinkInfo?.customerName || "-";
+                const memo = log.simulatorMemo || liveLinkInfo?.memo || "-";
 
                 // 기기 표기
                 const deviceType = (() => {
@@ -238,6 +304,9 @@ export default async function AdminDashboardPage() {
                     <td style={cellStyle}>{displayPath}</td>
                     <td style={cellStyle}>{deviceType}</td>
                     <td style={cellStyle}>{log.ip || "-"}</td>
+                    <td style={cellStyle}>{installerName}</td>
+                    <td style={cellStyle}>{customerName}</td>
+                    <td style={cellStyle}>{memo}</td>
                     <td style={{ ...cellStyle, textAlign: "left" }}>
                       <span style={monoStyle}>{shortUA || "-"}</span>
                     </td>
@@ -251,6 +320,7 @@ export default async function AdminDashboardPage() {
 
       <p style={{ fontSize: 11, opacity: 0.65, marginTop: 8 }}>
         * 이름은 로그인 시 생성된 session_user 쿠키 기준입니다. <br />
+        * 시공자/고객명/메모는 고객용 시뮬레이터 링크 토큰 기준입니다. <br />
         * 기기 정보는 브라우저에서 전송하는 User-Agent 를 기반으로 대략 분류한
         값입니다.
       </p>
