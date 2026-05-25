@@ -129,6 +129,17 @@ function truncateText(value: string, maxLength = 27): string {
   return `${value.slice(0, maxLength)}...`;
 }
 
+function formatPathForTable(value: string): string {
+  const sharePrefix = "/simulator/share/";
+
+  if (value.startsWith(sharePrefix)) {
+    const token = value.slice(sharePrefix.length);
+    return `${sharePrefix}${token.slice(0, 3)}...`;
+  }
+
+  return truncateText(value, 27);
+}
+
 // 공통 스타일들
 const wrapperStyle: React.CSSProperties = {
   maxWidth: 1200,
@@ -210,19 +221,22 @@ const monoStyle: React.CSSProperties = {
 
 const pathCellStyle: React.CSSProperties = {
   ...cellStyle,
-  width: 168,
-  minWidth: 168,
-  maxWidth: 168,
+  width: 220,
+  minWidth: 220,
+  maxWidth: 220,
   position: "relative" as const,
   overflow: "visible",
 };
 
 const pathTextStyle: React.CSSProperties = {
   display: "inline-block",
-  maxWidth: 150,
+  maxWidth: 188,
   overflow: "hidden",
   textOverflow: "ellipsis",
   verticalAlign: "middle",
+  fontFamily:
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  fontSize: 12,
 };
 
 const linkDetailsStyle: React.CSSProperties = {
@@ -337,7 +351,7 @@ export default async function AdminDashboardPage() {
               <tr>
                 <th style={{ ...headerCellStyle, minWidth: 140 }}>방문 시각</th>
                 <th style={{ ...headerCellStyle, minWidth: 110 }}>이름</th>
-                <th style={{ ...headerCellStyle, width: 168, minWidth: 168 }}>경로</th>
+                <th style={{ ...headerCellStyle, width: 220, minWidth: 220 }}>경로</th>
                 <th style={{ ...headerCellStyle, minWidth: 110 }}>기기</th>
                 <th style={{ ...headerCellStyle, minWidth: 120 }}>IP</th>
                 <th style={{ ...headerCellStyle, minWidth: 280 }}>User-Agent</th>
@@ -383,7 +397,7 @@ export default async function AdminDashboardPage() {
                 };
 
                 const displayPath = cleanDisplayPath(log.path);
-                const shortDisplayPath = truncateText(displayPath, 27);
+                const shortDisplayPath = formatPathForTable(displayPath);
                 const ua = log.userAgent || "";
                 const shortUA =
                   ua.length > 120 ? ua.slice(0, 120).concat("…") : ua;
