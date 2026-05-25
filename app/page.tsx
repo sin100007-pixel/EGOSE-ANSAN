@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import ProductPreview from "./product-preview";
 import InstallButton from "./components/InstallButton";
 
@@ -11,6 +12,8 @@ const BTN_BLUE = "#0019C9";
 const BTN_BLUE_HOVER = "#1326D9";
 
 export default function Page() {
+  const router = useRouter();
+
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -83,7 +86,7 @@ export default function Page() {
       try {
         localStorage.setItem("session_user", encodeURIComponent(name));
       } catch {}
-      window.location.href = "/dashboard";
+      router.replace("/dashboard");
     } catch (err: any) {
       setError(err?.message || "서버 오류가 발생했습니다.");
     } finally {

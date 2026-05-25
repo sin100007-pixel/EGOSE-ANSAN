@@ -5,7 +5,6 @@ import BottomQuickNav from "@/app/components/BottomQuickNav";
 import LondonMarketBanner from "@/app/components/LondonMarketBanner";
 import EgoseBannerCarousel from "@/app/components/EgoseBannerCarousel";
 import DashboardPriceNotice from "@/app/components/DashboardPriceNotice";
-import { isSimulatorAllowedUser } from "@/app/simulator/auth";
 import { getCurrentEgoseUser } from "@/lib/server-auth";
 
 export const runtime = "nodejs";
@@ -81,7 +80,8 @@ export default async function DashboardPage() {
   if (!user) redirect("/");
 
   const name = user.name;
-  const canUseSimulator = await isSimulatorAllowedUser(name);
+  const canUseSimulator =
+    (user.simulatorAccess ?? "").trim().toLowerCase() === "y";
 
   const COLORS = {
     bgTop: "#0F0C2E",

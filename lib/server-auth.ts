@@ -13,6 +13,7 @@ export type CurrentEgoseUser = {
   qrUrl: string;
   role: string;
   memberType: string;
+  simulatorAccess: string | null;
 };
 
 function safeDecodeCookieValue(value: string) {
@@ -40,6 +41,7 @@ export async function getCurrentEgoseUser(): Promise<CurrentEgoseUser | null> {
           qrUrl: true,
           role: true,
           memberType: true,
+          simulatorAccess: true,
         },
       });
 
@@ -62,6 +64,7 @@ export async function getCurrentEgoseUser(): Promise<CurrentEgoseUser | null> {
       qrUrl: true,
       role: true,
       memberType: true,
+      simulatorAccess: true,
     },
   });
 }
