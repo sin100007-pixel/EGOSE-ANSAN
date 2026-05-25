@@ -405,6 +405,82 @@ export default async function AdminDashboardPage() {
           max-width: 78px;
           vertical-align: middle;
         }
+
+        /* 폴드5 펼친 화면/태블릿 폭에서는 User-Agent를 숨기고 IP까지 한 화면에 맞춥니다. */
+        @media (min-width: 641px) and (max-width: 1180px) {
+          .adminDashboardWrapper {
+            max-width: none !important;
+            width: 100% !important;
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+            box-sizing: border-box !important;
+          }
+          .adminLogViewport {
+            overflow-x: hidden !important;
+          }
+          .adminLogFrame {
+            display: block !important;
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+          .adminLogTable {
+            width: 100% !important;
+            table-layout: fixed !important;
+            font-size: 12.5px !important;
+          }
+          .adminLogTable th,
+          .adminLogTable td {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            box-sizing: border-box !important;
+          }
+          .adminTimeCol {
+            width: 182px !important;
+            min-width: 182px !important;
+            max-width: 182px !important;
+          }
+          .adminNameCol {
+            width: 112px !important;
+            min-width: 112px !important;
+            max-width: 112px !important;
+          }
+          .adminNameText {
+            max-width: 92px !important;
+          }
+          .adminDeviceCol {
+            width: 112px !important;
+            min-width: 112px !important;
+            max-width: 112px !important;
+          }
+          .adminIpCol {
+            width: 132px !important;
+            min-width: 132px !important;
+            max-width: 132px !important;
+          }
+          .adminUserAgentCol {
+            display: none !important;
+          }
+          .adminPathCol {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+          }
+          .adminPathCell {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            overflow: visible !important;
+          }
+          .adminPathText {
+            max-width: 100% !important;
+          }
+          .linkInfoSummary .adminPathText {
+            max-width: calc(100% - 42px) !important;
+          }
+          .adminFooterNote {
+            font-size: 10.5px !important;
+          }
+        }
         @media (min-width: 641px) {
           .adminLogTable {
             table-layout: fixed !important;
@@ -429,6 +505,20 @@ export default async function AdminDashboardPage() {
           }
           .linkInfoSummary .adminPathText {
             max-width: 176px !important;
+          }
+          .adminDeviceCol {
+            width: 112px !important;
+            min-width: 112px !important;
+            max-width: 112px !important;
+          }
+          .adminIpCol {
+            width: 132px !important;
+            min-width: 132px !important;
+            max-width: 132px !important;
+          }
+          .adminUserAgentCol {
+            width: auto !important;
+            min-width: 240px !important;
           }
           .adminLogTable th,
           .adminLogTable td {
@@ -558,6 +648,79 @@ export default async function AdminDashboardPage() {
             line-height: 1.5 !important;
           }
         }
+
+        /* 최종 보정: 폴드5 펼친 화면에서는 방문시각/이름/경로/기기/IP까지만 꽉 맞게 표시 */
+        @media (min-width: 641px) and (max-width: 1180px) {
+          .adminDashboardWrapper {
+            max-width: none !important;
+            width: 100% !important;
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+            box-sizing: border-box !important;
+          }
+          .adminLogViewport {
+            overflow-x: hidden !important;
+          }
+          .adminLogFrame {
+            display: block !important;
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+          .adminLogTable {
+            width: 100% !important;
+            table-layout: fixed !important;
+            font-size: 12.5px !important;
+          }
+          .adminLogTable th,
+          .adminLogTable td {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            box-sizing: border-box !important;
+          }
+          .adminTimeCol {
+            width: 182px !important;
+            min-width: 182px !important;
+            max-width: 182px !important;
+          }
+          .adminNameCol {
+            width: 112px !important;
+            min-width: 112px !important;
+            max-width: 112px !important;
+          }
+          .adminNameText {
+            max-width: 92px !important;
+          }
+          .adminPathCol {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+          }
+          .adminPathCell {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            overflow: visible !important;
+          }
+          .adminPathText {
+            max-width: 100% !important;
+          }
+          .linkInfoSummary .adminPathText {
+            max-width: calc(100% - 42px) !important;
+          }
+          .adminDeviceCol {
+            width: 112px !important;
+            min-width: 112px !important;
+            max-width: 112px !important;
+          }
+          .adminIpCol {
+            width: 132px !important;
+            min-width: 132px !important;
+            max-width: 132px !important;
+          }
+          .adminUserAgentCol {
+            display: none !important;
+          }
+        }
       `}</style>
 
       <div className="adminHeaderArea" style={headerAreaStyle}>
@@ -582,9 +745,9 @@ export default async function AdminDashboardPage() {
                 <th className="adminTimeCol" style={{ ...headerCellStyle, width: 150, minWidth: 150, maxWidth: 150 }}>방문 시각</th>
                 <th className="adminNameCol" style={{ ...headerCellStyle, width: 88, minWidth: 88, maxWidth: 88 }}>이름</th>
                 <th className="adminPathCol" style={{ ...headerCellStyle, width: 250, minWidth: 250, maxWidth: 250, textAlign: "left" }}>경로</th>
-                <th className="adminHideMobile" style={{ ...headerCellStyle, minWidth: 126 }}>기기</th>
-                <th className="adminHideMobile" style={{ ...headerCellStyle, minWidth: 132 }}>IP</th>
-                <th className="adminHideMobile" style={{ ...headerCellStyle, minWidth: 360, textAlign: "left" }}>User-Agent</th>
+                <th className="adminHideMobile adminDeviceCol" style={{ ...headerCellStyle, width: 112, minWidth: 112, maxWidth: 112 }}>기기</th>
+                <th className="adminHideMobile adminIpCol" style={{ ...headerCellStyle, width: 132, minWidth: 132, maxWidth: 132 }}>IP</th>
+                <th className="adminHideMobile adminUserAgentCol" style={{ ...headerCellStyle, minWidth: 240, textAlign: "left" }}>User-Agent</th>
               </tr>
             </thead>
 
@@ -702,9 +865,9 @@ export default async function AdminDashboardPage() {
                         </span>
                       )}
                     </td>
-                    <td className="adminHideMobile" style={cellStyle}>{deviceType}</td>
-                    <td className="adminHideMobile" style={cellStyle}>{log.ip || "-"}</td>
-                    <td className="adminHideMobile" style={{ ...cellStyle, textAlign: "left" }}>
+                    <td className="adminHideMobile adminDeviceCol" style={cellStyle}>{deviceType}</td>
+                    <td className="adminHideMobile adminIpCol" style={cellStyle}>{log.ip || "-"}</td>
+                    <td className="adminHideMobile adminUserAgentCol" style={{ ...cellStyle, textAlign: "left" }}>
                       <span style={monoStyle}>{shortUA || "-"}</span>
                     </td>
                   </tr>
@@ -716,7 +879,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       <p className="adminFooterNote" style={{ fontSize: 11, opacity: 0.68, marginTop: 10 }}>
-        * 모바일에서는 방문 시각(초 포함), 이름, 경로만 보여줍니다. PC에서는 기기/IP/User-Agent까지 확인할 수 있습니다. <br />
+        * 모바일에서는 방문 시각(초 포함), 이름, 경로만 보여줍니다. 폴드/태블릿 폭에서는 기기/IP까지, 넓은 PC에서는 User-Agent까지 확인할 수 있습니다. <br />
         * 고객용 시뮬레이터 링크 경로의 정보 버튼을 누르면 시공자/고객명/메모를 확인할 수 있습니다. <br />
         * 기기 정보는 브라우저에서 전송하는 User-Agent 를 기반으로 대략 분류한 값입니다.
       </p>
