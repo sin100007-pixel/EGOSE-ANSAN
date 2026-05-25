@@ -230,7 +230,7 @@ const headerCellStyle: React.CSSProperties = {
   fontWeight: 900,
   letterSpacing: "0.02em",
   borderBottom: "1px solid rgba(255,255,255,0.72)",
-  padding: "9px 12px",
+  padding: "8px 10px",
   textShadow: "0 1px 0 rgba(0,0,0,0.25)",
   borderRight: "1px solid rgba(255,255,255,0.35)",
 };
@@ -240,7 +240,7 @@ const baseRowStyle: React.CSSProperties = {
 };
 
 const cellStyle: React.CSSProperties = {
-  padding: "7px 12px",
+  padding: "7px 10px",
   borderRight: "1px solid rgba(255,255,255,0.18)",
   borderBottom: "1px solid rgba(255,255,255,0.1)",
   verticalAlign: "middle",
@@ -255,9 +255,9 @@ const monoStyle: React.CSSProperties = {
 
 const pathCellStyle: React.CSSProperties = {
   ...cellStyle,
-  width: 300,
-  minWidth: 300,
-  maxWidth: 300,
+  width: 250,
+  minWidth: 250,
+  maxWidth: 250,
   position: "relative" as const,
   overflow: "visible",
   textAlign: "left" as const,
@@ -265,7 +265,7 @@ const pathCellStyle: React.CSSProperties = {
 
 const pathTextStyle: React.CSSProperties = {
   display: "inline-block",
-  maxWidth: 250,
+  maxWidth: 210,
   minWidth: 0,
   flex: "1 1 auto",
   overflow: "hidden",
@@ -402,8 +402,39 @@ export default async function AdminDashboardPage() {
         }
         .adminNameText {
           display: inline-block;
-          max-width: 96px;
+          max-width: 78px;
           vertical-align: middle;
+        }
+        @media (min-width: 641px) {
+          .adminLogTable {
+            table-layout: fixed !important;
+          }
+          .adminTimeCol {
+            width: 150px !important;
+            min-width: 150px !important;
+            max-width: 150px !important;
+          }
+          .adminNameCol {
+            width: 88px !important;
+            min-width: 88px !important;
+            max-width: 88px !important;
+          }
+          .adminPathCol {
+            width: 250px !important;
+            min-width: 250px !important;
+            max-width: 250px !important;
+          }
+          .adminPathText {
+            max-width: 210px !important;
+          }
+          .linkInfoSummary .adminPathText {
+            max-width: 176px !important;
+          }
+          .adminLogTable th,
+          .adminLogTable td {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+          }
         }
         @media (max-width: 640px) {
           .adminDashboardWrapper {
@@ -548,9 +579,9 @@ export default async function AdminDashboardPage() {
           <table className="adminLogTable" style={tableStyle}>
             <thead>
               <tr>
-                <th className="adminTimeCol" style={{ ...headerCellStyle, minWidth: 164 }}>방문 시각</th>
-                <th className="adminNameCol" style={{ ...headerCellStyle, minWidth: 112 }}>이름</th>
-                <th className="adminPathCol" style={{ ...headerCellStyle, width: 300, minWidth: 300, textAlign: "left" }}>경로</th>
+                <th className="adminTimeCol" style={{ ...headerCellStyle, width: 150, minWidth: 150, maxWidth: 150 }}>방문 시각</th>
+                <th className="adminNameCol" style={{ ...headerCellStyle, width: 88, minWidth: 88, maxWidth: 88 }}>이름</th>
+                <th className="adminPathCol" style={{ ...headerCellStyle, width: 250, minWidth: 250, maxWidth: 250, textAlign: "left" }}>경로</th>
                 <th className="adminHideMobile" style={{ ...headerCellStyle, minWidth: 126 }}>기기</th>
                 <th className="adminHideMobile" style={{ ...headerCellStyle, minWidth: 132 }}>IP</th>
                 <th className="adminHideMobile" style={{ ...headerCellStyle, minWidth: 360, textAlign: "left" }}>User-Agent</th>
