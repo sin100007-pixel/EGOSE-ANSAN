@@ -430,32 +430,41 @@ export default async function AdminDashboardPage() {
           }
           .adminLogTable th,
           .adminLogTable td {
-            padding-left: 8px !important;
-            padding-right: 8px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
             box-sizing: border-box !important;
           }
+          .desktopTimeText {
+            display: none !important;
+          }
+          .mobileTimeText {
+            display: inline-block !important;
+            max-width: 126px !important;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+            font-size: 12px !important;
+          }
           .adminTimeCol {
-            width: 182px !important;
-            min-width: 182px !important;
-            max-width: 182px !important;
-          }
-          .adminNameCol {
-            width: 112px !important;
-            min-width: 112px !important;
-            max-width: 112px !important;
-          }
-          .adminNameText {
-            max-width: 92px !important;
-          }
-          .adminDeviceCol {
-            width: 112px !important;
-            min-width: 112px !important;
-            max-width: 112px !important;
-          }
-          .adminIpCol {
             width: 132px !important;
             min-width: 132px !important;
             max-width: 132px !important;
+          }
+          .adminNameCol {
+            width: 88px !important;
+            min-width: 88px !important;
+            max-width: 88px !important;
+          }
+          .adminNameText {
+            max-width: 72px !important;
+          }
+          .adminDeviceCol {
+            width: 100px !important;
+            min-width: 100px !important;
+            max-width: 100px !important;
+          }
+          .adminIpCol {
+            width: 126px !important;
+            min-width: 126px !important;
+            max-width: 126px !important;
           }
           .adminUserAgentCol {
             display: none !important;
@@ -673,22 +682,31 @@ export default async function AdminDashboardPage() {
           }
           .adminLogTable th,
           .adminLogTable td {
-            padding-left: 8px !important;
-            padding-right: 8px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
             box-sizing: border-box !important;
           }
+          .desktopTimeText {
+            display: none !important;
+          }
+          .mobileTimeText {
+            display: inline-block !important;
+            max-width: 126px !important;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+            font-size: 12px !important;
+          }
           .adminTimeCol {
-            width: 182px !important;
-            min-width: 182px !important;
-            max-width: 182px !important;
+            width: 132px !important;
+            min-width: 132px !important;
+            max-width: 132px !important;
           }
           .adminNameCol {
-            width: 112px !important;
-            min-width: 112px !important;
-            max-width: 112px !important;
+            width: 88px !important;
+            min-width: 88px !important;
+            max-width: 88px !important;
           }
           .adminNameText {
-            max-width: 92px !important;
+            max-width: 72px !important;
           }
           .adminPathCol {
             width: auto !important;
@@ -708,14 +726,14 @@ export default async function AdminDashboardPage() {
             max-width: calc(100% - 42px) !important;
           }
           .adminDeviceCol {
-            width: 112px !important;
-            min-width: 112px !important;
-            max-width: 112px !important;
+            width: 100px !important;
+            min-width: 100px !important;
+            max-width: 100px !important;
           }
           .adminIpCol {
-            width: 132px !important;
-            min-width: 132px !important;
-            max-width: 132px !important;
+            width: 126px !important;
+            min-width: 126px !important;
+            max-width: 126px !important;
           }
           .adminUserAgentCol {
             display: none !important;
@@ -879,7 +897,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       <p className="adminFooterNote" style={{ fontSize: 11, opacity: 0.68, marginTop: 10 }}>
-        * 모바일에서는 방문 시각(초 포함), 이름, 경로만 보여줍니다. 폴드/태블릿 폭에서는 기기/IP까지, 넓은 PC에서는 User-Agent까지 확인할 수 있습니다. <br />
+        * 모바일/폴드 화면에서는 방문 시각의 연도는 줄이고 초는 유지합니다. 모바일은 방문 시각/이름/경로, 폴드/태블릿은 기기/IP까지 확인할 수 있습니다. <br />
         * 고객용 시뮬레이터 링크 경로의 정보 버튼을 누르면 시공자/고객명/메모를 확인할 수 있습니다. <br />
         * 기기 정보는 브라우저에서 전송하는 User-Agent 를 기반으로 대략 분류한 값입니다.
       </p>
