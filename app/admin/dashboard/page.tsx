@@ -124,7 +124,7 @@ function cleanDisplayPath(value?: string | null): string {
   }
 }
 
-function truncateText(value: string, maxLength = 25): string {
+function truncateText(value: string, maxLength = 27): string {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength)}...`;
 }
@@ -263,7 +263,8 @@ const linkBubbleStyle: React.CSSProperties = {
   top: 28,
   transform: "translateX(-50%)",
   zIndex: 80,
-  width: 230,
+  width: 310,
+  maxWidth: "86vw",
   padding: "10px 11px",
   borderRadius: 12,
   border: "1px solid rgba(255,255,255,0.55)",
@@ -297,6 +298,14 @@ const bubbleLabelStyle: React.CSSProperties = {
 
 const bubbleValueStyle: React.CSSProperties = {
   wordBreak: "break-word" as const,
+};
+
+const bubblePathValueStyle: React.CSSProperties = {
+  ...bubbleValueStyle,
+  fontFamily:
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  fontSize: 11,
+  wordBreak: "break-all" as const,
 };
 
 export default async function AdminDashboardPage() {
@@ -374,7 +383,7 @@ export default async function AdminDashboardPage() {
                 };
 
                 const displayPath = cleanDisplayPath(log.path);
-                const shortDisplayPath = truncateText(displayPath, 25);
+                const shortDisplayPath = truncateText(displayPath, 27);
                 const ua = log.userAgent || "";
                 const shortUA =
                   ua.length > 120 ? ua.slice(0, 120).concat("…") : ua;
@@ -420,6 +429,10 @@ export default async function AdminDashboardPage() {
                           </summary>
                           <div style={linkBubbleStyle}>
                             <div style={bubbleTitleStyle}>고객 링크 정보</div>
+                            <div style={bubbleRowStyle}>
+                              <span style={bubbleLabelStyle}>경로</span>
+                              <span style={bubblePathValueStyle}>{displayPath}</span>
+                            </div>
                             <div style={bubbleRowStyle}>
                               <span style={bubbleLabelStyle}>시공자</span>
                               <span style={bubbleValueStyle}>{installerName}</span>
