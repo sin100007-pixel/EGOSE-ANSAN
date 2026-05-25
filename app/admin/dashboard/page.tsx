@@ -124,6 +124,11 @@ function cleanDisplayPath(value?: string | null): string {
   }
 }
 
+function truncateText(value: string, maxLength = 25): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength)}...`;
+}
+
 // 공통 스타일들
 const wrapperStyle: React.CSSProperties = {
   maxWidth: 1200,
@@ -203,6 +208,97 @@ const monoStyle: React.CSSProperties = {
   wordBreak: "break-all" as const,
 };
 
+const pathCellStyle: React.CSSProperties = {
+  ...cellStyle,
+  width: 168,
+  minWidth: 168,
+  maxWidth: 168,
+  position: "relative" as const,
+  overflow: "visible",
+};
+
+const pathTextStyle: React.CSSProperties = {
+  display: "inline-block",
+  maxWidth: 150,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  verticalAlign: "middle",
+};
+
+const linkDetailsStyle: React.CSSProperties = {
+  position: "relative" as const,
+  display: "inline-block",
+  maxWidth: "100%",
+};
+
+const linkSummaryStyle: React.CSSProperties = {
+  listStyle: "none",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  maxWidth: "100%",
+  padding: "2px 5px",
+  borderRadius: 8,
+  color: "#dfe7ff",
+  textDecoration: "underline",
+  textUnderlineOffset: 3,
+};
+
+const linkBadgeStyle: React.CSSProperties = {
+  flex: "0 0 auto",
+  fontSize: 10,
+  fontWeight: 800,
+  color: "#0d1240",
+  background: "#fff4b8",
+  borderRadius: 999,
+  padding: "1px 5px",
+  textDecoration: "none",
+};
+
+const linkBubbleStyle: React.CSSProperties = {
+  position: "absolute" as const,
+  left: "50%",
+  top: 28,
+  transform: "translateX(-50%)",
+  zIndex: 80,
+  width: 230,
+  padding: "10px 11px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.55)",
+  background: "rgba(13,18,64,0.97)",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.48)",
+  color: "#fff",
+  textAlign: "left" as const,
+  whiteSpace: "normal" as const,
+  lineHeight: 1.45,
+};
+
+const bubbleTitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  marginBottom: 7,
+  color: "#fff4b8",
+};
+
+const bubbleRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "52px 1fr",
+  columnGap: 8,
+  fontSize: 12,
+  marginTop: 4,
+};
+
+const bubbleLabelStyle: React.CSSProperties = {
+  opacity: 0.72,
+  fontWeight: 800,
+};
+
+const bubbleValueStyle: React.CSSProperties = {
+  wordBreak: "break-word" as const,
+};
+
 export default async function AdminDashboardPage() {
   const logs = await readPageViewLogs();
   const tokens = logs
@@ -212,6 +308,14 @@ export default async function AdminDashboardPage() {
 
   return (
     <div style={wrapperStyle}>
+      <style>{`
+        .linkInfoSummary::-webkit-details-marker { display: none; }
+        .linkInfoSummary::marker { content: ""; }
+        .linkInfoDetails[open] .linkInfoSummary {
+          background: rgba(255,255,255,0.12);
+          color: #ffffff;
+        }
+      `}</style>
       <h2 style={titleStyle}>페이지 방문 로그</h2>
       <p style={descStyle}>
         관계자가 아니라면 보고계신 페이지에서 이탈해 주시길 바랍니다.
@@ -224,20 +328,17 @@ export default async function AdminDashboardPage() {
               <tr>
                 <th style={{ ...headerCellStyle, minWidth: 140 }}>방문 시각</th>
                 <th style={{ ...headerCellStyle, minWidth: 110 }}>이름</th>
-                <th style={{ ...headerCellStyle, minWidth: 220 }}>경로</th>
+                <th style={{ ...headerCellStyle, width: 168, minWidth: 168 }}>경로</th>
                 <th style={{ ...headerCellStyle, minWidth: 110 }}>기기</th>
                 <th style={{ ...headerCellStyle, minWidth: 120 }}>IP</th>
-                <th style={{ ...headerCellStyle, minWidth: 110 }}>시공자</th>
-                <th style={{ ...headerCellStyle, minWidth: 130 }}>고객명</th>
-                <th style={{ ...headerCellStyle, minWidth: 180 }}>메모</th>
-                <th style={{ ...headerCellStyle, minWidth: 300 }}>User-Agent</th>
+                <th style={{ ...headerCellStyle, minWidth: 280 }}>User-Agent</th>
               </tr>
             </thead>
 
             <tbody>
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ ...cellStyle, textAlign: "center" }}>
+                  <td colSpan={6} style={{ ...cellStyle, textAlign: "center" }}>
                     아직 방문 기록이 없습니다.
                   </td>
                 </tr>
@@ -273,17 +374,22 @@ export default async function AdminDashboardPage() {
                 };
 
                 const displayPath = cleanDisplayPath(log.path);
+                const shortDisplayPath = truncateText(displayPath, 25);
                 const ua = log.userAgent || "";
                 const shortUA =
                   ua.length > 120 ? ua.slice(0, 120).concat("…") : ua;
 
-                const token = log.simulatorToken || extractSimulatorLinkToken(log.path);
+                const token =
+                  log.simulatorToken || extractSimulatorLinkToken(log.path);
                 const liveLinkInfo = token ? simulatorLinkInfoMap[token] : null;
                 const installerName =
                   log.simulatorInstallerName || liveLinkInfo?.installerName || "-";
                 const customerName =
                   log.simulatorCustomerName || liveLinkInfo?.customerName || "-";
                 const memo = log.simulatorMemo || liveLinkInfo?.memo || "-";
+                const hasSimulatorLinkInfo =
+                  Boolean(token) &&
+                  (installerName !== "-" || customerName !== "-" || memo !== "-");
 
                 // 기기 표기
                 const deviceType = (() => {
@@ -301,12 +407,41 @@ export default async function AdminDashboardPage() {
                   <tr key={log.id} style={rowStyle}>
                     <td style={cellStyle}>{formatDateTime(log.viewedAt)}</td>
                     <td style={cellStyle}>{log.userName || "-"}</td>
-                    <td style={cellStyle}>{displayPath}</td>
+                    <td style={pathCellStyle}>
+                      {hasSimulatorLinkInfo ? (
+                        <details className="linkInfoDetails" style={linkDetailsStyle}>
+                          <summary
+                            className="linkInfoSummary"
+                            style={linkSummaryStyle}
+                            title={displayPath}
+                          >
+                            <span style={pathTextStyle}>{shortDisplayPath}</span>
+                            <span style={linkBadgeStyle}>정보</span>
+                          </summary>
+                          <div style={linkBubbleStyle}>
+                            <div style={bubbleTitleStyle}>고객 링크 정보</div>
+                            <div style={bubbleRowStyle}>
+                              <span style={bubbleLabelStyle}>시공자</span>
+                              <span style={bubbleValueStyle}>{installerName}</span>
+                            </div>
+                            <div style={bubbleRowStyle}>
+                              <span style={bubbleLabelStyle}>고객명</span>
+                              <span style={bubbleValueStyle}>{customerName}</span>
+                            </div>
+                            <div style={bubbleRowStyle}>
+                              <span style={bubbleLabelStyle}>메모</span>
+                              <span style={bubbleValueStyle}>{memo}</span>
+                            </div>
+                          </div>
+                        </details>
+                      ) : (
+                        <span style={pathTextStyle} title={displayPath}>
+                          {shortDisplayPath}
+                        </span>
+                      )}
+                    </td>
                     <td style={cellStyle}>{deviceType}</td>
                     <td style={cellStyle}>{log.ip || "-"}</td>
-                    <td style={cellStyle}>{installerName}</td>
-                    <td style={cellStyle}>{customerName}</td>
-                    <td style={cellStyle}>{memo}</td>
                     <td style={{ ...cellStyle, textAlign: "left" }}>
                       <span style={monoStyle}>{shortUA || "-"}</span>
                     </td>
@@ -320,7 +455,7 @@ export default async function AdminDashboardPage() {
 
       <p style={{ fontSize: 11, opacity: 0.65, marginTop: 8 }}>
         * 이름은 로그인 시 생성된 session_user 쿠키 기준입니다. <br />
-        * 시공자/고객명/메모는 고객용 시뮬레이터 링크 토큰 기준입니다. <br />
+        * 고객용 시뮬레이터 링크 경로의 정보 버튼을 누르면 시공자/고객명/메모를 확인할 수 있습니다. <br />
         * 기기 정보는 브라우저에서 전송하는 User-Agent 를 기반으로 대략 분류한
         값입니다.
       </p>
