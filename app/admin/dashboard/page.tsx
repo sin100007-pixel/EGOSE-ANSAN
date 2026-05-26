@@ -23,6 +23,33 @@ type PageViewLog = {
   simulatorMemo?: string | null;
 };
 
+type AdminDashboardSearchParams = {
+  excludeAdmins?: string | string[];
+};
+
+const ADMIN_USER_NAMES_TO_HIDE = new Set([
+  "신원철",
+  "신영옥",
+  "박민기",
+  "한설룡",
+]);
+
+function normalizeUserName(value?: string | null): string {
+  return (value || "").replace(/\s+/g, "").trim();
+}
+
+function isHiddenAdminUserName(value?: string | null): boolean {
+  return ADMIN_USER_NAMES_TO_HIDE.has(normalizeUserName(value));
+}
+
+function readFirstSearchParam(
+  searchParams: AdminDashboardSearchParams | undefined,
+  key: keyof AdminDashboardSearchParams
+): string | undefined {
+  const value = searchParams?.[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
 async function readPageViewLogs(): Promise<PageViewLog[]> {
   try {
     return await prisma.pageView.findMany({
@@ -193,6 +220,34 @@ const statPillStyle: React.CSSProperties = {
   boxShadow: "0 8px 18px rgba(0,0,0,0.16)",
 };
 
+const adminFilterButtonBaseStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 999,
+  padding: "7px 12px",
+  fontSize: 12,
+  fontWeight: 900,
+  textDecoration: "none",
+  lineHeight: 1,
+  boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+  transition: "transform 0.15s ease, background 0.15s ease, border-color 0.15s ease",
+};
+
+const adminFilterButtonOffStyle: React.CSSProperties = {
+  ...adminFilterButtonBaseStyle,
+  border: "1px solid rgba(255,244,184,0.72)",
+  background: "rgba(255,244,184,0.12)",
+  color: "#fff4b8",
+};
+
+const adminFilterButtonOnStyle: React.CSSProperties = {
+  ...adminFilterButtonBaseStyle,
+  border: "1px solid rgba(255,244,184,0.95)",
+  background: "#fff4b8",
+  color: "#0d1240",
+};
+
 const viewportStyle: React.CSSProperties = {
   height: "calc(100vh - 154px)",
   minHeight: 360,
@@ -360,8 +415,18 @@ const bubblePathValueStyle: React.CSSProperties = {
   wordBreak: "break-all" as const,
 };
 
-export default async function AdminDashboardPage() {
-  const logs = await readPageViewLogs();
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: AdminDashboardSearchParams;
+}) {
+  const allLogs = await readPageViewLogs();
+  const excludeAdmins = readFirstSearchParam(searchParams, "excludeAdmins") === "1";
+  const logs = excludeAdmins
+    ? allLogs.filter((log) => !isHiddenAdminUserName(log.userName))
+    : allLogs;
+  const hiddenAdminLogCount = allLogs.length - logs.length;
+
   const tokens = logs
     .map((log) => log.simulatorToken || extractSimulatorLinkToken(log.path))
     .filter((token): token is string => Boolean(token));
@@ -565,6 +630,10 @@ export default async function AdminDashboardPage() {
             padding: 5px 8px !important;
             font-size: 10.5px !important;
           }
+          .adminFilterButton {
+            padding: 6px 9px !important;
+            font-size: 10.5px !important;
+          }
           .adminLogViewport {
             height: calc(100vh - 142px) !important;
             min-height: 300px !important;
@@ -752,6 +821,16 @@ export default async function AdminDashboardPage() {
           <span className="adminStatPill" style={statPillStyle}>오늘 {todayLogCount}건</span>
           <span className="adminStatPill" style={statPillStyle}>최근 {logs.length}건</span>
           <span className="adminStatPill" style={statPillStyle}>고객링크 {simulatorShareCount}건</span>
+          {excludeAdmins && (
+            <span className="adminStatPill" style={statPillStyle}>관리자 {hiddenAdminLogCount}건 숨김</span>
+          )}
+          <a
+            className="adminFilterButton"
+            href={excludeAdmins ? "/admin/dashboard" : "/admin/dashboard?excludeAdmins=1"}
+            style={excludeAdmins ? adminFilterButtonOnStyle : adminFilterButtonOffStyle}
+          >
+            {excludeAdmins ? "관리자 다시 보기" : "관리자 제외하기"}
+          </a>
         </div>
       </div>
 
