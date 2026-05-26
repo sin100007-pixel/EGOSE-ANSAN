@@ -80,8 +80,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/");
 
   const name = user.name;
-  const canUseSimulator =
-    (user.simulatorAccess ?? "").trim().toLowerCase() === "y";
+  const canUseSimulator = user.canUseSimulator;
 
   const COLORS = {
     bgTop: "#0F0C2E",

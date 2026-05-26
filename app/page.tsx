@@ -3,22 +3,21 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import ProductPreview from "./product-preview";
 import InstallButton from "./components/InstallButton";
 
+import { useRouter } from "next/navigation";
 const BG_DARK = "#0F0C2E";
 const BTN_BLUE = "#0019C9";
 const BTN_BLUE_HOVER = "#1326D9";
 
 export default function Page() {
-  const router = useRouter();
-
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   // 자동 로그인 안내 풍선
   const [autoLogging, setAutoLogging] = useState(false);
@@ -87,6 +86,7 @@ export default function Page() {
         localStorage.setItem("session_user", encodeURIComponent(name));
       } catch {}
       router.replace("/dashboard");
+      router.refresh();
     } catch (err: any) {
       setError(err?.message || "서버 오류가 발생했습니다.");
     } finally {

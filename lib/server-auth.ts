@@ -13,8 +13,28 @@ export type CurrentEgoseUser = {
   qrUrl: string;
   role: string;
   memberType: string;
-  simulatorAccess: string | null;
+  canUseSimulator: boolean;
 };
+
+type CurrentEgoseUserRow = {
+  id: string;
+  name: string;
+  qrUrl: string;
+  role: string;
+  memberType: string;
+  simulator_access: string | null;
+};
+
+function toCurrentEgoseUser(user: CurrentEgoseUserRow): CurrentEgoseUser {
+  return {
+    id: user.id,
+    name: user.name,
+    qrUrl: user.qrUrl,
+    role: user.role,
+    memberType: user.memberType,
+    canUseSimulator: user.simulator_access === "y",
+  };
+}
 
 function safeDecodeCookieValue(value: string) {
   try {
@@ -41,11 +61,11 @@ export async function getCurrentEgoseUser(): Promise<CurrentEgoseUser | null> {
           qrUrl: true,
           role: true,
           memberType: true,
-          simulatorAccess: true,
+          simulator_access: true,
         },
       });
 
-      if (user) return user;
+      if (user) return toCurrentEgoseUser(user);
     }
   }
 
@@ -56,7 +76,7 @@ export async function getCurrentEgoseUser(): Promise<CurrentEgoseUser | null> {
   const legacyName = safeDecodeCookieValue(legacyCookie);
   if (!legacyName) return null;
 
-  return prisma.user.findFirst({
+  const user = await prisma.user.findFirst({
     where: { name: legacyName },
     select: {
       id: true,
@@ -64,7 +84,9 @@ export async function getCurrentEgoseUser(): Promise<CurrentEgoseUser | null> {
       qrUrl: true,
       role: true,
       memberType: true,
-      simulatorAccess: true,
+      simulator_access: true,
     },
   });
+
+  return user ? toCurrentEgoseUser(user) : null;
 }

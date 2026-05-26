@@ -9,18 +9,18 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(uuid())
-  name            String
-  phoneLast4      String   @db.VarChar
-  passwordHash    String?
-  qrUrl           String
-  memberType      String   @default("INSTALLER") @db.VarChar(20)
-  role            String   @default("USER") @db.VarChar(20)
-  simulatorAccess String?  @map("simulator_access")
-  createdAt       DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime @default(now()) @db.Timestamptz(6)
+  id            String   @id @default(uuid())
+  name          String
+  phoneLast4    String   @db.VarChar
+  passwordHash  String?
+  qrUrl         String
+  memberType    String   @default("INSTALLER") @db.VarChar(20)
+  role          String   @default("USER") @db.VarChar(20)
+  simulator_access String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @db.Timestamptz(6)
 
-  authSessions    AuthSession[]
+  authSessions  AuthSession[]
 }
 
 model AuthSession {
