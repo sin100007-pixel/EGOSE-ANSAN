@@ -530,7 +530,7 @@ export default function SimulbotLaunchClient() {
             <BotAvatar size={234} className={styles.ctaLargeBotAvatar} />
             <div>
               <span>지금 바로 사용해보세요</span>
-              <h2>상담은 더 직관적으로, 고객 선택은 더 편하게.</h2>
+              <h2>상담은 더 직관적으로, 상담 업무는 더 편하게.</h2>
               <p></p>
               <div className={styles.ctaActions}>
                 <Link href={SIMULBOT_URL} className={styles.primaryButton}>시뮬봇 열기</Link>
