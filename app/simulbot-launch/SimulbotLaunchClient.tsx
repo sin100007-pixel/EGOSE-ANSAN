@@ -358,7 +358,7 @@ function KakaoShareMockup() {
           </svg>
         </span>
         <div>
-          <strong>더센트 308동 301호 고객</strong>
+          <strong>더센트라고 308동 301호 고객</strong>
         </div>
       </div>
 
@@ -407,6 +407,7 @@ export default function SimulbotLaunchClient() {
     "고객 상담을 더 설득력 있게",
     "고객용 링크 발송까지 더 간단하게",
     "후보 공유와 결정 확정까지 한 번에",
+    "고객 상담 업무를 더 가볍게",
   ];
 
   useEffect(() => {
@@ -469,7 +470,7 @@ export default function SimulbotLaunchClient() {
           <Reveal className={styles.featureCard}>
             <div className={styles.featureText}>
               <span className={styles.number}>01</span>
-              <h3>고객과의 상담에서 더 높은 설득력을 가질 수 있습니다.</h3>
+              <h3>고객과의 상담에서 더 높은 설득력을 제공할 수 있습니다.</h3>
               <p>고객과 면담하면서 이미지에 필름을 적용한 모습을 직관적이고 즉각적으로 보여줄 수 있습니다.</p>
             </div>
             <SimulatorScreenMockup />
@@ -489,7 +490,7 @@ export default function SimulbotLaunchClient() {
       <section className={styles.section}>
         <Reveal>
           <div className={styles.sectionTitle}>
-            <span>2. 이용안내</span>
+            <span>이용안내</span>
             <h2>어떻게 쓸 수 있나요?</h2>
           </div>
         </Reveal>

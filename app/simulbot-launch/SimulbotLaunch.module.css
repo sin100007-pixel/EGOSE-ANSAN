@@ -91,6 +91,7 @@
   min-height: 54px;
   padding: 0 22px;
   font-size: 15px;
+  box-sizing: border-box;
 }
 
 .primaryButton {
@@ -138,7 +139,7 @@
   align-items: start;
   width: min(1120px, 100%);
   margin: 0 auto;
-  padding: 24px 18px 46px;
+  padding: 34px 18px 46px;
   box-sizing: border-box;
 }
 
@@ -219,6 +220,7 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 24px;
+  max-width: 100%;
 }
 
 .heroMockArea {
@@ -417,15 +419,17 @@
 }
 
 .qrMock {
+  display: block;
   width: min(100%, 224px);
   aspect-ratio: 1 / 1;
   border-radius: 15px;
-  border: 8px solid #fff;
-  background:
-    linear-gradient(90deg, #111 9px, transparent 9px) 0 0 / 27px 27px,
-    linear-gradient(#111 9px, transparent 9px) 0 0 / 27px 27px,
-    #fff;
+  background: #ffffff;
+  overflow: hidden;
   box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+}
+
+.qrMock rect {
+  shape-rendering: crispEdges;
 }
 
 .simButtonStackMock {
@@ -609,7 +613,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  min-height: 74px;
+  min-height: 128px;
   padding: 12px;
   border: 1px solid rgba(96,68,34,0.13);
   border-radius: 20px;
@@ -759,6 +763,22 @@
   color: rgba(255,255,255,0.8);
   font-size: 13px;
   font-weight: 900;
+}
+
+.adminTopTitle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(238,224,197,0.12);
+  border: 1px solid rgba(238,224,197,0.16);
+  color: #eee0c5;
+  font-size: 13px;
+  font-weight: 950;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
 }
 
 .simulatorHeroCard,
@@ -997,13 +1017,55 @@
   font-weight: 800;
   letter-spacing: -0.03em;
 }
+.kakaoTalkIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #fee500;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.kakaoTalkIconSvg {
+  display: block;
+  width: 29px;
+  height: 29px;
+  fill: #171717;
+  transform: translateX(0);
+}
+
+.kakaoConversation {
+  position: relative;
+}
+
+.kakaoAnimatedItem {
+  animation-duration: 8s;
+  animation-timing-function: ease;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+.kakaoStepOne {
+  animation-name: kakaoStepOneIn;
+}
+
+.kakaoStepTwo {
+  animation-name: kakaoStepTwoIn;
+}
+
+.kakaoStepThree {
+  animation-name: kakaoStepThreeIn;
+}
 
 .kakaoRoleLabel {
-  margin: 2px 0 6px;
-  color: rgba(23,36,44,0.62);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
+  margin: 2px 0 7px;
+  color: rgba(23,36,44,0.68);
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
 }
 
 .kakaoReplyWrap {
@@ -1014,11 +1076,11 @@
 }
 
 .kakaoRoleLabelRight {
-  margin: 0 4px 6px 0;
-  color: rgba(23,36,44,0.62);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
+  margin: 0 4px 7px 0;
+  color: rgba(23,36,44,0.68);
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
   text-align: right;
 }
 
@@ -1036,18 +1098,79 @@
   box-shadow: 0 12px 24px rgba(0,0,0,0.08);
 }
 
+@keyframes kakaoStepOneIn {
+  0%, 12% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+    filter: blur(4px);
+  }
+  16%, 88% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+    filter: blur(3px);
+  }
+}
+
+@keyframes kakaoStepTwoIn {
+  0%, 24% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+    filter: blur(4px);
+  }
+  28%, 88% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+    filter: blur(3px);
+  }
+}
+
+@keyframes kakaoStepThreeIn {
+  0%, 49% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+    filter: blur(4px);
+  }
+  53%, 88% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+    filter: blur(3px);
+  }
+}
+
+
+
+
+
+
+
+
 .usageGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .usageCard {
-  padding: 22px;
+  padding: 16px 18px 18px;
 }
 
 .usageCardHead {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .usageCardHead strong {
@@ -1169,9 +1292,11 @@
 .ctaBox {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-  padding: clamp(28px, 5vw, 52px);
+  gap: 16px;
+  align-items: center;
+  padding: clamp(24px, 4vw, 42px);
+  padding-bottom: clamp(42px, 6vw, 62px);
+  overflow: hidden;
   border-radius: 34px;
   border: 1px solid rgba(238,224,197,0.2);
   background:
@@ -1180,9 +1305,14 @@
   box-shadow: 0 24px 74px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
+.ctaBox > div {
+  min-width: 0;
+}
+
 .ctaBox p {
   max-width: 760px;
 }
+
 
 .reveal {
   opacity: 0;
@@ -1325,7 +1455,7 @@
 
   .simpleDashboardNote {
     height: 190px;
-    margin-top: 84px;
+    margin-top: 64px;
   }
 }
 
@@ -1352,7 +1482,7 @@
   }
 
   .hero {
-    padding-top: 12px;
+    padding-top: 34px;
     padding-bottom: 50px;
   }
 
@@ -1411,6 +1541,10 @@
     border-radius: 26px;
   }
 
+  .usageCard {
+    padding: 14px 16px 18px;
+  }
+
   .section {
     padding-top: 48px;
     padding-bottom: 48px;
@@ -1455,6 +1589,14 @@
   .ctaBox {
     grid-template-columns: 1fr;
     border-radius: 28px;
+    padding-top: 22px;
+    padding-bottom: 50px;
+  }
+
+  .ctaLargeBotAvatar {
+    justify-self: center;
+    height: 158px !important;
+    margin: -8px 0 -10px;
   }
 
   .usageDashboardIntro {
@@ -1480,8 +1622,12 @@
   }
 
   .usageDashboardSteps > div {
-    min-height: 68px;
-    padding: 11px;
+    min-height: 124px;
+    padding: 10px;
+  }
+
+  .usageDashboardSteps .botAvatar {
+    height: 88px !important;
   }
 
 }
@@ -1506,15 +1652,15 @@
   }
 
   .simpleDashboardNote {
-    height: 176px;
-    margin-top:96px;
+    height: 224px;
+    margin-top: 76px;
     padding: 12px 10px;
     border-radius: 20px;
   }
 
   .simpleDashboardNoteIcon {
-    height: 60px;
-    flex-basis: 60px;
+    height: 122px;
+    flex-basis: 122px;
   }
 
   .simpleDashboardNoteText {
@@ -1541,8 +1687,8 @@
   }
 
   .simpleDashboardNote {
-    height: 168px;
-    margin-top: 92px;
+    height: 214px;
+    margin-top: 72px;
     padding: 11px 8px;
   }
 
@@ -1611,7 +1757,8 @@
   .appliedFilmZone,
   .highlightNote,
   .activeRealSimButton::after,
-  .badge {
+  .badge,
+  .kakaoAnimatedItem {
     animation: none;
   }
 
@@ -1661,8 +1808,8 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 194px;
-  margin-top: 88px;
+  height: 238px;
+  margin-top: 68px;
   padding: 14px 12px;
   box-sizing: border-box;
   border-radius: 22px;
@@ -1677,8 +1824,8 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 74px;
-  flex: 0 0 74px;
+  height: 132px;
+  flex: 0 0 132px;
 }
 
 .simpleDashboardNoteText {
@@ -1729,7 +1876,7 @@
 
   .simpleDashboardNote {
     height: 190px;
-    margin-top: 84px;
+    margin-top: 64px;
   }
 }
 
@@ -1754,15 +1901,15 @@
   }
 
   .simpleDashboardNote {
-    height: 176px;
-    margin-top: 96px;
+    height: 224px;
+    margin-top: 76px;
     padding: 12px 10px;
     border-radius: 20px;
   }
 
   .simpleDashboardNoteIcon {
-    height: 60px;
-    flex-basis: 60px;
+    height: 122px;
+    flex-basis: 122px;
   }
 
   .simpleDashboardNoteText {
@@ -1789,182 +1936,29 @@
   }
 
   .simpleDashboardNote {
-    height: 168px;
-    margin-top: 92px;
+    height: 214px;
+    margin-top: 72px;
     padding: 11px 8px;
   }
 }
 
 
-/* 최신 문구 유지: 상단 아이콘/CTA 여백 보정 */
-.usageCardHead {
-  gap: 4px;
-  align-items: center;
+/* 최종 아이콘/여백 보정 */
+.usageDashboardSteps .botAvatar {
+  height: 88px !important;
 }
 
 .usageCardHead .botAvatar {
-  width: 116px !important;
   height: 78px !important;
-  margin: -6px 0 -4px;
-}
-
-.usageCardHead span {
-  margin-top: 1px;
 }
 
 .usageCard > p {
-  margin-top: 8px;
-}
-
-.ctaBox {
-  align-items: center;
-  overflow: hidden;
+  margin-top: 6px;
 }
 
 .ctaLargeBotAvatar {
-  width: 234px !important;
-  height: 158px !important;
-  justify-self: center;
   align-self: center;
-  margin: -8px auto -4px;
-}
-
-.ctaBox,
-.ctaBox * {
-  box-sizing: border-box;
-}
-
-.ctaActions {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.ctaActions .primaryButton,
-.ctaActions .secondaryButton {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-@media (max-width: 640px) {
-  .usageCardHead {
-    gap: 4px;
-  }
-
-  .usageCardHead .botAvatar {
-    width: 116px !important;
-    height: 78px !important;
-    margin: -8px 0 -6px;
-  }
-
-  .usageCard > p {
-    margin-top: 6px;
-  }
-
-  .ctaBox {
-    grid-template-columns: minmax(0, 1fr);
-    padding-top: 20px;
-    padding-bottom: 42px;
-  }
-
-  .ctaLargeBotAvatar {
-    width: 234px !important;
-    height: 158px !important;
-    justify-self: center;
-    margin: -10px auto -8px;
-  }
-
-  .ctaActions {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-
-/* 아이보리 풍선 관리자용 아이콘/텍스트 겹침 보정 */
-.simpleDashboardNote {
-  min-height: 224px;
-  justify-content: flex-start;
-  gap: 4px;
-  overflow: visible;
-}
-
-.simpleDashboardNoteIcon {
-  height: 118px;
-  flex: 0 0 118px;
-  margin-bottom: 6px;
-}
-
-.simpleDashboardNoteIcon .botAvatar {
-  width: 128px !important;
-  height: 104px !important;
-}
-
-.simpleDashboardNoteText {
-  min-height: auto;
-  padding-top: 4px;
-}
-
-.simpleDashboardNoteText strong {
-  min-height: auto;
-  line-height: 1.2;
-}
-
-.simpleDashboardNoteText span {
-  min-height: auto;
-  margin-top: 10px;
-}
-
-@media (max-width: 980px) {
-  .simpleDashboardNote {
-    min-height: 224px;
-    height: 224px;
-  }
-
-  .simpleDashboardNoteIcon {
-    height: 116px;
-    flex-basis: 116px;
-  }
-}
-
-@media (max-width: 640px) {
-  .simpleDashboardNote {
-    min-height: 218px;
-    height: 218px;
-    padding-top: 14px;
-    padding-bottom: 14px;
-  }
-
-  .simpleDashboardNoteIcon {
-    height: 112px;
-    flex-basis: 112px;
-    margin-bottom: 6px;
-  }
-
-  .simpleDashboardNoteIcon .botAvatar {
-    width: 122px !important;
-    height: 100px !important;
-  }
-
-  .simpleDashboardNoteText span {
-    margin-top: 8px;
-  }
-}
-
-@media (max-width: 420px) {
-  .simpleDashboardNote {
-    min-height: 212px;
-    height: 212px;
-  }
-
-  .simpleDashboardNoteIcon {
-    height: 108px;
-    flex-basis: 108px;
-  }
-
-  .simpleDashboardNoteIcon .botAvatar {
-    width: 118px !important;
-    height: 96px !important;
-  }
+  justify-self: center;
+  height: 158px !important;
+  margin: -10px 0 -8px !important;
 }
