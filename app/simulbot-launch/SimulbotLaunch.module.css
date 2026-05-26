@@ -1630,6 +1630,24 @@
     height: 88px !important;
   }
 
+  .guideCard {
+    padding: 18px;
+  }
+
+  .guideIconWrap {
+    flex-basis: 92px;
+    width: 92px;
+    height: 92px;
+  }
+
+  .guideCardHead strong {
+    font-size: 24px;
+  }
+
+  .guideCardHead span {
+    font-size: 13px;
+  }
+
 }
 @media (max-width: 640px) {
   .simpleIntroSection {
@@ -1741,6 +1759,21 @@
   .adminTabMock {
     gap: 4px;
     padding: 5px;
+  }
+
+  .guideCardHead {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .guideIconWrap {
+    flex-basis: 82px;
+    width: 82px;
+    height: 82px;
+  }
+
+  .guideCardHead strong {
+    font-size: 22px;
   }
 }
 
@@ -1961,4 +1994,730 @@
   justify-self: center;
   height: 158px !important;
   margin: -10px 0 -8px !important;
+}
+
+
+.guideCard {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 20px 22px 22px;
+}
+
+.guideCardHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.guideCardHead strong {
+  display: block;
+  color: #fff;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 950;
+  letter-spacing: -0.055em;
+}
+
+.guideCardHead span {
+  display: block;
+  margin-top: 6px;
+  color: #eee0c5;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.guideIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 118px;
+  width: 118px;
+  height: 118px;
+  overflow: visible;
+}
+
+.guideIcon {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.22));
+}
+
+.guideCardBody {
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .guideCard {
+    padding: 18px;
+  }
+
+  .guideIconWrap {
+    flex-basis: 92px;
+    width: 92px;
+    height: 92px;
+  }
+
+  .guideCardHead strong {
+    font-size: 24px;
+  }
+
+  .guideCardHead span {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 420px) {
+  .guideCardHead {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .guideIconWrap {
+    flex-basis: 82px;
+    width: 82px;
+    height: 82px;
+  }
+
+  .guideCardHead strong {
+    font-size: 22px;
+  }
+}
+
+
+/* guide section final overrides */
+.guideCard {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 20px 22px 22px;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: grid;
+  gap: 18px;
+}
+
+.guideCardIntro {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.guideCardHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.guideCardHead > div {
+  min-width: 0;
+}
+
+.guideCardHead strong {
+  display: block;
+  color: #fff;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 950;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}
+
+.guideCardHead span {
+  display: block;
+  margin-top: 6px;
+  color: #eee0c5;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.guideIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 92px;
+  width: 92px;
+  height: 92px;
+  overflow: visible;
+}
+
+.guideIcon {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.22));
+}
+
+.guideCardBody {
+  margin: 0;
+}
+
+.guideMockup {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid rgba(238,224,197,0.14);
+  background: radial-gradient(circle at top right, rgba(238,224,197,0.08), transparent 26%), linear-gradient(180deg, #060241 0%, #06041f 100%);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.24);
+}
+
+.guideMockupTop {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 0;
+}
+
+.guideMockupTop button,
+.guideMockupTop span {
+  min-height: 34px;
+}
+
+.guideMockupTop > button,
+.guideMockupTop > span {
+  border: 1px solid rgba(238,224,197,0.16);
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: rgba(255,255,255,0.06);
+  color: #eee0c5;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.guideMockupTop > span {
+  justify-self: center;
+}
+
+.guideTopButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.guideTopButtonIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #eee0c5;
+  color: #5f4322;
+  font-size: 13px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.guideMockupBody {
+  display: grid;
+  gap: 14px;
+  padding: 12px 14px 14px;
+}
+
+.guideMockupIntro {
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.075);
+  border: 1px solid rgba(238,224,197,0.14);
+}
+
+.guideMockupTitle {
+  margin: 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.05em;
+}
+
+.guideMockupDesc {
+  margin: 8px 0 0;
+  color: rgba(255,255,255,0.66);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+  letter-spacing: -0.03em;
+}
+
+.guideVisualStage {
+  display: grid;
+  gap: 12px;
+}
+
+.guideMockupRoom {
+  position: relative;
+  overflow: hidden;
+  min-height: 220px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #f4efe6 0%, #e4d8c1 58%, #c9ba9d 100%);
+}
+
+.guideMockupWall {
+  position: absolute;
+  inset: 0 0 34% 0;
+  background: linear-gradient(180deg, #f4efe6 0%, #e9dfcd 100%);
+}
+
+.guideMockupFloor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36%;
+  background: linear-gradient(180deg, #ccbc9a 0%, #bca985 100%);
+}
+
+.guideMockupDoor {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  width: min(34%, 120px);
+  height: 52%;
+  transform: translateX(-50%);
+  border-radius: 16px 16px 4px 4px;
+  background: linear-gradient(180deg, #6b7299 0%, #464f7d 100%);
+  box-shadow: inset -6px 0 0 rgba(255,255,255,0.12), inset 6px 0 0 rgba(0,0,0,0.1), 0 10px 22px rgba(0,0,0,0.18);
+}
+
+.guideMockupDoor::before {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #d6cfbf;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.guideCircleHelp {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(8,7,30,0.84);
+  color: #eee0c5;
+  font-size: 18px;
+  font-weight: 950;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+
+.guideHintBubble {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(238,224,197,0.12);
+  border: 1px dashed rgba(238,224,197,0.28);
+}
+
+.guideHintBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #eee0c5;
+  color: #674926;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.guideHintBubble strong {
+  display: block;
+  color: #eee0c5;
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+}
+
+.guideHintBubble span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .guideCard {
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .guideIconWrap {
+    flex-basis: 76px;
+    width: 76px;
+    height: 76px;
+  }
+
+  .guideCardHead strong {
+    font-size: 24px;
+  }
+
+  .guideCardHead span {
+    font-size: 13px;
+  }
+
+  .guideMockupTop {
+    grid-template-columns: auto 1fr;
+  }
+
+  .guideTopButton {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .guideMockupRoom {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 420px) {
+  .guideCardHead {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .guideIconWrap {
+    flex-basis: 68px;
+    width: 68px;
+    height: 68px;
+  }
+
+  .guideCardHead strong {
+    font-size: 22px;
+  }
+
+  .guideMockupTop {
+    gap: 8px;
+  }
+
+  .guideMockupTop > button,
+  .guideMockupTop > span {
+    font-size: 11px;
+    padding: 7px 10px;
+  }
+
+  .guideMockupBody {
+    padding: 10px 10px 12px;
+  }
+
+  .guideMockupRoom {
+    min-height: 184px;
+  }
+}
+
+/* guide screenshot replacement */
+.guideScreenshotFrame {
+  position: relative;
+  width: min(100%, 408px);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid rgba(238,224,197,0.18);
+  background: #060241;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.24);
+}
+
+.guideScreenshotImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.guideBlinkTarget {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow:
+    0 0 0 0 rgba(238, 224, 197, 0.88),
+    0 0 22px rgba(238, 224, 197, 0.42);
+  animation: guideTargetBlink 1.18s ease-in-out infinite;
+}
+
+.guideBlinkTarget::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 2px solid rgba(238, 224, 197, 0.92);
+  background: rgba(238, 224, 197, 0.08);
+}
+
+.guideBlinkFilmHelp {
+  top: 6.9%;
+  left: 25.7%;
+  width: 30px;
+  height: 30px;
+  animation-delay: 0s;
+}
+
+.guideBlinkGuideIcon {
+  top: -2.2%;
+  right: 1.2%;
+  width: 138px;
+  height: 138px;
+  animation-delay: 0.24s;
+}
+
+.guideBlinkAllFilmsHelp {
+  top: 31.2%;
+  right: 4.9%;
+  width: 34px;
+  height: 34px;
+  animation-delay: 0.48s;
+}
+
+.guideIconPulse {
+  animation: guideIconHeaderPulse 1.25s ease-in-out infinite;
+}
+
+@keyframes guideTargetBlink {
+  0%, 100% {
+    opacity: 0.46;
+    transform: scale(0.96);
+    box-shadow:
+      0 0 0 0 rgba(238, 224, 197, 0.76),
+      0 0 12px rgba(238, 224, 197, 0.28);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+    box-shadow:
+      0 0 0 9px rgba(238, 224, 197, 0),
+      0 0 28px rgba(238, 224, 197, 0.62);
+  }
+}
+
+@keyframes guideIconHeaderPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,0.22));
+  }
+  50% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 20px rgba(238,224,197,0.48));
+  }
+}
+
+@media (max-width: 520px) {
+  .guideScreenshotFrame {
+    border-radius: 22px;
+  }
+
+  .guideBlinkFilmHelp {
+    width: 24px;
+    height: 24px;
+  }
+
+  .guideBlinkGuideIcon {
+    top: -2.4%;
+    right: 1.2%;
+    width: 117px;
+    height: 117px;
+  }
+
+  .guideBlinkAllFilmsHelp {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+
+/* guide section adjustment: header icon fixed + question blink centers */
+.guideCard {
+  overflow: visible !important;
+}
+
+.guideCardHead {
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.guideIconWrap {
+  flex: 0 0 132px !important;
+  width: 132px !important;
+  height: 132px !important;
+  margin-top: 0 !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+.guideIcon {
+  animation: none !important;
+}
+
+.guideCardHead > div > span {
+  margin-top: 2px !important;
+  line-height: 1.12 !important;
+}
+
+.guideScreenshotFrame {
+  overflow: visible !important;
+}
+
+.guideScreenshotImage {
+  border-radius: 26px;
+}
+
+.guideBlinkFilmHelp {
+  top: 5.8% !important;
+  left: 24.8% !important;
+  width: 26px !important;
+  height: 26px !important;
+}
+
+.guideBlinkGuideIcon {
+  top: 2.6% !important;
+  right: 2.8% !important;
+  width: 108px !important;
+  height: 108px !important;
+}
+
+.guideBlinkAllFilmsHelp {
+  top: 31.7% !important;
+  right: 7.1% !important;
+  width: 30px !important;
+  height: 30px !important;
+}
+
+@media (max-width: 640px) {
+  .guideIconWrap {
+    flex-basis: 128px !important;
+    width: 128px !important;
+    height: 128px !important;
+  }
+
+  .guideCardHead {
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .guideBlinkGuideIcon {
+    top: 2.8% !important;
+    right: 2.7% !important;
+    width: 96px !important;
+    height: 96px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .guideIconWrap {
+    flex-basis: 118px !important;
+    width: 118px !important;
+    height: 118px !important;
+  }
+
+  .guideCardHead {
+    gap: 6px !important;
+  }
+}
+
+
+/* guide section fine tune: tighter intro spacing + inline question badge */
+.guideCardIntro {
+  gap: 4px !important;
+}
+
+.guideCardHead {
+  gap: 6px !important;
+  margin-bottom: 0 !important;
+}
+
+.guideIconWrap {
+  flex: 0 0 116px !important;
+  width: 116px !important;
+  height: 116px !important;
+}
+
+.guideCardBody {
+  margin-top: 0 !important;
+  line-height: 1.55;
+}
+
+.inlineQuestionBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.32em;
+  height: 1.32em;
+  margin: 0 0.12em;
+  vertical-align: -0.14em;
+  border-radius: 999px;
+  border: 1px solid rgba(238,224,197,0.55);
+  background: rgba(83,79,129,0.98);
+  color: #f5e6c7;
+  font-size: 0.95em;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255,245,216,0.12), 0 4px 10px rgba(0,0,0,0.16);
+}
+
+@media (max-width: 640px) {
+  .guideIconWrap {
+    flex-basis: 112px !important;
+    width: 112px !important;
+    height: 112px !important;
+  }
+
+  .guideCardHead {
+    gap: 6px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .guideIconWrap {
+    flex-basis: 108px !important;
+    width: 108px !important;
+    height: 108px !important;
+  }
+
+  .guideCardHead {
+    gap: 5px !important;
+  }
+}
+
+/* guide icon whitespace compact override */
+.guideIconWrap {
+  overflow: visible !important;
+}
+
+.guideIcon {
+  width: 128% !important;
+  max-width: none !important;
+  margin-left: -14% !important;
+  margin-right: -14% !important;
+}
+
+@media (max-width: 640px) {
+  .guideIcon {
+    width: 132% !important;
+    margin-left: -16% !important;
+    margin-right: -16% !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .guideIcon {
+    width: 136% !important;
+    margin-left: -18% !important;
+    margin-right: -18% !important;
+  }
 }

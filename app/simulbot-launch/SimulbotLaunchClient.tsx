@@ -347,6 +347,67 @@ function LinkMakerMockup() {
   );
 }
 
+
+
+function GuideSimulatorMockup() {
+  return (
+    <div className={styles.guideScreenshotFrame}>
+      <Image
+        src="/simulbot-launch/guide-film-limit.png"
+        alt="필름 제한 가이드 예시 화면"
+        width={408}
+        height={359}
+        className={styles.guideScreenshotImage}
+      />
+      <span
+        className={`${styles.guideBlinkTarget} ${styles.guideBlinkFilmHelp}`}
+        aria-hidden="true"
+      />
+      <span
+        className={`${styles.guideBlinkTarget} ${styles.guideBlinkGuideIcon}`}
+        aria-hidden="true"
+      />
+      <span
+        className={`${styles.guideBlinkTarget} ${styles.guideBlinkAllFilmsHelp}`}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+function GuideSupportCard() {
+  return (
+    <Reveal className={`${styles.usageCard} ${styles.guideCard}`}>
+      <div className={styles.guideCardIntro}>
+        <div className={styles.guideCardHead}>
+          <span className={styles.guideIconWrap}>
+            <Image
+              src="/simulbot-guide-icon.png"
+              alt="가이드 아이콘"
+              width={180}
+              height={180}
+              className={styles.guideIcon}
+            />
+          </span>
+          <div>
+            <strong>가이드</strong>
+            <span>설명이 필요할때 사용</span>
+          </div>
+        </div>
+        <p className={styles.guideCardBody}>
+          시뮬봇과 시뮬봇 관리자 안에는 기능 설명을 위해 오른쪽 상단에 가이드 버튼이 있습니다.{' '}
+          <span className={styles.inlineQuestionBadge} aria-hidden="true">
+            ?
+          </span>{' '}
+          버튼과 함께 시뮬봇과 시뮬봇 관리자용의 기능을 설명해드립니다.
+        </p>
+      </div>
+
+      <GuideSimulatorMockup />
+    </Reveal>
+  );
+}
+
 function KakaoShareMockup() {
   return (
     <div className={styles.kakaoCard}>
@@ -522,6 +583,10 @@ export default function SimulbotLaunchClient() {
             <LinkMakerMockup />
           </Reveal>
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <GuideSupportCard />
       </section>
 
       <section className={styles.ctaSection}>
