@@ -12,6 +12,7 @@ import {
 
 type UseSimulatorCustomerGuideArgs = {
   mode: SimulatorMode;
+  guideEnabled: boolean;
   token: string;
   step: SimulatorStep;
   hasIntroStep: boolean;
@@ -23,6 +24,7 @@ type UseSimulatorCustomerGuideArgs = {
 
 export function useSimulatorCustomerGuide({
   mode,
+  guideEnabled,
   token,
   step,
   hasIntroStep,
@@ -41,8 +43,12 @@ export function useSimulatorCustomerGuide({
   const promptShownInSessionRef = useRef(false);
 
   const customerGuidePromptStorageKey = useMemo(() => {
+    if (mode === "installer") {
+      return `${CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX}:installer`;
+    }
+
     return `${CUSTOMER_GUIDE_START_PROMPT_STORAGE_PREFIX}:${token || "default"}`;
-  }, [token]);
+  }, [mode, token]);
 
   const guidedSequenceSteps = useMemo<CustomerGuideStep[]>(() => {
     if (hasIntroStep) {
@@ -65,7 +71,7 @@ export function useSimulatorCustomerGuide({
   }, [hasIntroStep, step]);
 
   const canOpenCurrentGuide = Boolean(
-    mode === "customer" &&
+    guideEnabled &&
       guideReady &&
       !loading &&
       !expired &&
@@ -93,7 +99,7 @@ export function useSimulatorCustomerGuide({
     setGuidedSequenceActive(false);
     setGuidedSequenceCompletedSteps([]);
 
-    if (mode !== "customer") {
+    if (!guideEnabled) {
       setActiveGuideStep(null);
       setPromptHandledInSession(true);
       setShowGuideStartPrompt(false);
@@ -114,10 +120,10 @@ export function useSimulatorCustomerGuide({
       setShowGuideSkippedNotice(false);
       setGuideReady(true);
     }
-  }, [customerGuidePromptStorageKey, mode]);
+  }, [customerGuidePromptStorageKey, guideEnabled]);
 
   useEffect(() => {
-    if (mode !== "customer" || !guideReady || loading || expired || setupNeeded) {
+    if (!guideEnabled || !guideReady || loading || expired || setupNeeded) {
       return;
     }
 
@@ -137,7 +143,7 @@ export function useSimulatorCustomerGuide({
     expired,
     guideReady,
     loading,
-    mode,
+    guideEnabled,
     promptHandledInSession,
     setupNeeded,
     shouldPromptAtCurrentStep,

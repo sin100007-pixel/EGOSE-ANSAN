@@ -627,6 +627,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   }, [selectedSpace]);
 
   const previewHasRealSpace = Boolean(selectedSpace?.base_image_url || selectedSpace?.overlay_image_url);
+  const customerGuideEnabled = mode === "customer" || mode === "installer";
   const hasIntroStep = mode === "customer" && Boolean(state.contractor);
   const favoriteStorageKey = useMemo(() => buildFavoriteStorageKey(mode, token), [mode, token]);
 
@@ -684,6 +685,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
     closeGuideSkippedNotice,
   } = useSimulatorCustomerGuide({
     mode,
+    guideEnabled: customerGuideEnabled,
     token,
     step,
     hasIntroStep,
@@ -1568,7 +1570,7 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
   const isCustomerIntroStep = step === "intro" && hasIntroStep;
 
   const showGuideToggle =
-    mode === "customer" &&
+    customerGuideEnabled &&
     !state.loading &&
     !state.expired &&
     !state.setupNeeded &&
