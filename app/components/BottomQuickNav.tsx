@@ -158,7 +158,6 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
   const COLORS = {
     cream: "#F5F1E8",
     creamStrong: "#EEDFC6",
-    badge: "#FF6E86",
   };
 
   const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
@@ -323,25 +322,6 @@ export default function BottomQuickNav({ current = "dashboard" }: BottomQuickNav
                 opacity: isNavigatingDashboard ? 0.7 : 1,
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: -4,
-                  right: -25,
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  background: COLORS.badge,
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  lineHeight: 1,
-                  letterSpacing: "0.01em",
-                  border: "2px solid #fff",
-                }}
-              >
-                새롭다!
-              </div>
-
               <img
                 src="/filmbot-button.png"
                 alt="필름봇"

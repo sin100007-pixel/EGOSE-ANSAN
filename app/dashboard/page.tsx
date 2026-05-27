@@ -19,6 +19,7 @@ type IconOnlyShortcutProps = {
   imageScale?: string;
   imageMaxWidth?: number;
   padding?: number;
+  showNewBadge?: boolean;
 };
 
 function IconOnlyShortcut({
@@ -30,6 +31,7 @@ function IconOnlyShortcut({
   imageScale = "160%",
   imageMaxWidth = 210,
   padding = 8,
+  showNewBadge = false,
 }: IconOnlyShortcutProps) {
   return (
     <Link
@@ -46,15 +48,43 @@ function IconOnlyShortcut({
         borderRadius: radius,
         textDecoration: "none",
         background:
-          "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
-        border: "1px solid rgba(255,255,255,0.12)",
+          "linear-gradient(180deg, rgba(255,250,235,0.98) 0%, rgba(241,224,188,0.94) 100%)",
+        border: "1px solid rgba(122,92,45,0.22)",
         boxShadow:
-          "0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.04)",
+          "0 10px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55)",
         padding,
         overflow: "visible",
         isolation: "isolate",
       }}
     >
+      {showNewBadge ? (
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 6,
+            right: -14,
+            zIndex: 4,
+            padding: "4px 9px",
+            borderRadius: 999,
+            background: "#FF6E86",
+            color: "#FFFFFF",
+            fontSize: 11,
+            fontWeight: 900,
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
+            border: "2px solid #FFFFFF",
+            boxShadow: "0 5px 12px rgba(0,0,0,0.20)",
+            transform: "rotate(15deg)",
+            transformOrigin: "center",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          새롭다!
+        </span>
+      ) : null}
+
       <img
         src={imageSrc}
         alt={label}
@@ -121,10 +151,10 @@ export default async function DashboardPage() {
     borderRadius: 22,
     padding: 6,
     background:
-      "linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.035) 100%)",
-    border: `1px solid ${COLORS.lineStrong}`,
+      "linear-gradient(180deg, rgba(255,250,235,0.98) 0%, rgba(242,225,190,0.94) 100%)",
+    border: "1px solid rgba(122,92,45,0.24)",
     boxShadow:
-      "0 10px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04)",
+      "0 12px 26px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.62)",
     overflow: "visible",
   };
 
@@ -286,6 +316,7 @@ export default async function DashboardPage() {
                   imageScale="184%"
                   imageMaxWidth={170}
                   padding={3}
+                  showNewBadge
                 />
 
                 <IconOnlyShortcut
@@ -297,6 +328,7 @@ export default async function DashboardPage() {
                   imageScale="184%"
                   imageMaxWidth={170}
                   padding={3}
+                  showNewBadge
                 />
               </div>
             </div>
