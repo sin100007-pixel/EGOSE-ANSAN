@@ -24,6 +24,61 @@ export function normalizeForSearch(value: string) {
     .replace(/[^0-9A-Z가-힣]/g, "");
 }
 
+
+function getCodePrefixCandidates(value: string | null | undefined) {
+  return Array.from(
+    new Set(
+      String(value || "")
+        .toUpperCase()
+        .split(/[\/\\|·ㆍ,&+]/g)
+        .flatMap((part) => part.match(/[A-Z]{1,8}/g) || [])
+        .map((part) => normalizeForSearch(part))
+        .filter((part) => /[A-Z]/.test(part))
+    )
+  );
+}
+
+function extractDelimitedCodeAliases(value: string | null | undefined) {
+  const aliases = new Set<string>();
+  const source = String(value || "").toUpperCase();
+  const pattern = /([A-Z]{1,8}(?:\s*[\/\\|·ㆍ,&+]\s*[A-Z]{1,8})+)\s*[-_ ]*(\d{1,6}[A-Z]?)/g;
+
+  for (const match of source.matchAll(pattern)) {
+    const prefixes = getCodePrefixCandidates(match[1]);
+    const numberPart = normalizeForSearch(match[2] || "");
+    if (!numberPart) continue;
+
+    for (const prefix of prefixes) {
+      aliases.add(`${prefix}${numberPart}`);
+    }
+  }
+
+  return Array.from(aliases);
+}
+
+function buildProductCodeAliases(
+  code1: string | null | undefined,
+  code2: string | null | undefined,
+  ...extraValues: Array<string | null | undefined>
+) {
+  const aliases = new Set<string>();
+  const normalizedCode2 = normalizeForSearch(String(code2 || ""));
+
+  if (normalizedCode2) {
+    for (const prefix of getCodePrefixCandidates(code1)) {
+      aliases.add(`${prefix}${normalizedCode2}`);
+    }
+  }
+
+  for (const value of [code1, code2, ...extraValues]) {
+    for (const alias of extractDelimitedCodeAliases(value)) {
+      aliases.add(alias);
+    }
+  }
+
+  return Array.from(aliases);
+}
+
 export function buildQueryTokens(query: string) {
   const tokens = new Set<string>();
   const normalized = normalizeForSearch(query);
@@ -111,6 +166,7 @@ export function getScore(item: ProductRow, query: string) {
     code1 && colorName ? `${code1}${colorName}` : "",
     code2 && colorName ? `${code2}${colorName}` : "",
     fullName,
+    ...buildProductCodeAliases(item.product_code_1, item.product_code_2, item.full_name),
   ]
     .map((value) => normalizeForSearch(value || ""))
     .filter(Boolean);

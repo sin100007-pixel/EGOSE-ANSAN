@@ -106,6 +106,61 @@ export function normalizeClientSearch(value: string | null | undefined) {
     .replace(/[^0-9A-Z가-힣]/g, "");
 }
 
+
+function getClientCodePrefixCandidates(value: string | null | undefined) {
+  return Array.from(
+    new Set(
+      String(value || "")
+        .toUpperCase()
+        .split(/[\/\\|·ㆍ,&+]/g)
+        .flatMap((part) => part.match(/[A-Z]{1,8}/g) || [])
+        .map((part) => normalizeClientSearch(part))
+        .filter((part) => /[A-Z]/.test(part))
+    )
+  );
+}
+
+function extractClientDelimitedCodeAliases(value: string | null | undefined) {
+  const aliases = new Set<string>();
+  const source = String(value || "").toUpperCase();
+  const pattern = /([A-Z]{1,8}(?:\s*[\/\\|·ㆍ,&+]\s*[A-Z]{1,8})+)\s*[-_ ]*(\d{1,6}[A-Z]?)/g;
+
+  for (const match of source.matchAll(pattern)) {
+    const prefixes = getClientCodePrefixCandidates(match[1]);
+    const numberPart = normalizeClientSearch(match[2] || "");
+    if (!numberPart) continue;
+
+    for (const prefix of prefixes) {
+      aliases.add(`${prefix}${numberPart}`);
+    }
+  }
+
+  return Array.from(aliases);
+}
+
+function buildClientProductCodeAliases(
+  code1: string | null | undefined,
+  code2: string | null | undefined,
+  ...extraValues: Array<string | null | undefined>
+) {
+  const aliases = new Set<string>();
+  const normalizedCode2 = normalizeClientSearch(code2);
+
+  if (normalizedCode2) {
+    for (const prefix of getClientCodePrefixCandidates(code1)) {
+      aliases.add(`${prefix}${normalizedCode2}`);
+    }
+  }
+
+  for (const value of [code1, code2, ...extraValues]) {
+    for (const alias of extractClientDelimitedCodeAliases(value)) {
+      aliases.add(alias);
+    }
+  }
+
+  return Array.from(aliases);
+}
+
 export function getClientFilmSearchScore(film: SimulatorFilm, query: string) {
   const q = normalizeClientSearch(query);
   if (!q) return 1;
@@ -130,6 +185,7 @@ export function getClientFilmSearchScore(film: SimulatorFilm, query: string) {
     code1 && colorName ? `${code1}${colorName}` : "",
     code2 && colorName ? `${code2}${colorName}` : "",
     fullName,
+    ...buildClientProductCodeAliases(film.product_code_1, film.product_code_2, film.full_name),
   ]
     .map((value) => normalizeClientSearch(value))
     .filter(Boolean);
