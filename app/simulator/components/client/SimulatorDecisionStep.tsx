@@ -92,7 +92,10 @@ export default function SimulatorDecisionStep({
   const selectedFavoriteCount = hasDemoFavorite ? 1 : selectedFavoriteCandidateIds.length;
   const shareButtonDisabled = !hasDemoFavorite && (selectedFavoriteCount === 0 || isDecisionSharing);
   const [showFavoriteShareHelp, setShowFavoriteShareHelp] = useState(false);
-  const [favoriteFullscreenSignals, setFavoriteFullscreenSignals] = useState<Record<string, number>>({});
+  const [favoriteFullscreenRequest, setFavoriteFullscreenRequest] = useState({
+    candidateId: "",
+    key: 0,
+  });
 
   useEffect(() => {
     if (!showFavoriteShareHelp) return;
@@ -189,10 +192,12 @@ export default function SimulatorDecisionStep({
                       viewportClassName="favoriteCandidateThumbViewport"
                       exportKeyPrefix={`favorite-${candidate.id}`}
                       compactEmpty
-                      enableFullscreen
+                      enableFullscreen={candidateHasRealSpace}
                       showFullscreenButton={false}
                       fullscreenTitle={`${candidate.space?.name || `후보 ${index + 1}`} 크게 보기`}
-                      fullscreenOpenSignal={favoriteFullscreenSignals[candidate.id] || 0}
+                      fullscreenOpenRequestKey={
+                        favoriteFullscreenRequest.candidateId === candidate.id ? favoriteFullscreenRequest.key : 0
+                      }
                     />
                   </div>
 
@@ -227,14 +232,16 @@ export default function SimulatorDecisionStep({
                       <button
                         type="button"
                         onClick={(event) => {
+                          event.preventDefault();
                           event.stopPropagation();
-                          if (isDemoCandidate) return;
-                          setFavoriteFullscreenSignals((prev) => ({
-                            ...prev,
-                            [candidate.id]: (prev[candidate.id] || 0) + 1,
+                          if (!candidateHasRealSpace) return;
+                          setFavoriteFullscreenRequest((prev) => ({
+                            candidateId: candidate.id,
+                            key: prev.key + 1,
                           }));
                         }}
-                        className="favoriteCandidateViewButton"
+                        className="favoriteCandidateExpandButton"
+                        disabled={!candidateHasRealSpace}
                       >
                         크게보기
                       </button>
@@ -242,6 +249,7 @@ export default function SimulatorDecisionStep({
                       <button
                         type="button"
                         onClick={(event) => {
+                          event.preventDefault();
                           event.stopPropagation();
                           if (isDemoCandidate) return;
                           onApplyFavoriteCandidate(candidate);
@@ -254,6 +262,7 @@ export default function SimulatorDecisionStep({
                       <button
                         type="button"
                         onClick={(event) => {
+                          event.preventDefault();
                           event.stopPropagation();
                           if (isDemoCandidate) return;
                           onRemoveFavoriteCandidate(candidate.id);

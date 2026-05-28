@@ -3746,7 +3746,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           margin-top: 1px;
         }
 
-        .favoriteCandidateViewButton,
+        .favoriteCandidateExpandButton,
         .favoriteCandidateApplyButton,
         .favoriteCandidateDeleteButton {
           border-radius: 11px;
@@ -3757,10 +3757,15 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           cursor: pointer;
         }
 
-        .favoriteCandidateViewButton {
-          border: 1px solid rgba(238, 224, 197, 0.58);
-          background: rgba(238, 224, 197, 0.24);
+        .favoriteCandidateExpandButton {
+          border: 1px solid rgba(238, 224, 197, 0.48);
+          background: rgba(238, 224, 197, 0.22);
           color: ${COLORS.cream};
+        }
+
+        .favoriteCandidateExpandButton:disabled {
+          opacity: 0.42;
+          cursor: not-allowed;
         }
 
         .favoriteCandidateApplyButton {
@@ -3991,7 +3996,6 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             right: 14px;
           }
 
-          .favoriteCandidateViewButton,
           .favoriteCandidateApplyButton,
           .favoriteCandidateDeleteButton {
             min-height: 30px;
