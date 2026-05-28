@@ -92,6 +92,7 @@ export default function SimulatorDecisionStep({
   const selectedFavoriteCount = hasDemoFavorite ? 1 : selectedFavoriteCandidateIds.length;
   const shareButtonDisabled = !hasDemoFavorite && (selectedFavoriteCount === 0 || isDecisionSharing);
   const [showFavoriteShareHelp, setShowFavoriteShareHelp] = useState(false);
+  const [favoriteFullscreenSignals, setFavoriteFullscreenSignals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!showFavoriteShareHelp) return;
@@ -188,6 +189,10 @@ export default function SimulatorDecisionStep({
                       viewportClassName="favoriteCandidateThumbViewport"
                       exportKeyPrefix={`favorite-${candidate.id}`}
                       compactEmpty
+                      enableFullscreen
+                      showFullscreenButton={false}
+                      fullscreenTitle={`${candidate.space?.name || `후보 ${index + 1}`} 크게 보기`}
+                      fullscreenOpenSignal={favoriteFullscreenSignals[candidate.id] || 0}
                     />
                   </div>
 
@@ -219,6 +224,21 @@ export default function SimulatorDecisionStep({
                       className="favoriteCandidateActions"
                       data-sim-admin-guide={index === 0 ? "customer-decision-candidate-actions" : undefined}
                     >
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isDemoCandidate) return;
+                          setFavoriteFullscreenSignals((prev) => ({
+                            ...prev,
+                            [candidate.id]: (prev[candidate.id] || 0) + 1,
+                          }));
+                        }}
+                        className="favoriteCandidateViewButton"
+                      >
+                        크게보기
+                      </button>
+
                       <button
                         type="button"
                         onClick={(event) => {

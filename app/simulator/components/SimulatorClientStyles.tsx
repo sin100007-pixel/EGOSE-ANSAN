@@ -3746,6 +3746,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           margin-top: 1px;
         }
 
+        .favoriteCandidateViewButton,
         .favoriteCandidateApplyButton,
         .favoriteCandidateDeleteButton {
           border-radius: 11px;
@@ -3754,6 +3755,12 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           font-size: 11.5px;
           font-weight: 1000;
           cursor: pointer;
+        }
+
+        .favoriteCandidateViewButton {
+          border: 1px solid rgba(238, 224, 197, 0.58);
+          background: rgba(238, 224, 197, 0.24);
+          color: ${COLORS.cream};
         }
 
         .favoriteCandidateApplyButton {
@@ -3984,6 +3991,7 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
             right: 14px;
           }
 
+          .favoriteCandidateViewButton,
           .favoriteCandidateApplyButton,
           .favoriteCandidateDeleteButton {
             min-height: 30px;

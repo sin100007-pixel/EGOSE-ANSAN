@@ -195,7 +195,9 @@ type SimulatorScenePreviewProps = {
   onZoneClick?: (zoneKey: string) => void;
   guideTarget?: string;
   enableFullscreen?: boolean;
+  showFullscreenButton?: boolean;
   fullscreenTitle?: string;
+  fullscreenOpenSignal?: number;
 };
 
 export default function SimulatorScenePreview({
@@ -212,7 +214,9 @@ export default function SimulatorScenePreview({
   onZoneClick,
   guideTarget,
   enableFullscreen = false,
+  showFullscreenButton = true,
   fullscreenTitle = "적용 이미지 크게 보기",
+  fullscreenOpenSignal = 0,
 }: SimulatorScenePreviewProps) {
   const { findZoneKeyAtPointer } = useMaskZonePicker(maskZones);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
@@ -696,6 +700,45 @@ export default function SimulatorScenePreview({
 
   const canOpenFullscreen = enableFullscreen && previewHasRealSpace;
 
+  const openFullscreen = useCallback(() => {
+    if (!canOpenFullscreen) return;
+
+    setFullscreenViewMode("portrait");
+    resetFullscreenZoom();
+    // 처음 크게 보기는 세로 전체보기 상태로만 연다.
+    // 가로 회전은 사용자가 "가로모드로 보기"를 눌렀을 때만 적용한다.
+    void enterNativeFullscreen("portrait", { lockOrientation: false });
+
+    const egoseWindow = getEgoseSceneFullscreenWindow();
+    if (egoseWindow) {
+      egoseWindow.__egoseSceneFullscreenOpen = true;
+      egoseWindow.__egoseSceneFullscreenBackConsumed = false;
+    }
+
+    try {
+      const currentState = window.history.state;
+      const safeState = currentState && typeof currentState === "object" ? currentState : {};
+      window.history.pushState(
+        {
+          ...safeState,
+          __egoseSceneFullscreen: true,
+        },
+        "",
+        window.location.href
+      );
+      fullscreenHistoryPushedRef.current = true;
+    } catch {
+      fullscreenHistoryPushedRef.current = false;
+    }
+
+    setFullscreenOpen(true);
+  }, [canOpenFullscreen, enterNativeFullscreen, resetFullscreenZoom]);
+
+  useEffect(() => {
+    if (fullscreenOpenSignal <= 0) return;
+    openFullscreen();
+  }, [fullscreenOpenSignal, openFullscreen]);
+
   return (
     <>
       <div
@@ -724,42 +767,14 @@ export default function SimulatorScenePreview({
           </div>
         )}
 
-        {canOpenFullscreen ? (
+        {canOpenFullscreen && showFullscreenButton ? (
           <button
             type="button"
             className="sceneExpandButton"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              setFullscreenViewMode("portrait");
-              resetFullscreenZoom();
-              // 처음 크게 보기는 세로 전체보기 상태로만 연다.
-              // 가로 회전은 사용자가 "가로모드로 보기"를 눌렀을 때만 적용한다.
-              void enterNativeFullscreen("portrait", { lockOrientation: false });
-
-              const egoseWindow = getEgoseSceneFullscreenWindow();
-              if (egoseWindow) {
-                egoseWindow.__egoseSceneFullscreenOpen = true;
-                egoseWindow.__egoseSceneFullscreenBackConsumed = false;
-              }
-
-              try {
-                const currentState = window.history.state;
-                const safeState = currentState && typeof currentState === "object" ? currentState : {};
-                window.history.pushState(
-                  {
-                    ...safeState,
-                    __egoseSceneFullscreen: true,
-                  },
-                  "",
-                  window.location.href
-                );
-                fullscreenHistoryPushedRef.current = true;
-              } catch {
-                fullscreenHistoryPushedRef.current = false;
-              }
-
-              setFullscreenOpen(true);
+              openFullscreen();
             }}
           >
             ⛶ 크게 보기
