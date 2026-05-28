@@ -36,6 +36,7 @@ type EgoseSceneFullscreenWindow = Window &
   typeof globalThis & {
     __egoseSceneFullscreenOpen?: boolean;
     __egoseSceneFullscreenBackConsumed?: boolean;
+    __egoseSceneFullscreenSuppressPointerUntil?: number;
   };
 
 type EgoseFullscreenDocument = Document & {
@@ -166,10 +167,31 @@ async function lockScreenOrientation(mode: FullscreenViewMode) {
   }
 }
 
+function suppressSceneFullscreenPointerEvents(durationMs = 700) {
+  const egoseWindow = getEgoseSceneFullscreenWindow();
+  if (!egoseWindow) return;
+
+  egoseWindow.__egoseSceneFullscreenSuppressPointerUntil = Date.now() + durationMs;
+}
+
+function stopSceneFullscreenBackgroundEvent(event: Event) {
+  if (typeof event.preventDefault === "function") {
+    event.preventDefault();
+  }
+
+  if (typeof event.stopPropagation === "function") {
+    event.stopPropagation();
+  }
+
+  const immediateEvent = event as Event & { stopImmediatePropagation?: () => void };
+  immediateEvent.stopImmediatePropagation?.();
+}
+
 function markSceneFullscreenBackConsumed() {
   const egoseWindow = getEgoseSceneFullscreenWindow();
   if (!egoseWindow) return;
 
+  suppressSceneFullscreenPointerEvents();
   egoseWindow.__egoseSceneFullscreenOpen = false;
   egoseWindow.__egoseSceneFullscreenBackConsumed = true;
 
@@ -233,6 +255,7 @@ export default function SimulatorScenePreview({
   const lastFullscreenOpenRequestKeyRef = useRef(0);
   const fullscreenPinchStartRef = useRef<FullscreenPinchStart | null>(null);
   const fullscreenPanStartRef = useRef<FullscreenPanStart | null>(null);
+  const fullscreenModalRef = useRef<HTMLDivElement | null>(null);
 
   const handleSceneClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     if (!onZoneClick) return;
@@ -242,6 +265,48 @@ export default function SimulatorScenePreview({
 
     onZoneClick(zoneKey);
   }, [findZoneKeyAtPointer, onZoneClick]);
+
+  useEffect(() => {
+    if (!enableFullscreen) return;
+
+    const blockSuppressedPointerEvent = (event: Event) => {
+      const egoseWindow = getEgoseSceneFullscreenWindow();
+      const suppressUntil = egoseWindow?.__egoseSceneFullscreenSuppressPointerUntil || 0;
+
+      if (!suppressUntil) return;
+
+      if (Date.now() > suppressUntil) {
+        if (egoseWindow) {
+          egoseWindow.__egoseSceneFullscreenSuppressPointerUntil = 0;
+        }
+        return;
+      }
+
+      stopSceneFullscreenBackgroundEvent(event);
+    };
+
+    const eventNames = [
+      "pointerdown",
+      "pointerup",
+      "mousedown",
+      "mouseup",
+      "touchstart",
+      "touchend",
+      "click",
+    ] as const;
+
+    const eventOptions = { capture: true, passive: false } as AddEventListenerOptions;
+
+    eventNames.forEach((eventName) => {
+      document.addEventListener(eventName, blockSuppressedPointerEvent, eventOptions);
+    });
+
+    return () => {
+      eventNames.forEach((eventName) => {
+        document.removeEventListener(eventName, blockSuppressedPointerEvent, eventOptions);
+      });
+    };
+  }, [enableFullscreen]);
 
   const aspectRatioValue = useMemo(() => {
     const normalized = previewAspectRatio.replace(/\s/g, "");
@@ -303,6 +368,7 @@ export default function SimulatorScenePreview({
   }, []);
 
   const closeFullscreen = useCallback(() => {
+    suppressSceneFullscreenPointerEvents();
     resetFullscreenZoom();
     leaveNativeFullscreen();
 
@@ -354,6 +420,43 @@ export default function SimulatorScenePreview({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [closeFullscreen, fullscreenOpen]);
+
+  useEffect(() => {
+    if (!fullscreenOpen) return;
+
+    const blockBackgroundPointerEvent = (event: Event) => {
+      const target = event.target;
+      const modal = fullscreenModalRef.current;
+
+      if (modal && target instanceof Node && modal.contains(target)) {
+        return;
+      }
+
+      stopSceneFullscreenBackgroundEvent(event);
+    };
+
+    const eventNames = [
+      "pointerdown",
+      "pointerup",
+      "mousedown",
+      "mouseup",
+      "touchstart",
+      "touchend",
+      "click",
+    ] as const;
+
+    const eventOptions = { capture: true, passive: false } as AddEventListenerOptions;
+
+    eventNames.forEach((eventName) => {
+      document.addEventListener(eventName, blockBackgroundPointerEvent, eventOptions);
+    });
+
+    return () => {
+      eventNames.forEach((eventName) => {
+        document.removeEventListener(eventName, blockBackgroundPointerEvent, eventOptions);
+      });
+    };
+  }, [fullscreenOpen]);
 
   useEffect(() => {
     if (!fullscreenOpen) return;
@@ -789,6 +892,7 @@ export default function SimulatorScenePreview({
 
       {canOpenFullscreen && fullscreenOpen ? (
         <div
+          ref={fullscreenModalRef}
           className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"} ${kakaoFullscreen ? "sceneFullscreenModalKakao" : ""}`.trim()}
           style={fullscreenModalStyle}
           role="dialog"

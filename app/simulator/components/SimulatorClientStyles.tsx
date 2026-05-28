@@ -995,7 +995,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
         .sceneFullscreenModal {
           position: fixed;
           inset: 0;
-          z-index: 30000;
+          z-index: 2147483000;
+          pointer-events: auto;
+          isolation: isolate;
+          overscroll-behavior: contain;
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -1043,6 +1046,10 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           font-size: 13px;
           font-weight: 1000;
           cursor: pointer;
+        }
+
+        .previewViewport.favoriteCandidateFullscreenHostViewport {
+          display: none !important;
         }
 
         .sceneFullscreenCanvas {

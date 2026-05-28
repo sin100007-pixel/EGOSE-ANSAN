@@ -97,6 +97,17 @@ export default function SimulatorDecisionStep({
     key: 0,
   });
 
+  const favoriteFullscreenCandidate =
+    visibleFavoriteCandidates.find((candidate) => candidate.id === favoriteFullscreenRequest.candidateId) || null;
+  const favoriteFullscreenCandidateZones = favoriteFullscreenCandidate
+    ? favoriteFullscreenCandidate.maskZones.length > 0
+      ? favoriteFullscreenCandidate.maskZones
+      : maskZones
+    : [];
+  const favoriteFullscreenCandidateHasRealSpace = Boolean(
+    favoriteFullscreenCandidate?.space?.base_image_url || favoriteFullscreenCandidate?.space?.overlay_image_url
+  );
+
   useEffect(() => {
     if (!showFavoriteShareHelp) return;
 
@@ -192,12 +203,8 @@ export default function SimulatorDecisionStep({
                       viewportClassName="favoriteCandidateThumbViewport"
                       exportKeyPrefix={`favorite-${candidate.id}`}
                       compactEmpty
-                      enableFullscreen={candidateHasRealSpace}
+                      enableFullscreen={false}
                       showFullscreenButton={false}
-                      fullscreenTitle={`${candidate.space?.name || `후보 ${index + 1}`} 크게 보기`}
-                      fullscreenOpenRequestKey={
-                        favoriteFullscreenRequest.candidateId === candidate.id ? favoriteFullscreenRequest.key : 0
-                      }
                     />
                   </div>
 
@@ -277,6 +284,24 @@ export default function SimulatorDecisionStep({
               );
             })}
           </div>
+
+          {favoriteFullscreenCandidate && favoriteFullscreenCandidateHasRealSpace ? (
+            <SimulatorScenePreview
+              selectedSpace={favoriteFullscreenCandidate.space}
+              maskZones={favoriteFullscreenCandidateZones}
+              zoneFilmMap={favoriteFullscreenCandidate.zoneFilmMap}
+              previewAspectRatio={readPreviewAspectRatio(favoriteFullscreenCandidate.space)}
+              previewHasRealSpace={favoriteFullscreenCandidateHasRealSpace}
+              colors={colors}
+              viewportClassName="favoriteCandidateFullscreenHostViewport"
+              exportKeyPrefix={`favorite-fullscreen-${favoriteFullscreenCandidate.id}`}
+              compactEmpty
+              enableFullscreen
+              showFullscreenButton={false}
+              fullscreenTitle={`${favoriteFullscreenCandidate.space?.name || "후보"} 크게 보기`}
+              fullscreenOpenRequestKey={favoriteFullscreenRequest.key}
+            />
+          ) : null}
 
           <div className="favoriteShareFooter">
             <div className="favoriteShareStatus">
