@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties, MouseEvent, TouchEvent } from "react";
 import type { SimulatorFilm, SimulatorSpace } from "../../types";
 import type { MaskZoneDefinition } from "../../lib/client-utils";
@@ -739,6 +740,76 @@ export default function SimulatorScenePreview({
     openFullscreen();
   }, [fullscreenOpenSignal, openFullscreen]);
 
+  const fullscreenModal = canOpenFullscreen && fullscreenOpen ? (
+    <div
+      className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"} ${kakaoFullscreen ? "sceneFullscreenModalKakao" : ""}`.trim()}
+      style={fullscreenModalStyle}
+      role="dialog"
+      aria-modal="true"
+      aria-label={fullscreenTitle}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        closeFullscreen();
+      }}
+    >
+      <div
+        className="sceneFullscreenTop"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div>
+          <strong>{fullscreenTitle}</strong>
+          <span>가로모드는 화면을 눕힌 것처럼 이미지를 더 크게 보여줍니다.</span>
+        </div>
+        <button
+          type="button"
+          className="sceneFullscreenCloseButton"
+          onClick={(event) => {
+            event.stopPropagation();
+            closeFullscreen();
+          }}
+        >
+          닫기
+        </button>
+      </div>
+
+      <div
+        className="sceneFullscreenCanvas"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+        onTouchStart={handleFullscreenTouchStart}
+        onTouchMove={handleFullscreenTouchMove}
+        onTouchEnd={handleFullscreenTouchEnd}
+        onTouchCancel={handleFullscreenTouchEnd}
+      >
+        <div className="sceneFullscreenViewportFrame" style={fullscreenViewportFrameStyle}>
+          <div
+            className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
+            style={fullscreenZoomLayerStyle}
+          >
+            <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
+              {renderSceneStage(true)}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="sceneFullscreenSwitchButton"
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleFullscreenViewMode();
+          }}
+        >
+          {fullscreenViewMode === "portrait" ? "가로모드로 보기" : "세로모드로 보기"}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <div
@@ -782,54 +853,7 @@ export default function SimulatorScenePreview({
         ) : null}
       </div>
 
-      {canOpenFullscreen && fullscreenOpen ? (
-        <div
-          className={`sceneFullscreenModal sceneFullscreenModal${fullscreenViewMode === "landscape" ? "Landscape" : "Portrait"} ${kakaoFullscreen ? "sceneFullscreenModalKakao" : ""}`.trim()}
-          style={fullscreenModalStyle}
-          role="dialog"
-          aria-modal="true"
-          aria-label={fullscreenTitle}
-          onClick={closeFullscreen}
-        >
-          <div className="sceneFullscreenTop" onClick={(event) => event.stopPropagation()}>
-            <div>
-              <strong>{fullscreenTitle}</strong>
-              <span>가로모드는 화면을 눕힌 것처럼 이미지를 더 크게 보여줍니다.</span>
-            </div>
-            <button type="button" className="sceneFullscreenCloseButton" onClick={closeFullscreen}>
-              닫기
-            </button>
-          </div>
-
-          <div
-            className="sceneFullscreenCanvas"
-            onClick={(event) => event.stopPropagation()}
-            onTouchStart={handleFullscreenTouchStart}
-            onTouchMove={handleFullscreenTouchMove}
-            onTouchEnd={handleFullscreenTouchEnd}
-            onTouchCancel={handleFullscreenTouchEnd}
-          >
-            <div className="sceneFullscreenViewportFrame" style={fullscreenViewportFrameStyle}>
-              <div
-                className={`sceneFullscreenZoomLayer ${fullscreenZoom > 1.01 ? "sceneFullscreenZoomLayerZoomed" : ""}`.trim()}
-                style={fullscreenZoomLayerStyle}
-              >
-                <div className="previewViewport sceneFullscreenViewport" style={fullscreenViewportStyle}>
-                  {renderSceneStage(true)}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="sceneFullscreenSwitchButton"
-              onClick={toggleFullscreenViewMode}
-            >
-              {fullscreenViewMode === "portrait" ? "가로모드로 보기" : "세로모드로 보기"}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {fullscreenModal && typeof document !== "undefined" ? createPortal(fullscreenModal, document.body) : null}
     </>
   );
 }
