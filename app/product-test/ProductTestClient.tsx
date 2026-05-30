@@ -545,8 +545,8 @@ export default function ProductTestClient() {
                 textShadow: "0 1px 8px rgba(0,0,0,0.28)",
               }}
             >
-              <div>05.11 현대L&amp;C 단가 반영완료!</div>
-              <div>05.11 삼성필름 단가 반영완료!</div>
+              <div>05.11 현대L&amp;C 단가 반영 완료!</div>
+              <div>05.11 삼성필름 단가 반영 완료!</div>
               <div>05.18 영림필름 단가 반영 완료!</div>
               <div>05.24 KCC필름 단가 반영 완료!</div>
               <div>05.30 LX필름 단가 반영 완료!</div>

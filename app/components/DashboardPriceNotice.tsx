@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "egose-dashboard-price-notice-2026-05-24";
+const STORAGE_KEY = "egose-dashboard-price-notice-2026-05-30-lx";
 
 export default function DashboardPriceNotice() {
   const [isVisible, setIsVisible] = useState(false);
