@@ -128,6 +128,7 @@ export default function DashboardPriceNotice() {
           <div>05.11 삼성필름 갱신완료.</div>
           <div>05.18 영림필름 갱신완료.</div>
           <div>05.24 KCC필름 갱신완료.</div>
+          <div>05.30 LX필름 갱신완료.</div>
         </div>
 
         <p
