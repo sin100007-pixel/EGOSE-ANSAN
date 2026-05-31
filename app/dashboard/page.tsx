@@ -243,12 +243,6 @@ export default async function DashboardPage() {
           <LondonMarketBanner />
         </header>
 
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ overflow: "hidden" }}>
-            <EgoseBannerCarousel />
-          </div>
-        </div>
-
         <section
           id="user-qr-card"
           style={{
@@ -356,7 +350,85 @@ export default async function DashboardPage() {
               </div>
             </div>
           )}
+
+          <div style={{ marginTop: 10 }}>
+            <Link
+              href="/app-video-guide"
+              prefetch={true}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                width: "100%",
+                minHeight: 62,
+                padding: "10px 14px",
+                borderRadius: 20,
+                textDecoration: "none",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
+                border: `1px solid ${COLORS.lineStrong}`,
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+                boxSizing: "border-box",
+              }}
+            >
+              <span
+                style={{
+                  flex: "0 0 auto",
+                  width: 42,
+                  height: 42,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.08)",
+                  boxShadow: "0 8px 18px rgba(0,0,0,0.16)",
+                }}
+              >
+                <img
+                  src="/dashboard-video-guide-icon.png"
+                  alt="동영상 설명"
+                  style={{
+                    display: "block",
+                    width: 34,
+                    height: 34,
+                    objectFit: "contain",
+                  }}
+                />
+              </span>
+
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    color: COLORS.white,
+                    fontSize: 17,
+                    lineHeight: 1.15,
+                    fontWeight: 900,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  동영상 설명
+                </div>
+                <div
+                  style={{
+                    marginTop: 3,
+                    color: COLORS.textSoft,
+                    fontSize: 12,
+                    lineHeight: 1.35,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  앱 기능 사용법을 영상으로 확인해보세요.
+                </div>
+              </div>
+            </Link>
+          </div>
         </section>
+
+        <div style={{ margin: "0 0 12px" }}>
+          <div style={{ overflow: "hidden" }}>
+            <EgoseBannerCarousel />
+          </div>
+        </div>
 
         <footer
           style={{

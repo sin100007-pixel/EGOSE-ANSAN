@@ -28,7 +28,7 @@ export default function LondonMarketBanner() {
       onClick={handleClick}
       style={{
         position: "relative",
-        width: "100%",
+        width: "85%",
         aspectRatio: "16 / 9",
         borderRadius: 12,
         overflow: "hidden",
