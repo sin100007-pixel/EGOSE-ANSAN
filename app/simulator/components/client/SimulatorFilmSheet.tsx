@@ -6,6 +6,7 @@ import {
   getFilmCode,
   getFilmName,
   getFilmThumbUrl,
+  isNewSimulatorFilm,
 } from "../../lib/client-utils";
 
 type SimulatorFilmSheetProps = {
@@ -224,12 +225,19 @@ export default function SimulatorFilmSheet({
             films.map((film) => {
               const active = selectedFilm?.id === film.id;
               const thumbUrl = getFilmThumbUrl(film);
+              const showNewBadge = isNewSimulatorFilm(film);
 
               return (
                 <div
                   key={film.id}
                   className={`sheetFilmItem ${active ? "sheetFilmItemActive" : ""}`}
                 >
+                  {showNewBadge ? (
+                    <span className="simulatorNewFilmBadge" aria-label="신제품">
+                      NEW
+                    </span>
+                  ) : null}
+
                   <button
                     type="button"
                     onClick={() => onFilmClick(film)}

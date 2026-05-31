@@ -1482,6 +1482,10 @@ export default function SimulatorClient({ token = "", mode }: SimulatorClientPro
         textShareMessage: "선택한 즐겨찾기 후보 내용을 전송했고, 이미지는 파일 저장을 시도했습니다.",
         copyMessage: "선택한 즐겨찾기 후보 내용을 복사했고, 이미지는 파일 저장을 시도했습니다. 문자, 메신저로 붙여넣어 전송해주세요.",
         copyWithoutImageMessage: "선택한 즐겨찾기 후보 내용을 복사했습니다. 이미지는 저장하지 못했습니다.",
+        pcDownloadMessage:
+          "PC에서는 자동 공유창 대신 선택한 후보 이미지를 다운로드했고, 공유 문구도 복사했습니다.\n카카오톡, 문자, 메일에서 이미지를 첨부하고 복사된 문구를 붙여넣어 보내주세요.",
+        pcDownloadCopyFailedMessage:
+          "PC에서는 자동 공유창 대신 선택한 후보 이미지를 다운로드했습니다.\n공유 문구는 브라우저 권한 문제로 복사하지 못했습니다.\n카카오톡, 문자, 메일에서 다운로드된 이미지를 첨부해 보내주세요.",
         kakaoInAppMessage:
           "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n즐겨찾기 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
         kakaoInAppCopyOnlyMessage:

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorAdminTutorial, {
@@ -49,9 +50,43 @@ type ApiResponse = {
 };
 
 type UploadResponse = {
+  bucket?: string;
+  path?: string;
   url?: string;
+  signedUpload?: {
+    path?: string;
+    token?: string;
+  };
   error?: string;
 };
+
+const MAX_UPLOAD_IMAGE_SIZE_MB = 7;
+const MAX_UPLOAD_IMAGE_SIZE = MAX_UPLOAD_IMAGE_SIZE_MB * 1024 * 1024;
+const ALLOWED_UPLOAD_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+let browserSupabaseClient: SupabaseClient | null = null;
+
+function getBrowserSupabaseClient() {
+  if (browserSupabaseClient) return browserSupabaseClient;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (!url || !anonKey) return null;
+
+  browserSupabaseClient = createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return browserSupabaseClient;
+}
+
+function isAllowedUploadImageType(fileType: string): fileType is (typeof ALLOWED_UPLOAD_IMAGE_TYPES)[number] {
+  return ALLOWED_UPLOAD_IMAGE_TYPES.includes(fileType as (typeof ALLOWED_UPLOAD_IMAGE_TYPES)[number]);
+}
 
 type SettingsHelpKey =
   | "preview"
@@ -552,26 +587,65 @@ export default function SimulatorContractorSettings() {
     type: "logo" | "portfolio",
     photoIndex?: number,
   ) => {
-    if (!file) return;
-
-    const target = type === "logo" ? "logo" : (photoIndex ?? 0);
-    setUploadingTarget(target);
     setError("");
     setMessage("");
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", type);
+    if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      setError("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    if (!isAllowedUploadImageType(file.type)) {
+      setError("JPG, PNG, WEBP 이미지만 업로드할 수 있습니다.");
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_IMAGE_SIZE) {
+      setError(`이미지 용량은 ${MAX_UPLOAD_IMAGE_SIZE_MB}MB 이하만 업로드할 수 있습니다.`);
+      return;
+    }
+
+    const target = type === "logo" ? "logo" : (photoIndex ?? 0);
+    setUploadingTarget(target);
+
+    try {
       const res = await fetch("/api/simulator/contractor-upload", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          type,
+        }),
       });
       const json = (await res.json()) as UploadResponse;
 
-      if (!res.ok || !json.url) {
+      if (!res.ok || !json.url || !json.bucket || !json.signedUpload?.path || !json.signedUpload.token) {
         setError(json.error || "이미지를 업로드하지 못했습니다.");
+        return;
+      }
+
+      const supabase = getBrowserSupabaseClient();
+
+      if (!supabase) {
+        setError("Supabase 공개 환경변수가 없습니다.");
+        return;
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from(json.bucket)
+        .uploadToSignedUrl(json.signedUpload.path, json.signedUpload.token, file, {
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        console.error("[SimulatorContractorSettings] signed upload error:", uploadError);
+        setError("이미지를 업로드하지 못했습니다. Storage 정책 또는 bucket 설정을 확인해주세요.");
         return;
       }
 
@@ -765,7 +839,7 @@ export default function SimulatorContractorSettings() {
                     </span>
                   </label>
                 </SplitHelpActionButton>
-                <small>JPG, PNG, WEBP / 8MB 이하</small>
+                <small>JPG, PNG, WEBP / 7MB 이하</small>
               </div>
 
               <label>
@@ -918,7 +992,7 @@ export default function SimulatorContractorSettings() {
                             </span>
                           </label>
                         </SplitHelpActionButton>
-                        <small>업로드 후 URL이 자동 입력됩니다.</small>
+                        <small>JPG, PNG, WEBP / 7MB 이하 · 업로드 후 URL이 자동 입력됩니다.</small>
                       </div>
 
                       <div className="twoCols">

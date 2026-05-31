@@ -140,7 +140,6 @@ export default function SimulatorDecisionStep({
         <section className="favoriteCandidateSection">
         <div className="favoriteCandidateHeader">
           <div>
-            <div className="sectionLabel">즐겨찾기 후보</div>
             <h3>저장한 후보</h3>
           </div>
 

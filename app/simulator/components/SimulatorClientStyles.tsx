@@ -2462,6 +2462,28 @@ export default function SimulatorClientStyles({ colors: COLORS }: SimulatorClien
           background: rgba(238, 224, 197, 0.14);
         }
 
+        .simulatorNewFilmBadge {
+          position: absolute;
+          left: 9px;
+          top: 9px;
+          z-index: 3;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 22px;
+          padding: 0 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.75);
+          background: #ff2f2f;
+          color: #ffffff;
+          font-size: 10px;
+          font-weight: 1000;
+          line-height: 1;
+          letter-spacing: 0.03em;
+          box-shadow: 0 7px 16px rgba(0, 0, 0, 0.24);
+          pointer-events: none;
+        }
+
         .sheetFilmSelectButton {
           appearance: none;
           width: 100%;

@@ -9,6 +9,7 @@ import {
   getFilmCode,
   getFilmName,
   getFilmThumbUrl,
+  isNewSimulatorFilm,
 } from "../../lib/client-utils";
 
 type SimulatorAdminFilmPickerSheetProps = {
@@ -323,12 +324,19 @@ export default function SimulatorAdminFilmPickerSheet({
             films.map((film) => {
               const active = selectedFilmIds.has(film.id);
               const thumbUrl = getFilmThumbUrl(film);
+              const showNewBadge = isNewSimulatorFilm(film);
 
               return (
                 <div
                   key={film.id}
                   className={`adminFilmSheetItem ${active ? "adminFilmSheetItemActive" : ""}`}
                 >
+                  {showNewBadge ? (
+                    <span className="simulatorNewFilmBadge" aria-label="신제품">
+                      NEW
+                    </span>
+                  ) : null}
+
                   <button
                     type="button"
                     onClick={() => onToggleFilm(film)}
@@ -773,6 +781,28 @@ export default function SimulatorAdminFilmPickerSheet({
           border-color: rgba(238, 224, 197, 0.78);
           background: rgba(238, 224, 197, 0.14);
           box-shadow: 0 0 0 2px rgba(238, 224, 197, 0.14);
+        }
+
+        .simulatorNewFilmBadge {
+          position: absolute;
+          left: 9px;
+          top: 9px;
+          z-index: 3;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 22px;
+          padding: 0 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.75);
+          background: #ff2f2f;
+          color: #ffffff;
+          font-size: 10px;
+          font-weight: 1000;
+          line-height: 1;
+          letter-spacing: 0.03em;
+          box-shadow: 0 7px 16px rgba(0, 0, 0, 0.24);
+          pointer-events: none;
         }
 
         .adminFilmSheetSelectButton {

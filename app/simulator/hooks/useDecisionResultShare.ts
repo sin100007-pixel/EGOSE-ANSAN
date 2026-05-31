@@ -23,6 +23,8 @@ type ShareDecisionResultOptions = {
   textShareMessage?: string;
   copyMessage?: string;
   copyWithoutImageMessage?: string;
+  pcDownloadMessage?: string;
+  pcDownloadCopyFailedMessage?: string;
   kakaoInAppMessage?: string;
   kakaoInAppCopyOnlyMessage?: string;
 };
@@ -31,6 +33,49 @@ const isKakaoInAppBrowser = () => {
   if (typeof navigator === "undefined") return false;
 
   return /KAKAOTALK/i.test(navigator.userAgent || "");
+};
+
+const isLikelyMobileDevice = () => {
+  if (typeof navigator === "undefined") return false;
+
+  const userAgent = navigator.userAgent || "";
+
+  return (
+    /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent) ||
+    (/Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1)
+  );
+};
+
+const copyTextToClipboard = async (text: string) => {
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // 일부 PC 브라우저에서는 이미지 생성 후 clipboard 권한이 끊길 수 있어 아래 방식으로 한 번 더 시도합니다.
+    }
+  }
+
+  if (typeof document === "undefined") return false;
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
 };
 
 export function useDecisionResultShare({
@@ -122,62 +167,71 @@ export function useDecisionResultShare({
       if (isKakaoInAppBrowser()) {
         pendingKakaoDownloadRef.current = { dataUrl, fileName };
 
-        try {
-          await navigator.clipboard.writeText(text);
-          setDecisionPopupMessage(
-            options.kakaoInAppMessage ||
-              "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
-          );
-        } catch {
-          setDecisionPopupMessage(
-            options.kakaoInAppCopyOnlyMessage ||
-              "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
-          );
-        }
+        const copied = await copyTextToClipboard(text);
+
+        setDecisionPopupMessage(
+          copied
+            ? options.kakaoInAppMessage ||
+                "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요."
+            : options.kakaoInAppCopyOnlyMessage ||
+                "카카오톡 인앱브라우저에서는 공유 창이 작동하지 않습니다.\n시뮬레이션 결과 이미지를 갤러리로 다운로드합니다.\n공유하고자 하는 분에게 이미지를 직접 첨부해주세요.",
+        );
         return;
       }
 
-      try {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        const file = new File([blob], fileName, { type: "image/png" });
+      const shouldUseNativeShare = isLikelyMobileDevice();
 
-        if (
-          typeof navigator !== "undefined" &&
-          "share" in navigator &&
-          typeof navigator.canShare === "function" &&
-          navigator.canShare({ files: [file] })
-        ) {
+      if (shouldUseNativeShare) {
+        try {
+          const response = await fetch(dataUrl);
+          const blob = await response.blob();
+          const file = new File([blob], fileName, { type: "image/png" });
+
+          if (
+            typeof navigator !== "undefined" &&
+            "share" in navigator &&
+            typeof navigator.canShare === "function" &&
+            navigator.canShare({ files: [file] })
+          ) {
+            await navigator.share({
+              files: [file],
+              title,
+              text,
+            });
+            setDecisionMessage(options.successMessage || "결정 결과 이미지와 내용을 전송했습니다.");
+            return;
+          }
+        } catch {
+          // 파일 공유가 되지 않으면 아래 텍스트 공유/복사 흐름으로 진행합니다.
+        }
+
+        if (typeof navigator !== "undefined" && navigator.share) {
           await navigator.share({
-            files: [file],
             title,
             text,
           });
-          setDecisionMessage(options.successMessage || "결정 결과 이미지와 내용을 전송했습니다.");
+          downloadDataUrl(dataUrl, fileName);
+          setDecisionMessage(options.textShareMessage || "결정 결과 문구를 전송했고, 이미지는 파일 저장을 시도했습니다.");
           return;
         }
-      } catch {
-        // 파일 공유가 되지 않으면 아래 텍스트 공유/복사 흐름으로 진행합니다.
       }
 
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({
-          title,
-          text,
-        });
-        downloadDataUrl(dataUrl, fileName);
-        setDecisionMessage(options.textShareMessage || "결정 결과 문구를 전송했고, 이미지는 파일 저장을 시도했습니다.");
-        return;
-      }
-
-      await navigator.clipboard.writeText(text);
+      const copied = await copyTextToClipboard(text);
       downloadDataUrl(dataUrl, fileName);
-      setDecisionMessage(options.copyMessage || "결정 결과를 복사했고, 이미지는 파일 저장을 시도했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
+      setDecisionPopupMessage(
+        copied
+          ? options.pcDownloadMessage ||
+              "PC에서는 자동 공유창 대신 결과 이미지를 다운로드합니다. 공유 문구도 복사했습니다.\n카카오톡, 문자, 메일에서 이미지를 첨부하고 복사된 문구를 붙여넣어 보내주세요."
+          : options.pcDownloadCopyFailedMessage ||
+              "PC에서는 자동 공유창 대신 결과 이미지를 다운로드합니다.\n공유 문구는 브라우저 권한 문제로 복사하지 못했습니다.\n카카오톡, 문자, 메일에서 다운로드된 이미지를 첨부해 보내주세요.",
+      );
+      return;
     } catch {
-      try {
-        await navigator.clipboard.writeText(text);
+      const copied = await copyTextToClipboard(text);
+
+      if (copied) {
         setDecisionMessage(options.copyWithoutImageMessage || "결정 결과를 복사했습니다. 이미지는 저장하지 못했습니다. 문자, 메신저로 붙여넣어 전송해주세요.");
-      } catch {
+      } else {
         setDecisionMessage("전송에 실패했습니다. 화면의 결과를 캡쳐해서 보내주세요.");
       }
     } finally {

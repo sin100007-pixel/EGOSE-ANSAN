@@ -161,6 +161,81 @@ function buildClientProductCodeAliases(
   return Array.from(aliases);
 }
 
+const NEW_SIMULATOR_FILM_CODES = new Set([
+  "SLG001",
+  "SLG002",
+  "SLG003",
+  "SLG004",
+  "SLG005",
+  "SLG006",
+  "SLG007",
+  "SLG008",
+  "SLG045",
+  "SLG046",
+  "SLG047",
+]);
+
+function addNewFilmCodeCandidate(codes: Set<string>, prefix: string, rawNumber: string) {
+  const cleanPrefix = normalizeClientSearch(prefix);
+  const cleanNumber = normalizeClientSearch(rawNumber);
+
+  if (!cleanPrefix || !cleanNumber) return;
+
+  codes.add(`${cleanPrefix}${cleanNumber}`);
+
+  if (/^\d+$/.test(cleanNumber)) {
+    codes.add(`${cleanPrefix}${cleanNumber.padStart(3, "0")}`);
+  }
+}
+
+function getNewFilmCodeCandidates(value: string | null | undefined) {
+  const source = String(value || "").toUpperCase();
+  const codes = new Set<string>();
+
+  const delimitedPattern = /([A-Z]{1,8}(?:\s*[\/\\|·ㆍ,&+]\s*[A-Z]{1,8})*)\s*[-_ ]*(\d{1,6}[A-Z]?)/g;
+
+  for (const match of source.matchAll(delimitedPattern)) {
+    const prefixes = getClientCodePrefixCandidates(match[1]);
+    for (const prefix of prefixes) {
+      addNewFilmCodeCandidate(codes, prefix, match[2] || "");
+    }
+  }
+
+  const compactPattern = /([A-Z]{1,8})\s*[-_ ]*(\d{1,6}[A-Z]?)/g;
+
+  for (const match of source.matchAll(compactPattern)) {
+    addNewFilmCodeCandidate(codes, match[1] || "", match[2] || "");
+  }
+
+  return Array.from(codes);
+}
+
+export function isNewSimulatorFilm(film: SimulatorFilm | null | undefined) {
+  if (!film) return false;
+
+  const codes = new Set<string>();
+  const code2 = normalizeClientSearch(film.product_code_2);
+
+  if (code2) {
+    for (const prefix of getClientCodePrefixCandidates(film.product_code_1)) {
+      addNewFilmCodeCandidate(codes, prefix, code2);
+    }
+  }
+
+  for (const value of [
+    film.product_code_1,
+    film.product_code_2,
+    film.full_name,
+    film.color_name,
+  ]) {
+    for (const code of getNewFilmCodeCandidates(value)) {
+      codes.add(code);
+    }
+  }
+
+  return Array.from(codes).some((code) => NEW_SIMULATOR_FILM_CODES.has(code));
+}
+
 export function getClientFilmSearchScore(film: SimulatorFilm, query: string) {
   const q = normalizeClientSearch(query);
   if (!q) return 1;

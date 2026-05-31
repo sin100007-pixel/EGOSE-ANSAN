@@ -237,7 +237,7 @@ export default function SimulatorApplyStep({
           className="applyFavoriteSplitAction"
           mainClassName="applyFavoriteSplitMain"
         >
-          ⭐ 즐겨찾기
+          ⭐ 후보로 저장
         </ApplySplitHelpButton>
 
         <ApplySplitHelpButton

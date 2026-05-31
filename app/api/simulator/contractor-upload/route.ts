@@ -6,7 +6,9 @@ import { requireSimulatorInstaller } from "../../../simulator/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 8 * 1024 * 1024;
+const MAX_FILE_SIZE_MB = 7;
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -26,23 +28,35 @@ function getSupabase() {
   });
 }
 
-function getExtension(file: File) {
-  const nameExtension = file.name.split(".").pop()?.toLowerCase() || "";
+function getExtensionFromValues(fileName: string, fileType: string) {
+  const nameExtension = fileName.split(".").pop()?.toLowerCase() || "";
 
   if (["jpg", "jpeg", "png", "webp"].includes(nameExtension)) {
     return nameExtension === "jpeg" ? "jpg" : nameExtension;
   }
 
-  if (file.type === "image/jpeg") return "jpg";
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
+  if (fileType === "image/jpeg") return "jpg";
+  if (fileType === "image/png") return "png";
+  if (fileType === "image/webp") return "webp";
 
   return "jpg";
+}
+
+function getExtension(file: File) {
+  return getExtensionFromValues(file.name, file.type);
 }
 
 function getInstallerFolder(name: string) {
   const encoded = Buffer.from(name || "installer").toString("base64url").slice(0, 60);
   return `installer-${encoded || "unknown"}`;
+}
+
+function isAllowedImageType(fileType: string): fileType is (typeof ALLOWED_IMAGE_TYPES)[number] {
+  return ALLOWED_IMAGE_TYPES.includes(fileType as (typeof ALLOWED_IMAGE_TYPES)[number]);
+}
+
+function getUploadBucket(type: string) {
+  return type === "logo" ? "contractor-logos" : "contractor-portfolios";
 }
 
 export async function POST(req: NextRequest) {
@@ -56,6 +70,88 @@ export async function POST(req: NextRequest) {
 
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const contentType = req.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    let body: {
+      fileName?: unknown;
+      fileType?: unknown;
+      fileSize?: unknown;
+      type?: unknown;
+    };
+
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "업로드 요청 형식이 올바르지 않습니다." }, { status: 400 });
+    }
+
+    const fileName = String(body.fileName || "image");
+    const fileType = String(body.fileType || "");
+    const fileSize = Number(body.fileSize || 0);
+    const rawType = String(body.type || "portfolio");
+
+    if (!fileType.startsWith("image/")) {
+      return NextResponse.json({ error: "이미지 파일만 업로드할 수 있습니다." }, { status: 400 });
+    }
+
+    if (!isAllowedImageType(fileType)) {
+      return NextResponse.json(
+        { error: "JPG, PNG, WEBP 이미지만 업로드할 수 있습니다." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(fileSize) || fileSize <= 0) {
+      return NextResponse.json({ error: "이미지 파일 크기를 확인하지 못했습니다." }, { status: 400 });
+    }
+
+    if (fileSize > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `이미지 용량은 ${MAX_FILE_SIZE_MB}MB 이하만 업로드할 수 있습니다.` },
+        { status: 400 }
+      );
+    }
+
+    const bucket = getUploadBucket(rawType);
+    const folder = getInstallerFolder(auth.name);
+    const extension = getExtensionFromValues(fileName, fileType);
+    const filePath = `${folder}/${Date.now()}-${randomUUID()}.${extension}`;
+
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from(bucket)
+      .createSignedUploadUrl(filePath);
+
+    if (signedError) {
+      console.error("[simulator/contractor-upload] signed upload url error:", signedError);
+      return NextResponse.json(
+        { error: "업로드 주소를 만들지 못했습니다. Storage 정책 또는 bucket 설정을 확인해주세요." },
+        { status: 500 }
+      );
+    }
+
+    const signedUpload = signedData as { path?: string; token?: string } | null;
+
+    if (!signedUpload?.path || !signedUpload?.token) {
+      return NextResponse.json(
+        { error: "업로드 주소를 만들지 못했습니다." },
+        { status: 500 }
+      );
+    }
+
+    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+    return NextResponse.json({
+      bucket,
+      path: filePath,
+      url: publicData.publicUrl,
+      signedUpload: {
+        path: signedUpload.path,
+        token: signedUpload.token,
+      },
+    });
   }
 
   let formData: FormData;
@@ -77,7 +173,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미지 파일만 업로드할 수 있습니다." }, { status: 400 });
   }
 
-  if (!["image/jpeg", "image/png", "image/webp"].includes(rawFile.type)) {
+  if (!isAllowedImageType(rawFile.type)) {
     return NextResponse.json(
       { error: "JPG, PNG, WEBP 이미지만 업로드할 수 있습니다." },
       { status: 400 }
@@ -86,12 +182,12 @@ export async function POST(req: NextRequest) {
 
   if (rawFile.size > MAX_FILE_SIZE) {
     return NextResponse.json(
-      { error: "이미지 용량은 8MB 이하만 업로드할 수 있습니다." },
+      { error: `이미지 용량은 ${MAX_FILE_SIZE_MB}MB 이하만 업로드할 수 있습니다.` },
       { status: 400 }
     );
   }
 
-  const bucket = rawType === "logo" ? "contractor-logos" : "contractor-portfolios";
+  const bucket = getUploadBucket(rawType);
   const folder = getInstallerFolder(auth.name);
   const extension = getExtension(rawFile);
   const filePath = `${folder}/${Date.now()}-${randomUUID()}.${extension}`;
