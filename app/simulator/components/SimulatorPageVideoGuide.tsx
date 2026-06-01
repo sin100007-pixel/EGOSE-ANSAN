@@ -11,30 +11,38 @@ type SimulatorPageVideoGuideInfo = {
   src: string;
 };
 
+const GUIDE_VIDEO_BASE_URL =
+  process.env.NEXT_PUBLIC_SIMULATOR_GUIDE_VIDEO_BASE_URL?.replace(/\/+$/, "") ?? "";
+
+const getGuideVideoUrl = (fileName: string) => {
+  if (!GUIDE_VIDEO_BASE_URL) return "";
+  return `${GUIDE_VIDEO_BASE_URL}/${fileName}`;
+};
+
 const GUIDE_VIDEOS: Record<SimulatorPageVideoGuideKey, SimulatorPageVideoGuideInfo> = {
   linkBuilder: {
     key: "linkBuilder",
     title: "링크 생성 동영상",
     description: "고객에게 보낼 시뮬레이션 링크를 만드는 방법을 영상으로 안내합니다.",
-    src: "/simulator-guide-videos/link-builder-guide.mp4",
+    src: getGuideVideoUrl("link-builder-guide.mp4"),
   },
   linkManager: {
     key: "linkManager",
     title: "링크 관리 동영상",
     description: "보낸 시뮬레이션 링크를 확인하고 관리하는 방법을 영상으로 안내합니다.",
-    src: "/simulator-guide-videos/link-manager-guide.mp4",
+    src: getGuideVideoUrl("link-manager-guide.mp4"),
   },
   presets: {
     key: "presets",
     title: "프리셋 동영상",
     description: "고객에게 보여줄 추천 필름 묶음을 프리셋으로 저장하는 방법을 영상으로 안내합니다.",
-    src: "/simulator-guide-videos/preset-guide.mp4",
+    src: getGuideVideoUrl("preset-guide.mp4"),
   },
   settings: {
     key: "settings",
     title: "소개 설정 동영상",
     description: "고객 링크 첫 화면에 보일 소개 정보를 설정하는 방법을 영상으로 안내합니다.",
-    src: "/simulator-guide-videos/settings-guide.mp4",
+    src: getGuideVideoUrl("settings-guide.mp4"),
   },
 };
 
@@ -46,6 +54,7 @@ export default function SimulatorPageVideoGuide({ guideKey }: SimulatorPageVideo
   const [opened, setOpened] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const guide = GUIDE_VIDEOS[guideKey];
+  const hasVideoUrl = guide.src.trim().length > 0;
 
   const closeGuide = () => {
     videoRef.current?.pause();
@@ -106,18 +115,24 @@ export default function SimulatorPageVideoGuide({ guideKey }: SimulatorPageVideo
               </button>
             </div>
 
-            <video
-              ref={videoRef}
-              className="simPageVideoGuideVideo"
-              controls
-              autoPlay
-              playsInline
-              preload="metadata"
-              key={guide.src}
-            >
-              <source src={guide.src} type="video/mp4" />
-              이 브라우저에서는 동영상을 재생할 수 없습니다.
-            </video>
+            {hasVideoUrl ? (
+              <video
+                ref={videoRef}
+                className="simPageVideoGuideVideo"
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                key={guide.src}
+              >
+                <source src={guide.src} type="video/mp4" />
+                이 브라우저에서는 동영상을 재생할 수 없습니다.
+              </video>
+            ) : (
+              <div className="simPageVideoGuideMissing" role="status">
+                Vercel 환경변수에 NEXT_PUBLIC_SIMULATOR_GUIDE_VIDEO_BASE_URL을 추가하면 동영상이 재생됩니다.
+              </div>
+            )}
 
             <p className="simPageVideoGuideDescription">{guide.description}</p>
           </div>
@@ -248,6 +263,24 @@ export default function SimulatorPageVideoGuide({ guideKey }: SimulatorPageVideo
           border-radius: 18px;
           background: #000000;
           box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+        }
+
+        .simPageVideoGuideMissing {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 180px;
+          border-radius: 18px;
+          border: 1px dashed rgba(255, 255, 255, 0.28);
+          background: rgba(255, 255, 255, 0.07);
+          color: rgba(255, 255, 255, 0.82);
+          padding: 18px;
+          text-align: center;
+          font-size: 14px;
+          line-height: 1.55;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          box-sizing: border-box;
         }
 
         .simPageVideoGuideDescription {
