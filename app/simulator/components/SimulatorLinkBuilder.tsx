@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
+import SimulatorPageVideoGuide from "./SimulatorPageVideoGuide";
 import SimulatorAdminFilmPickerSheet from "./shared/SimulatorAdminFilmPickerSheet";
 import SimulatorSelectedFilmList from "./shared/SimulatorSelectedFilmList";
 import {
@@ -851,7 +852,10 @@ export default function SimulatorLinkBuilder() {
         </button>
 
         <section className="heroCard" data-sim-admin-guide="link-hero">
-          <div className="stepBadge">고객 링크 생성</div>
+          <div className="heroGuideRow">
+            <div className="stepBadge">고객 링크 생성</div>
+            <SimulatorPageVideoGuide guideKey="linkBuilder" />
+          </div>
           <h1>시뮬레이션 링크 만들기</h1>
           <p>
             고객에게 보낼 1일 / 3일 / 7일짜리 시뮬레이터 링크를 만듭니다. 공간과 필름 범위를 링크별로 제한할 수 있습니다.

@@ -6,6 +6,7 @@ import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorAdminTutorial, {
   type SimulatorAdminTutorialStep,
 } from "./SimulatorAdminTutorial";
+import SimulatorPageVideoGuide from "./SimulatorPageVideoGuide";
 
 type ManagedLink = {
   id: string;
@@ -594,7 +595,10 @@ export default function SimulatorLinkManager() {
         </button>
 
         <section className="heroCard" data-sim-admin-guide="manage-hero">
-          <div className="stepBadge">고객 링크 관리</div>
+          <div className="heroGuideRow">
+            <div className="stepBadge">고객 링크 관리</div>
+            <SimulatorPageVideoGuide guideKey="linkManager" />
+          </div>
           <h1>보낸 링크 내역</h1>
           <p>
             내가 만든 시뮬레이션 링크의 고객명, 메모, 만료일, 허용 공간과 필름

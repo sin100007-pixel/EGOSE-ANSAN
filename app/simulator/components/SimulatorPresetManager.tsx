@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SimulatorLinkTabs from "./SimulatorLinkTabs";
 import SimulatorAdminTutorial, { type SimulatorAdminTutorialStep } from "./SimulatorAdminTutorial";
+import SimulatorPageVideoGuide from "./SimulatorPageVideoGuide";
 import SimulatorAdminFilmPickerSheet from "./shared/SimulatorAdminFilmPickerSheet";
 import SimulatorSelectedFilmList from "./shared/SimulatorSelectedFilmList";
 import {
@@ -557,7 +558,10 @@ export default function SimulatorPresetManager() {
         </button>
 
         <section className="heroCard" data-sim-admin-guide="preset-hero">
-          <div className="stepBadge">필름 제한 프리셋</div>
+          <div className="heroGuideRow">
+            <div className="stepBadge">필름 제한 프리셋</div>
+            <SimulatorPageVideoGuide guideKey="presets" />
+          </div>
           <h1>보여줄 필름 묶음 만들기</h1>
           <p>
             자주 쓰는 추천 필름을 프리셋 이름으로 저장해두고, 고객 링크 생성 시 바로 선택할 수 있습니다.

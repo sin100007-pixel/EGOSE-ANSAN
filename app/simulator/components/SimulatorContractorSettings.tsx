@@ -8,6 +8,7 @@ import SimulatorIntroOverview from "./SimulatorIntroOverview";
 import SimulatorAdminTutorial, {
   type SimulatorAdminTutorialStep,
 } from "./SimulatorAdminTutorial";
+import SimulatorPageVideoGuide from "./SimulatorPageVideoGuide";
 
 type ContractorProfile = {
   id?: string;
@@ -740,7 +741,10 @@ export default function SimulatorContractorSettings() {
 
       <section className="heroCard" data-sim-admin-guide="settings-hero">
         <div>
-          <span className="stepPill">시공자 설정</span>
+          <div className="heroGuideRow settingsHeroGuideRow">
+            <span className="stepPill">시공자 설정</span>
+            <SimulatorPageVideoGuide guideKey="settings" />
+          </div>
           <h1>고객용 시뮬레이터 소개 화면</h1>
           <p>
             고객 링크 첫 화면에 보일 로고, 인삿말, 연락처, 대표 시공사진을
