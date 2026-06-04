@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import styles from "./AppVideoGuide.module.css";
 
@@ -257,33 +257,59 @@ export default function AppVideoGuideClient() {
     }, 2200);
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback((options: { syncHistory?: boolean } = {}) => {
     videoRef.current?.pause();
     setSelectedGuide(null);
     setSelectedInfo(null);
-  };
+
+    if (
+      options.syncHistory !== false &&
+      typeof window !== "undefined" &&
+      window.history.state?.appVideoGuideModal
+    ) {
+      window.history.back();
+    }
+  }, []);
 
   const closeIntroForToday = () => {
     closeModal();
   };
 
+  const isModalOpen = Boolean(selectedGuide || selectedInfo);
+
   useEffect(() => {
-    if (!selectedGuide && !selectedInfo) return;
+    if (!isModalOpen) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    const currentState = window.history.state;
+    window.history.pushState(
+      {
+        ...(currentState && typeof currentState === "object" ? currentState : {}),
+        appVideoGuideModal: true,
+      },
+      "",
+      window.location.href
+    );
+
+    const handlePopState = () => {
+      closeModal({ syncHistory: false });
+    };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeModal();
     };
 
+    window.addEventListener("popstate", handlePopState);
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
+      window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedGuide, selectedInfo]);
+  }, [isModalOpen, closeModal]);
 
   useEffect(() => {
     return () => {

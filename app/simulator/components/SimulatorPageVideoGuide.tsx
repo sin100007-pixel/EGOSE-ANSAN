@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type SimulatorPageVideoGuideKey = "linkBuilder" | "linkManager" | "presets" | "settings";
 
@@ -56,10 +56,18 @@ export default function SimulatorPageVideoGuide({ guideKey }: SimulatorPageVideo
   const guide = GUIDE_VIDEOS[guideKey];
   const hasVideoUrl = guide.src.trim().length > 0;
 
-  const closeGuide = () => {
+  const closeGuide = useCallback((options: { syncHistory?: boolean } = {}) => {
     videoRef.current?.pause();
     setOpened(false);
-  };
+
+    if (
+      options.syncHistory !== false &&
+      typeof window !== "undefined" &&
+      window.history.state?.simulatorPageVideoGuideModal
+    ) {
+      window.history.back();
+    }
+  }, []);
 
   useEffect(() => {
     if (!opened) return;
@@ -67,18 +75,33 @@ export default function SimulatorPageVideoGuide({ guideKey }: SimulatorPageVideo
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    const currentState = window.history.state;
+    window.history.pushState(
+      {
+        ...(currentState && typeof currentState === "object" ? currentState : {}),
+        simulatorPageVideoGuideModal: guide.key,
+      },
+      "",
+      window.location.href
+    );
+
+    const handlePopState = () => {
+      closeGuide({ syncHistory: false });
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeGuide();
     };
 
+    window.addEventListener("popstate", handlePopState);
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
+      window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened]);
+  }, [opened, closeGuide, guide.key]);
 
   return (
     <>
