@@ -422,7 +422,7 @@ export default function AppVideoGuideClient() {
                     {selectedGuide.title}
                   </h2>
                 </div>
-                <button type="button" className={styles.closeButton} onClick={closeModal} aria-label="안내 닫기">
+                <button type="button" className={styles.closeButton} onClick={() => closeModal()} aria-label="안내 닫기">
                   ×
                 </button>
               </div>
@@ -450,7 +450,7 @@ export default function AppVideoGuideClient() {
                 </div>
 
                 <div className={styles.introModalButtons}>
-                  <button type="button" className={styles.introModalPrimaryButton} onClick={closeIntroForToday}>
+                  <button type="button" className={styles.introModalPrimaryButton} onClick={() => closeIntroForToday()}>
                     이해했어요.
                   </button>
                 </div>
@@ -465,7 +465,7 @@ export default function AppVideoGuideClient() {
                     {selectedInfo?.title}
                   </h2>
                 </div>
-                <button type="button" className={styles.closeButton} onClick={closeModal} aria-label="안내 닫기">
+                <button type="button" className={styles.closeButton} onClick={() => closeModal()} aria-label="안내 닫기">
                   ×
                 </button>
               </div>

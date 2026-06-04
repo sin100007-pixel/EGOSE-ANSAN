@@ -133,7 +133,7 @@ export default function SimulatorPageVideoGuide({ guideKey }: SimulatorPageVideo
                   {guide.title}
                 </h2>
               </div>
-              <button type="button" className="simPageVideoGuideClose" onClick={closeGuide} aria-label="동영상 닫기">
+              <button type="button" className="simPageVideoGuideClose" onClick={() => closeGuide()} aria-label="동영상 닫기">
                 ×
               </button>
             </div>
