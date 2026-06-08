@@ -3,27 +3,45 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import {
+  ACCESS_COOKIE_NAME,
+  LEGACY_COOKIE_NAME,
+  verifyAccessToken,
+} from "@/lib/auth-tokens";
+import {
   extractSimulatorLinkToken,
   readSimulatorLinkInfoByToken,
 } from "@/lib/simulator-pageview-link";
 
 export const runtime = "nodejs";
 
-// ✅ session_user 쿠키에서 한글 이름 꺼내기
-function getUserNameFromCookie(): string | null {
-  // Next.js가 이미 한 번 디코딩한 값을 돌려줌
-  const cookieStore = cookies();
-  const session = cookieStore.get("session_user");
-  if (!session?.value) return null;
-
-  const raw = session.value; // encodeURIComponent(이름) 상태
-
+function safeDecodeCookieValue(value: string): string {
   try {
-    // 여기서 한 번 더 풀어주면 사람이 읽을 수 있는 "홍길동" 형태가 됨
-    return decodeURIComponent(raw);
+    return decodeURIComponent(value).trim();
   } catch {
-    return raw;
+    return value.trim();
   }
+}
+
+// ✅ 새 로그인 쿠키(egose_session)를 먼저 확인하고, 없을 때만 기존 session_user를 사용합니다.
+async function getUserNameFromCookie(): Promise<string | null> {
+  const cookieStore = cookies();
+
+  const accessToken = cookieStore.get(ACCESS_COOKIE_NAME)?.value;
+  if (accessToken) {
+    const session = await verifyAccessToken(accessToken);
+    const sessionName = session?.name?.trim();
+
+    if (sessionName) {
+      return sessionName;
+    }
+  }
+
+  // 보안패치 유예기간용: 예전 자동로그인 쿠키만 남아 있는 사용자도 이름을 기록합니다.
+  const legacyRaw = cookieStore.get(LEGACY_COOKIE_NAME)?.value;
+  if (!legacyRaw) return null;
+
+  const legacyName = safeDecodeCookieValue(legacyRaw);
+  return legacyName || null;
 }
 
 function detectDeviceType(userAgent: string | null): string {
@@ -90,7 +108,7 @@ export async function POST(req: Request) {
         .trim() || null;
     const deviceType = detectDeviceType(userAgent);
 
-    const userName = getUserNameFromCookie(); // ✅ 여기서 디코딩된 이름 가져오기
+    const userName = await getUserNameFromCookie(); // ✅ 여기서 로그인 사용자 이름 가져오기
     const simulatorToken = extractSimulatorLinkToken(path);
     const simulatorLinkInfo = await readSimulatorLinkInfoByToken(simulatorToken);
 
