@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getCurrentEgoseUser } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -412,26 +412,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ items: [] });
     }
 
-    const rawSessionUser = req.cookies.get("session_user")?.value || "";
-    const sessionUserName = rawSessionUser
-      ? decodeURIComponent(rawSessionUser).trim()
-      : "";
-
-    if (!sessionUserName) {
-      return NextResponse.json(
-        { error: "로그인이 필요합니다.", items: [] },
-        { status: 401 }
-      );
-    }
-
-    const user = await prisma.user.findFirst({
-      where: { name: sessionUserName },
-      select: { memberType: true },
-    });
+    const user = await getCurrentEgoseUser();
 
     if (!user) {
       return NextResponse.json(
-        { error: "회원 정보를 찾을 수 없습니다.", items: [] },
+        { error: "로그인이 필요합니다.", items: [] },
         { status: 401 }
       );
     }

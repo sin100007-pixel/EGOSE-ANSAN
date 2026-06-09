@@ -63,6 +63,10 @@ function isPublicPath(req: NextRequest) {
 
   if (pathname.startsWith("/simulator/share")) return true;
 
+  // 예전/대체 고객 링크 형식인 /simulator?token=... 도 로그인 없이 열려야 합니다.
+  // app/simulator/page.tsx는 token query가 있으면 고객 모드로 렌더링합니다.
+  if (pathname === "/simulator" && searchParams.get("token")) return true;
+
   if (isPublicStaticAssetPath(pathname)) return true;
 
   if (
