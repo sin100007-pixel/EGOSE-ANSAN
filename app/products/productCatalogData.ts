@@ -203,7 +203,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
         },
         {
           "code": "SG1196",
-          "price": 22.2
+          "price": 21
         },
         {
           "code": "SG1197",
@@ -253,7 +253,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
         },
         {
           "code": "NG2029",
-          "price": 25
+          "price": 24.5
         }
       ],
       [
@@ -313,7 +313,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
         },
         {
           "code": "TG4026",
-          "price": 25
+          "price": 24
         },
         {
           "code": "KG4200",
@@ -542,7 +542,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
           "price": 25
         },
         {
-          "code": "PS010",
+          "code": "PS100",
           "price": 25
         },
         {
@@ -554,7 +554,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
           "price": 25
         },
         {
-          "code": "PS160",
+          "code": "PS156",
           "price": 25
         },
         {
@@ -576,7 +576,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
           "price": 25
         },
         {
-          "code": "PS010",
+          "code": "PS101",
           "price": 25
         },
         {
@@ -610,7 +610,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
           "price": 25
         },
         {
-          "code": "PS010",
+          "code": "PS102",
           "price": 25
         },
         {
@@ -988,7 +988,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
       ],
       [
         {
-          "code": "HS 002",
+          "code": "HS002",
           "price": 25
         },
         {
@@ -1251,7 +1251,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
         },
         {
           "code": "HN2003",
-          "price": 18.5
+          "price": 25
         },
         {
           "code": "HN2004",
@@ -1285,7 +1285,7 @@ export const PRODUCT_CATALOGS: ProductCatalog[] = [
         },
         {
           "code": "HT2302",
-          "price": 18.5
+          "price": 25
         },
         {
           "code": "HU3304",
