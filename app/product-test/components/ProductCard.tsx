@@ -245,9 +245,13 @@ export default function ProductCard({
                     color: "#fff",
                     fontWeight: 800,
                     fontSize: 17,
+                    lineHeight: 1.35,
+                    display: "grid",
+                    gap: price.cutValue ? 2 : 0,
                   }}
                 >
-                  {price.value}
+                  <div>{price.value}</div>
+                  {price.cutValue && <div>{price.cutValue}</div>}
                 </div>
               </div>
             ))}

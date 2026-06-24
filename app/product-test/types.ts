@@ -19,6 +19,7 @@ export type Product = {
 export type PriceItem = {
   label: string;
   value: string;
+  cutValue?: string;
 };
 
 export type OpenedImage = {
